@@ -20,6 +20,7 @@ def init_project(project_root: Path, force: bool = False) -> None:
     ralph_dir.mkdir(parents=True, exist_ok=True)
 
     files = [
+        ("README.md", "README.md"),
         ("PROMPT.md", "PROMPT.md"),
         ("AGENTS.md", "AGENTS.md"),
         ("progress.md", "progress.md"),
@@ -37,3 +38,18 @@ def init_project(project_root: Path, force: bool = False) -> None:
 
     # Ensure logs dir exists
     (ralph_dir / "logs").mkdir(parents=True, exist_ok=True)
+
+    # Append ralph gitignore rules to project .gitignore if not already present
+    gitignore_path = project_root / ".gitignore"
+    ralph_gitignore = tdir / "gitignore.ralph"
+    if ralph_gitignore.exists():
+        ralph_rules = ralph_gitignore.read_text(encoding="utf-8")
+        marker = "# Ralph runtime state"
+        existing = ""
+        if gitignore_path.exists():
+            existing = gitignore_path.read_text(encoding="utf-8")
+        if marker not in existing:
+            with gitignore_path.open("a", encoding="utf-8") as f:
+                if existing and not existing.endswith("\n"):
+                    f.write("\n")
+                f.write("\n" + ralph_rules)

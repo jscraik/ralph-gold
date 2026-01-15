@@ -61,46 +61,42 @@ By default, the loop reads whatever `files.prd` points to in `ralph.toml`.
 
 ---
 
-## Run the loop
-
-Run N iterations:
+## Commands
 
 ```bash
+# Initialize ralph in your project
+ralph init
+
+# Run the loop
 ralph run --agent codex --max-iterations 10
-```
 
-Or a single iteration:
-
-```bash
+# Single iteration
 ralph step --agent claude
-```
 
-Logs land in `.ralph/logs/`.
+# Dry run (see what would happen)
+ralph step --dry-run --agent codex
 
----
-
-## PRD generation
-
-Generate/update your PRD from a description (one-off agent run):
-
-```bash
-ralph plan --agent codex --desc "Build a small FastAPI service with health endpoint and tests"
-```
-
-You can also pipe multi-line text:
-
-```bash
-cat idea.md | ralph plan --agent claude
-```
-
----
-
-## Status
-
-Quick progress and last iteration summary:
-
-```bash
+# Check status with progress bar
 ralph status
+
+# Generate/update PRD
+ralph plan --agent codex --desc "Build a REST API with tests"
+
+# View recent logs
+ralph logs
+ralph logs --last  # Show full last log
+ralph logs --limit 10  # Show more logs
+
+# Quick edit files
+ralph edit agents   # Open AGENTS.md
+ralph edit prd      # Open your PRD file
+ralph edit config   # Open ralph.toml
+
+# Reset state (keeps config)
+ralph reset
+
+# Check prerequisites
+ralph doctor
 ```
 
 ---

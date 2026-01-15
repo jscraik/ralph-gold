@@ -3,26 +3,66 @@
 This file is **project-specific operational memory**.
 Keep it short and deterministic. Add only what you repeatedly need.
 
-## Repo commands
+## Stack
+
+- Language: (e.g. Python 3.12, TypeScript 5.x, Go 1.22)
+- Framework: (e.g. FastAPI, Next.js, Gin)
+- Package manager: (e.g. uv, pnpm, go mod)
+
+## Repo Commands
 
 ### Install
-- (fill in) e.g. `uv sync` / `npm ci` / `pnpm i` / `pip install -e .`
+
+```bash
+# Example: uv sync
+```
 
 ### Build
-- (fill in) e.g. `uv run python -m build` / `npm run build`
+
+```bash
+# Example: uv run python -m build
+```
 
 ### Test
-- (fill in) e.g. `uv run pytest -q` / `npm test`
+
+```bash
+# Example: uv run pytest -q
+```
 
 ### Lint / Format
-- (fill in) e.g. `uv run ruff check .` / `npm run lint`
 
-## Quality Gates (backpressure)
-List the commands Ralph must run (and fix) before committing:
+```bash
+# Example: uv run ruff check . && uv run ruff format --check .
+```
 
-1. (example) `uv run python -m compileall .`
-2. (example) `uv run pytest -q`
+### Type Check
+
+```bash
+# Example: uv run mypy src/
+```
+
+## Quality Gates
+
+Commands that MUST pass before marking a task done:
+
+```bash
+# 1. Compile check
+uv run python -m compileall .
+
+# 2. Tests
+uv run pytest -q
+
+# 3. Lint
+uv run ruff check .
+```
 
 ## Conventions
-- Write small commits.
-- Prefer local changes; avoid large refactors unless required for the story.
+
+- Write small, focused commits
+- One task per iteration
+- Prefer editing existing code over creating parallel implementations
+- Run quality gates before committing
+
+## Project-Specific Notes
+
+(Add any project-specific context the agent needs to know)

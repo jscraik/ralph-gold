@@ -1,0 +1,4 @@
+# Ralph runtime state (keep config files, ignore logs/state)
+.ralph/logs/
+.ralph/state.json
+.ralph/prompt-*.txt
