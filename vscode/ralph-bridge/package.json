@@ -1,0 +1,71 @@
+{
+  "name": "ralph-bridge",
+  "displayName": "Ralph Bridge",
+  "description": "Control the Golden Ralph Loop (ralph-gold) from VS Code via a stdio JSON-RPC bridge.",
+  "version": "0.3.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:ralph.startBridge",
+    "onCommand:ralph.stopBridge",
+    "onCommand:ralph.status",
+    "onCommand:ralph.step",
+    "onCommand:ralph.run",
+    "onCommand:ralph.stop",
+    "onCommand:ralph.pause",
+    "onCommand:ralph.resume"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ralph.startBridge",
+        "title": "Ralph: Start Bridge"
+      },
+      {
+        "command": "ralph.stopBridge",
+        "title": "Ralph: Stop Bridge"
+      },
+      {
+        "command": "ralph.status",
+        "title": "Ralph: Status"
+      },
+      {
+        "command": "ralph.step",
+        "title": "Ralph: Step (one iteration)"
+      },
+      {
+        "command": "ralph.run",
+        "title": "Ralph: Run Loop"
+      },
+      {
+        "command": "ralph.stop",
+        "title": "Ralph: Stop Loop"
+      },
+      {
+        "command": "ralph.pause",
+        "title": "Ralph: Pause Loop"
+      },
+      {
+        "command": "ralph.resume",
+        "title": "Ralph: Resume Loop"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Ralph",
+      "properties": {
+        "ralph.bridgeCommand": {
+          "type": "string",
+          "default": "ralph",
+          "description": "Command used to start the Ralph bridge (e.g., 'ralph')."
+        }
+      }
+    }
+  }
+}

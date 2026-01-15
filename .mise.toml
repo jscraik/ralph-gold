@@ -1,0 +1,23 @@
+[tools]
+uv = "latest"
+ast-grep = "latest"
+ripgrep = "latest"
+bat = "latest"
+fd = "latest"
+fzf = "latest"
+jq = "latest"
+pnpm = "latest"
+node = "lts"
+# Modern replacements
+eza = "latest"    # modern ls replacement
+zoxide = "latest" # smarter cd
+delta = "latest"  # better git diff
+dust = "latest"   # modern du
+duf = "latest"    # modern df
+# Dev tools
+hyperfine = "latest"                       # benchmarking
+tokei = "latest"                           # code statistics
+sd = "latest"                              # modern sed
+just = "latest"                            # command runner
+"cargo:watchexec-cli" = "latest"           # file watcher (via cargo)
+"go:github.com/mikefarah/yq/v4" = "latest" # YAML processor (via go backend)
