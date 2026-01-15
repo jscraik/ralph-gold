@@ -1,14 +1,15 @@
 [loop]
 max_iterations = 10
 no_progress_limit = 3
-rate_limit_per_hour = 0            # 0 = disabled
+rate_limit_per_hour = 0         # 0 = disabled
 sleep_seconds_between_iters = 0
 
 [files]
-prd = "prd.json"
-progress = "progress.md"
-prompt = "PROMPT.md"
-agents = "AGENTS.md"
+# All paths are relative to project root
+prd = ".ralph/prd.json"
+progress = ".ralph/progress.md"
+prompt = ".ralph/PROMPT.md"
+agents = ".ralph/AGENTS.md"
 
 [gates]
 # Optional: commands to run after each iteration.

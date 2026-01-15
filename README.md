@@ -45,7 +45,7 @@ From your project root:
 ralph init
 ```
 
-This creates:
+This creates a `.ralph/` directory with:
 
 - `prd.json` (task list, JSON format)
 - `PRD.md` (task list, Markdown checkbox format for Copilot/VS Code workflows)
@@ -53,7 +53,7 @@ This creates:
 - `AGENTS.md` (how to build/test/run in *your* repo)
 - `progress.md` (append-only memory across iterations)
 - `ralph.toml` (runner config)
-- `.ralph/` (state + logs)
+- `logs/` (state + logs)
 
 Edit the PRD format you want to use (JSON or Markdown) and `AGENTS.md` to match your stack.
 
@@ -118,8 +118,8 @@ max_iterations = 25
 no_progress_limit = 3
 
 [files]
-prd = "prd.json"
-progress = "progress.md"
+prd = ".ralph/prd.json"
+progress = ".ralph/progress.md"
 
 [runners.codex]
 argv = ["codex", "exec", "--full-auto"]

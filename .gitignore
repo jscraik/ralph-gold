@@ -30,6 +30,10 @@ ENV/
 .uv/
 uv.lock
 
+# Ralph runtime state (keep config files, ignore logs)
+.ralph/logs/
+.ralph/*.state
+
 # IDEs
 .vscode/
 .idea/

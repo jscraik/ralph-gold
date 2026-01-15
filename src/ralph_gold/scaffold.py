@@ -1,10 +1,6 @@
-\
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
-
-from . import __version__
 
 
 def _template_dir() -> Path:
@@ -14,11 +10,14 @@ def _template_dir() -> Path:
 
 def init_project(project_root: Path, force: bool = False) -> None:
     """
-    Write default Ralph files into the project root.
+    Write default Ralph files into .ralph/ directory.
     """
     tdir = _template_dir()
     if not tdir.exists():
         raise RuntimeError("templates directory missing from installation")
+
+    ralph_dir = project_root / ".ralph"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
 
     files = [
         ("PROMPT.md", "PROMPT.md"),
@@ -31,10 +30,10 @@ def init_project(project_root: Path, force: bool = False) -> None:
 
     for src_name, dst_name in files:
         src = tdir / src_name
-        dst = project_root / dst_name
+        dst = ralph_dir / dst_name
         if dst.exists() and not force:
             continue
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
-    # Ensure state dir exists
-    (project_root / ".ralph" / "logs").mkdir(parents=True, exist_ok=True)
+    # Ensure logs dir exists
+    (ralph_dir / "logs").mkdir(parents=True, exist_ok=True)

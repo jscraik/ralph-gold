@@ -1,9 +1,8 @@
-\
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 try:
     import tomllib  # py>=3.11
@@ -60,12 +59,12 @@ def _coerce_int(value: Any, default: int) -> int:
 
 def load_config(project_root: Path) -> Config:
     """
-    Load ralph.toml from the project root.
+    Load ralph.toml from .ralph/ directory.
 
     If missing, returns defaults. This keeps the tool usable even if users
     want to hand-roll configs.
     """
-    cfg_path = project_root / "ralph.toml"
+    cfg_path = project_root / ".ralph" / "ralph.toml"
     data: Dict[str, Any] = {}
     if cfg_path.exists():
         data = tomllib.loads(cfg_path.read_text(encoding="utf-8"))
@@ -79,14 +78,16 @@ def load_config(project_root: Path) -> Config:
         max_iterations=_coerce_int(loop_raw.get("max_iterations"), 10),
         no_progress_limit=_coerce_int(loop_raw.get("no_progress_limit"), 3),
         rate_limit_per_hour=_coerce_int(loop_raw.get("rate_limit_per_hour"), 0),
-        sleep_seconds_between_iters=_coerce_int(loop_raw.get("sleep_seconds_between_iters"), 0),
+        sleep_seconds_between_iters=_coerce_int(
+            loop_raw.get("sleep_seconds_between_iters"), 0
+        ),
     )
 
     files = FilesConfig(
-        prd=str(files_raw.get("prd", "prd.json")),
-        progress=str(files_raw.get("progress", "progress.md")),
-        prompt=str(files_raw.get("prompt", "PROMPT.md")),
-        agents=str(files_raw.get("agents", "AGENTS.md")),
+        prd=str(files_raw.get("prd", ".ralph/prd.json")),
+        progress=str(files_raw.get("progress", ".ralph/progress.md")),
+        prompt=str(files_raw.get("prompt", ".ralph/PROMPT.md")),
+        agents=str(files_raw.get("agents", ".ralph/AGENTS.md")),
     )
 
     # Default runner argv are intentionally conservative and easy to edit.
