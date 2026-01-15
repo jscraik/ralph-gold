@@ -1,43 +1,57 @@
 # ralph-gold (uv-first)
 
-A *Golden Ralph Loop* orchestrator that runs **fresh CLI-agent sessions** (Codex, Claude Code, Copilot) in a deterministic loop until your PRD is complete.
+A Golden Ralph Loop orchestrator that runs fresh CLI-agent sessions (Codex, Claude Code, Copilot) in a deterministic loop, using the repo filesystem as durable memory.
 
-This repo is intentionally small:
+Doc requirements:
+- Audience: users and contributors (intermediate CLI + git experience)
+- Scope: installing, configuring, and operating the loop; contributor workflow; support/security paths
+- Owner: jscraik
+- Review cadence: quarterly or when CLI behavior changes
+- Last updated: 2026-01-15
 
-- **Python CLI** (`ralph`) you install with **uv**
-- **File-based memory** (PRD + progress + agents doc)
-- **Runner adapters** for `codex`, `claude`, `copilot`
+## TL;DR
 
-> Safety: don’t run autonomous loops with broad permissions on your host machine. Prefer a container / isolated dev VM.
+The problem: agent runs drift without durable state, reproducible gates, or exit rules.
+
+The solution: a loop that selects one task per iteration, runs gates, logs state to disk, and only exits when the tracker is complete and the agent says it is done.
+
+Why use ralph-gold:
+- File-based memory under `.ralph/` keeps state and logs deterministic.
+- Runner-agnostic invocation with stdin-first prompt handling.
+- Optional TUI and VS Code bridge for operator visibility.
 
 ---
 
-## Install (with uv)
-
-1) Install uv (see [uv installation guide](https://docs.astral.sh/uv/))
-
-2) From this repo root:
+## Quickstart
 
 ```bash
 uv tool install -e .
-uv tool update-shell   # optional: adds uv tool bin dir to your shell PATH
+ralph init
+ralph step --agent codex
 ```
 
-Open a new shell, then:
+## Prerequisites
+
+- git
+- uv
+- At least one agent CLI (`codex`, `claude`, or `copilot`)
+
+## Install (with uv)
+
+```bash
+uv tool install -e .
+uv tool update-shell   # optional: add uv tool bin dir to PATH
+```
+
+Verify:
 
 ```bash
 ralph --help
 ```
 
-To uninstall:
-
-```bash
-uv tool uninstall ralph-gold
-```
-
 ---
 
-## Project setup
+## Initialize a repo
 
 From your project root:
 
@@ -45,165 +59,189 @@ From your project root:
 ralph init
 ```
 
-This creates a `.ralph/` directory with:
+This creates the recommended default layout:
 
-- `prd.json` (task list, JSON format)
-- `PRD.md` (task list, Markdown checkbox format for Copilot/VS Code workflows)
-- `PROMPT.md` (main loop instructions / guardrails)
-- `AGENTS.md` (how to build/test/run in *your* repo)
-- `progress.md` (append-only memory across iterations)
-- `ralph.toml` (runner config)
-- `logs/` (state + logs)
+- `.ralph/ralph.toml` (config)
+- `.ralph/PRD.md` (task tracker, Markdown)
+- `.ralph/AGENTS.md` (build/test/run commands for your repo)
+- `.ralph/progress.md` (append-only progress log)
+- `.ralph/specs/` (requirement specs)
+- `.ralph/PROMPT_build.md` / `.ralph/PROMPT_plan.md` / `.ralph/PROMPT_judge.md`
+- `.ralph/logs/` (per-iteration logs)
+- `.ralph/state.json` (session state)
 
-Edit the PRD format you want to use (JSON or Markdown) and `AGENTS.md` to match your stack.
-
-By default, the loop reads whatever `files.prd` points to in `ralph.toml`.
+You can switch trackers by changing `files.prd` in `.ralph/ralph.toml`.
 
 ---
 
-## Commands
+## Run the loop
+
+Run N iterations:
 
 ```bash
-# Initialize ralph in your project
-ralph init
-
-# Run the loop
 ralph run --agent codex --max-iterations 10
-
-# Single iteration
-ralph step --agent claude
-
-# Dry run (see what would happen)
-ralph step --dry-run --agent codex
-
-# Check status with progress bar
-ralph status
-
-# Generate/update PRD
-ralph plan --agent codex --desc "Build a REST API with tests"
-
-# View recent logs
-ralph logs
-ralph logs --last  # Show full last log
-ralph logs --limit 10  # Show more logs
-
-# Quick edit files
-ralph edit agents   # Open AGENTS.md
-ralph edit prd      # Open your PRD file
-ralph edit config   # Open ralph.toml
-
-# Reset state (keeps config)
-ralph reset
-
-# Check prerequisites
-ralph doctor
 ```
+
+Exit codes:
+- 0: loop completed successfully (EXIT_SIGNAL true, gates/judge ok)
+- 1: loop ended without a successful exit (e.g., max iterations / no-progress)
+- 2: one or more iterations failed (non-zero return code, gate failure, or judge failure)
+
+Run a single iteration:
+
+```bash
+ralph step --agent claude
+```
+
+Show status:
+
+```bash
+ralph status
+```
+
+Logs are written under `.ralph/logs/`.
 
 ---
 
-## Configure runners (ralph.toml)
+## TUI (interactive control surface)
 
-`ralph` does not vendor agent CLIs — you install them separately.
-You can fully customize runner argv in `ralph.toml`.
+```bash
+ralph tui
+```
 
-Example:
+Keys:
+- `s` step once
+- `r` run `loop.max_iterations` iterations
+- `a` cycle agent
+- `p` pause/resume (between iterations)
+- `q` quit
+
+---
+
+## Branch automation
+
+Enable in `.ralph/ralph.toml`:
 
 ```toml
-[loop]
-max_iterations = 25
-no_progress_limit = 3
-
-[files]
-prd = ".ralph/prd.json"
-progress = ".ralph/progress.md"
-
-[runners.codex]
-argv = ["codex", "exec", "--full-auto"]
-
-[runners.claude]
-argv = ["claude", "-p", "--output-format", "text"]
-
-[runners.copilot]
-argv = ["copilot", "--prompt"]
+[git]
+branch_strategy = "per_prd"   # per_prd|none
+branch_prefix = "ralph/"
+auto_commit = true
+amend_if_needed = true
 ```
 
-Notes:
+Add PRD metadata:
 
-- `codex exec` gets the prompt as the final CLI arg.
-- `claude -p` expects the prompt *immediately after* `-p`.
-- `copilot --prompt` expects the prompt after `--prompt`.
+### Markdown (`.ralph/PRD.md`)
 
----
-
-## PRD format
-
-`ralph-gold` supports **two** PRD formats:
-
-1) JSON: `prd.json` (minimal Ralph-style stories list)
-2) Markdown: `PRD.md` (checkbox tasks, compatible with VS Code/Copilot "PRD.md" conventions)
-
-### JSON PRD
-
-Each story can be either:
-
-- `passes: true|false` (snarktank style)
-- OR `status: "open"|"in_progress"|"done"` (iannuttall style)
-
-`ralph` will update whichever field exists.
-
-### Markdown PRD
-
-Use a `## Tasks` section with checkbox lines:
+Put near the top:
 
 ```md
-## Tasks
-- [ ] Task 1
-- [ ] Task 2
+Branch: ralph/my-feature
 ```
 
----
+### JSON (`.ralph/prd.json`)
 
-## Exit behavior
+Use:
 
-The loop stops when:
+```json
+{"branchName": "ralph/my-feature", "stories": [...]}
+```
 
-- all stories are marked done/passing, AND
-- the agent prints `EXIT_SIGNAL: true`
-
-This dual gate avoids premature exits.
-
-If you configure `gates.commands` in `ralph.toml`, the orchestrator will also run them after each iteration.
+If no branch is specified, a fallback branch is generated from the repo name using `branch_prefix`.
 
 ---
 
-## Development
+## Codex prompt transport (fix)
+
+`codex exec --full-auto` expects the prompt via **stdin** (or an explicit prompt argument).
+
+Default runner config in `.ralph/ralph.toml` uses:
+
+```toml
+[runners.codex]
+argv = ["codex", "exec", "--full-auto", "-"]
+```
+
+The `-` means "read prompt from stdin".
+
+---
+
+## Tracker plugins
+
+Built-ins:
+- Markdown tracker: checkbox tasks in `PRD.md`
+- JSON tracker: `prd.json`
+
+Select via:
+
+```toml
+[tracker]
+kind = "auto"    # auto|markdown|json|beads
+```
+
+`beads` is supported as an optional tracker (requires the `bd` CLI to be installed).
+
+---
+
+## Runner configuration
+
+Runners are configured in `.ralph/ralph.toml`.
+
+Prompt transport rules:
+- `codex`: if argv contains `-`, prompt is sent via stdin
+- `claude`: if argv contains `-p`, prompt is inserted immediately after `-p`
+- `copilot`: if argv contains `--prompt`, prompt is inserted immediately after `--prompt`
+- You can also use `{prompt}` in argv to inline
+
+---
+
+## Specs checker
 
 ```bash
-uv sync
-uv run python -m ralph_gold.cli --help
+ralph specs check
+ralph specs check --strict
 ```
+
+Uses `files.specs_dir` from config by default.
 
 ---
 
-## VS Code Bridge (optional)
+## Troubleshooting
 
-`ralph-gold` includes an optional **VS Code extension** (`vscode/ralph-bridge`) that controls the loop via a JSON-RPC bridge over stdio.
+- `git` errors: ensure you are inside a git repository and have at least one commit.
+- `Unknown agent`: check `runners.*` in `.ralph/ralph.toml` or install the CLI.
+- `No prompt provided` from Codex: ensure runner argv includes `-` so stdin is used.
 
-Start the bridge manually:
+---
 
-```bash
-ralph bridge
-```
+## Risks and assumptions
 
-Or install the VS Code extension and use the command palette:
+- Assumption: agents run with least-privilege credentials and do not write secrets into `.ralph/*`.
+- Risk: long-running loops can produce large logs; prune `.ralph/logs/` if needed.
+- Risk: auto-commit may amend unintended changes if the worktree is dirty; review git status before running unattended loops.
 
-- Ralph: Start Bridge
-- Ralph: Step / Run / Stop
+---
 
-Protocol documentation:
+## Security notes
 
-- `docs/VSCODE_BRIDGE_PROTOCOL.md`
+- Treat prompts and logs as potentially sensitive. Avoid storing secrets in `.ralph/*`.
+- Run long loops in a least-privilege environment (container or isolated dev VM).
 
-Extension sources:
+---
 
-- `vscode/ralph-bridge/`
+## Contributing
+
+See `CONTRIBUTING.md`.
+
+## Security
+
+See `SECURITY.md` for vulnerability reporting.
+
+## Support
+
+See `SUPPORT.md`.
+
+## Code of Conduct
+
+See `CODE_OF_CONDUCT.md`.

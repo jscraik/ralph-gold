@@ -2,7 +2,7 @@
   "name": "ralph-bridge",
   "displayName": "Ralph Bridge",
   "description": "Control the Golden Ralph Loop (ralph-gold) from VS Code via a stdio JSON-RPC bridge.",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "publisher": "local",
   "engines": {
     "vscode": "^1.90.0"
@@ -18,7 +18,9 @@
     "onCommand:ralph.run",
     "onCommand:ralph.stop",
     "onCommand:ralph.pause",
-    "onCommand:ralph.resume"
+    "onCommand:ralph.resume",
+    "onCommand:ralph.specsCheck",
+    "onCommand:ralph.regenPlan"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -54,6 +56,14 @@
       {
         "command": "ralph.resume",
         "title": "Ralph: Resume Loop"
+      },
+      {
+        "command": "ralph.specsCheck",
+        "title": "Ralph: Specs Check"
+      },
+      {
+        "command": "ralph.regenPlan",
+        "title": "Ralph: Regenerate Plan"
       }
     ],
     "configuration": {

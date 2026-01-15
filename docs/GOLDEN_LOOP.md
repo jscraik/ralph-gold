@@ -10,4 +10,9 @@ This repository packages a pragmatic “gold” Ralph loop:
 - Circuit breaker for no-progress loops
 - Optional rate limiting
 
+Exit codes (ralph run):
+- 0: successful completion
+- 1: incomplete exit (e.g., max iterations / no-progress)
+- 2: iteration failed (non-zero return, gate failure, or judge failure)
+
 See README for usage.

@@ -91,6 +91,7 @@ Result:
 - `no_progress_streak`
 - `gates_ok`
 - `repo_clean`
+- `judge_ok` (nullable)
 
 ### `run`
 Starts a long-running loop in a background thread.
@@ -156,6 +157,7 @@ Fields:
 - `returnCode`
 - `repoClean`
 - `gatesOk` (nullable)
+- `judgeOk` (nullable)
 - `durationSeconds`
 - `logPath`
 

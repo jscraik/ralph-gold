@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
+
+from . import __version__
 
 
 def _template_dir() -> Path:
@@ -10,7 +13,7 @@ def _template_dir() -> Path:
 
 def init_project(project_root: Path, force: bool = False) -> None:
     """
-    Write default Ralph files into .ralph/ directory.
+    Write default Ralph files into .ralph/ (durable memory + config).
     """
     tdir = _template_dir()
     if not tdir.exists():
@@ -20,36 +23,44 @@ def init_project(project_root: Path, force: bool = False) -> None:
     ralph_dir.mkdir(parents=True, exist_ok=True)
 
     files = [
-        ("README.md", "README.md"),
-        ("PROMPT.md", "PROMPT.md"),
-        ("AGENTS.md", "AGENTS.md"),
-        ("progress.md", "progress.md"),
-        ("prd.json", "prd.json"),
-        ("PRD.md", "PRD.md"),
-        ("ralph.toml", "ralph.toml"),
+        # Prompt variants (plan/build).
+        ("PROMPT_build.md", ".ralph/PROMPT_build.md"),
+        ("PROMPT_plan.md", ".ralph/PROMPT_plan.md"),
+        ("PROMPT_judge.md", ".ralph/PROMPT_judge.md"),
+        # Backwards-compatible single prompt.
+        ("PROMPT.md", ".ralph/PROMPT.md"),
+        ("AGENTS.md", ".ralph/AGENTS.md"),
+        ("progress.md", ".ralph/progress.md"),
+        # Task trackers (choose one via .ralph/ralph.toml)
+        ("PRD.md", ".ralph/PRD.md"),
+        ("prd.json", ".ralph/prd.json"),
+        # Optional planning context
+        ("AUDIENCE_JTBD.md", ".ralph/AUDIENCE_JTBD.md"),
+        ("loop.sh", ".ralph/loop.sh"),
+        ("ralph.toml", ".ralph/ralph.toml"),
     ]
 
     for src_name, dst_name in files:
         src = tdir / src_name
-        dst = ralph_dir / dst_name
+        dst = project_root / dst_name
         if dst.exists() and not force:
             continue
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
-    # Ensure logs dir exists
-    (ralph_dir / "logs").mkdir(parents=True, exist_ok=True)
+        # Make convenience scripts executable (best effort).
+        if dst_name.endswith(".sh"):
+            try:
+                dst.chmod(0o755)
+            except Exception:
+                pass
 
-    # Append ralph gitignore rules to project .gitignore if not already present
-    gitignore_path = project_root / ".gitignore"
-    ralph_gitignore = tdir / "gitignore.ralph"
-    if ralph_gitignore.exists():
-        ralph_rules = ralph_gitignore.read_text(encoding="utf-8")
-        marker = "# Ralph runtime state"
-        existing = ""
-        if gitignore_path.exists():
-            existing = gitignore_path.read_text(encoding="utf-8")
-        if marker not in existing:
-            with gitignore_path.open("a", encoding="utf-8") as f:
-                if existing and not existing.endswith("\n"):
-                    f.write("\n")
-                f.write("\n" + ralph_rules)
+    # Ensure state dirs exist
+    (project_root / ".ralph" / "logs").mkdir(parents=True, exist_ok=True)
+
+    # Specs dir (requirements live here; used by PROMPT_plan.md)
+    specs_dir = project_root / ".ralph" / "specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    specs_readme = specs_dir / "README.md"
+    tpl_specs_readme = tdir / "specs_README.md"
+    if tpl_specs_readme.exists() and (force or not specs_readme.exists()):
+        specs_readme.write_text(tpl_specs_readme.read_text(encoding="utf-8"), encoding="utf-8")

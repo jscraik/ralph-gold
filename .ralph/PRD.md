@@ -1,7 +1,5 @@
 # PRD
 
-Branch: ralph/example-project
-
 ## Overview
 
 (Write a 3-8 sentence overview of what you want built.)

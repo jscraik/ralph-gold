@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 from . import __version__
 from .config import Config, load_config
 from .loop import IterationResult, next_iteration_number, run_iteration
-from .prd import all_done as prd_all_done, select_next_task, task_counts
+from .trackers import make_tracker
 
 
 def _utc_ts() -> str:
@@ -79,20 +79,20 @@ class BridgeServer:
 
     def _status(self) -> Dict[str, Any]:
         cfg = self._cfg()
-        prd_path = self.project_root / cfg.files.prd
+        tracker = make_tracker(self.project_root, cfg)
         done, total = 0, 0
         next_task = None
 
         try:
-            done, total = task_counts(prd_path)
-        except FileNotFoundError:
+            done, total = tracker.counts()
+        except Exception:
             done, total = 0, 0
 
         try:
-            t = select_next_task(prd_path)
+            t = tracker.peek_next_task()
             if t is not None:
                 next_task = {"id": t.id, "title": t.title, "kind": t.kind}
-        except FileNotFoundError:
+        except Exception:
             next_task = None
 
         state_path = self.project_root / ".ralph" / "state.json"
@@ -155,6 +155,7 @@ class BridgeServer:
             "no_progress_streak": res.no_progress_streak,
             "gates_ok": res.gates_ok,
             "repo_clean": res.repo_clean,
+            "judge_ok": res.judge_ok,
         }
 
     def _handle_step(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -162,12 +163,12 @@ class BridgeServer:
 
         agent = str(params.get("agent") or "codex")
         cfg = self._cfg()
-        prd_path = self.project_root / cfg.files.prd
+        tracker = make_tracker(self.project_root, cfg)
 
         # Preselect for deterministic event emission; pass into run_iteration to avoid drift.
         try:
-            task = select_next_task(prd_path)
-        except FileNotFoundError:
+            task = tracker.peek_next_task()
+        except Exception:
             task = None
 
         iter_n = next_iteration_number(self.project_root)
@@ -183,7 +184,7 @@ class BridgeServer:
         )
 
         start = time.time()
-        res = run_iteration(self.project_root, agent=agent, cfg=cfg, iteration=iter_n, task_override=task)
+        res = run_iteration(self.project_root, agent=agent, cfg=cfg, iteration=iter_n)
         dur = time.time() - start
 
         self._event(
@@ -196,6 +197,7 @@ class BridgeServer:
             returnCode=res.return_code,
             repoClean=res.repo_clean,
             gatesOk=res.gates_ok,
+            judgeOk=res.judge_ok,
             durationSeconds=round(dur, 2),
             logPath=str(res.log_path),
         )
@@ -220,7 +222,7 @@ class BridgeServer:
             try:
                 self._event("run_started", runId=run_id, agent=agent, maxIterations=limit, startIteration=start_iter)
 
-                prd_path = self.project_root / cfg.files.prd
+                tracker = make_tracker(self.project_root, cfg)
 
                 for offset in range(limit):
                     if self._stop_event.is_set():
@@ -233,8 +235,8 @@ class BridgeServer:
                     iter_n = start_iter + offset
 
                     try:
-                        task = select_next_task(prd_path)
-                    except FileNotFoundError:
+                        task = tracker.peek_next_task()
+                    except Exception:
                         task = None
 
                     self._event(
@@ -252,7 +254,6 @@ class BridgeServer:
                         agent=agent,
                         cfg=cfg,
                         iteration=iter_n,
-                        task_override=task,
                     )
                     dur = time.time() - start
 
@@ -266,14 +267,15 @@ class BridgeServer:
                         returnCode=res.return_code,
                         repoClean=res.repo_clean,
                         gatesOk=res.gates_ok,
+                        judgeOk=res.judge_ok,
                         durationSeconds=round(dur, 2),
                         logPath=str(res.log_path),
                     )
 
                     # Stop conditions mirror the CLI run_loop.
                     try:
-                        done = prd_all_done(prd_path)
-                    except FileNotFoundError:
+                        done = tracker.all_done()
+                    except Exception:
                         done = False
 
                     if res.no_progress_streak >= cfg.loop.no_progress_limit:

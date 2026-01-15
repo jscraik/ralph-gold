@@ -331,6 +331,58 @@ function activate(context) {
       }
     })
   );
+
+  // --- Convenience commands that shell out to the CLI ---
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ralph.specsCheck', async () => {
+      const root = getWorkspaceRoot();
+      if (!root) {
+        vscode.window.showErrorMessage('Ralph: Open a folder/workspace first.');
+        return;
+      }
+
+      const cfg = vscode.workspace.getConfiguration('ralph');
+      const cmd = cfg.get('bridgeCommand') || 'ralph';
+
+      output.appendLine(`[specs] running: ${cmd} specs check (cwd=${root})`);
+      const p = cp.spawn(cmd, ['specs', 'check'], { cwd: root, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      p.stdout.on('data', (chunk) => output.append(String(chunk || '')));
+      p.stderr.on('data', (chunk) => output.append(String(chunk || '')));
+      p.on('exit', (code) => {
+        output.appendLine(`\n[specs] exited code=${code}`);
+        output.show(true);
+      });
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ralph.regenPlan', async () => {
+      const root = getWorkspaceRoot();
+      if (!root) {
+        vscode.window.showErrorMessage('Ralph: Open a folder/workspace first.');
+        return;
+      }
+
+      const agent = await vscode.window.showQuickPick(['claude', 'codex', 'copilot'], {
+        title: 'Pick an agent runner for planning',
+        placeHolder: 'claude'
+      });
+      if (!agent) return;
+
+      const cfg = vscode.workspace.getConfiguration('ralph');
+      const cmd = cfg.get('bridgeCommand') || 'ralph';
+
+      output.appendLine(`[regen-plan] running: ${cmd} regen-plan --agent ${agent} (cwd=${root})`);
+      const p = cp.spawn(cmd, ['regen-plan', '--agent', agent], { cwd: root, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      p.stdout.on('data', (chunk) => output.append(String(chunk || '')));
+      p.stderr.on('data', (chunk) => output.append(String(chunk || '')));
+      p.on('exit', (code) => {
+        output.appendLine(`\n[regen-plan] exited code=${code}`);
+        output.show(true);
+      });
+    })
+  );
 }
 
 function deactivate() {
