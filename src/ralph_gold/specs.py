@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 
 _ACCEPTANCE_HEADING_RE = re.compile(r"^\s*##\s+acceptance\s+criteria\b", re.IGNORECASE | re.MULTILINE)

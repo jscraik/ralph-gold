@@ -1061,6 +1061,7 @@ def run_loop(
     save_state(state_path, state)
 
     tracker = make_tracker(project_root, cfg)
+    allow_exit_without_all_done = (tracker.kind == "beads")
 
     results: List[IterationResult] = []
     limit = max_iterations if max_iterations is not None else cfg.loop.max_iterations
