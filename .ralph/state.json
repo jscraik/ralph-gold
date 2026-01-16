@@ -1,0 +1,35 @@
+{
+  "createdAt": "2026-01-15T23:35:47.940917+00:00",
+  "invocations": [
+    1768520713.235918
+  ],
+  "noProgressStreak": 0,
+  "history": [
+    {
+      "ts": "20260115T234513Z",
+      "iteration": 1,
+      "agent": "codex",
+      "branch": "main",
+      "story_id": "1",
+      "duration_seconds": 565.17,
+      "return_code": 0,
+      "exit_signal_raw": false,
+      "exit_signal_effective": false,
+      "repo_clean": true,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "timed_out": false,
+      "commit_action": null,
+      "commit_return_code": null,
+      "gate_results": [],
+      "log": "20260115T234513Z-iter0001-codex.log"
+    }
+  ]
+}

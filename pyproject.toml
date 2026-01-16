@@ -13,8 +13,9 @@ authors = [
   { name = "Jamie (local install template)" }
 ]
 dependencies = [
+  "pyyaml>=6.0.3",
   "tomli; python_version < '3.11'",
-  "windows-curses; platform_system == 'Windows'"
+  "windows-curses; platform_system == 'Windows'",
 ]
 
 [project.scripts]
