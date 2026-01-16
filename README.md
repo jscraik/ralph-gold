@@ -1,8 +1,13 @@
+<div align="center">
+  <img src="docs/assets/ralph-brand-logo.png" alt="Ralph Gold Logo" width="400"/>
+</div>
+
 # ralph-gold (uv-first)
 
 A Golden Ralph Loop orchestrator that runs fresh CLI-agent sessions (Codex, Claude Code, Copilot) in a deterministic loop, using the repo filesystem as durable memory.
 
 Doc requirements:
+
 - Audience: users and contributors (intermediate CLI + git experience)
 - Scope: installing, configuring, and operating the loop; contributor workflow; support/security paths
 - Owner: jscraik
@@ -16,6 +21,7 @@ The problem: agent runs drift without durable state, reproducible gates, or exit
 The solution: a loop that selects one task per iteration, runs gates, logs state to disk, and only exits when the tracker is complete and the agent says it is done.
 
 Why use ralph-gold:
+
 - File-based memory under `.ralph/` keeps state and logs deterministic.
 - Runner-agnostic invocation with stdin-first prompt handling.
 - Optional TUI and VS Code bridge for operator visibility.
@@ -83,6 +89,7 @@ ralph run --agent codex --max-iterations 10
 ```
 
 Exit codes:
+
 - 0: loop completed successfully (EXIT_SIGNAL true, gates/judge ok)
 - 1: loop ended without a successful exit (e.g., max iterations / no-progress)
 - 2: one or more iterations failed (non-zero return code, gate failure, or judge failure)
@@ -110,6 +117,7 @@ ralph tui
 ```
 
 Keys:
+
 - `s` step once
 - `r` run `loop.max_iterations` iterations
 - `a` cycle agent
@@ -170,6 +178,7 @@ The `-` means "read prompt from stdin".
 ## Tracker plugins
 
 Built-ins:
+
 - Markdown tracker: checkbox tasks in `PRD.md`
 - JSON tracker: `prd.json`
 
@@ -189,6 +198,7 @@ kind = "auto"    # auto|markdown|json|beads
 Runners are configured in `.ralph/ralph.toml`.
 
 Prompt transport rules:
+
 - `codex`: if argv contains `-`, prompt is sent via stdin
 - `claude`: if argv contains `-p`, prompt is inserted immediately after `-p`
 - `copilot`: if argv contains `--prompt`, prompt is inserted immediately after `--prompt`
