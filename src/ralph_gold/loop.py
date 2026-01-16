@@ -27,6 +27,7 @@ class GateResult:
     duration_seconds: float
     stdout: str
     stderr: str
+    is_precommit_hook: bool = False
 
 
 @dataclass
@@ -406,56 +407,168 @@ def _gate_shell_argv(cmd: str) -> List[str]:
     return ["sh", "-lc", cmd]
 
 
-def _run_gate_command(project_root: Path, cmd: str) -> GateResult:
+def _discover_precommit_hook(project_root: Path) -> Optional[Path]:
+    """Auto-discover pre-commit hook in .husky/ or .git/hooks/."""
+    
+    # Prefer Husky (modern standard)
+    husky = project_root / ".husky" / "pre-commit"
+    if husky.exists() and husky.is_file():
+        return husky
+    
+    # Fallback to git hooks
+    git_hook = project_root / ".git" / "hooks" / "pre-commit"
+    if git_hook.exists() and git_hook.is_file():
+        return git_hook
+    
+    return None
+
+
+def _run_gate_command(project_root: Path, cmd: str, is_precommit_hook: bool = False) -> GateResult:
     """Run a single gate command in a predictable shell environment."""
 
     start = time.time()
-    cp = subprocess.run(
-        _gate_shell_argv(cmd),
-        cwd=str(project_root),
-        capture_output=True,
-        text=True,
-    )
+    
+    if is_precommit_hook:
+        # Pre-commit hooks need to be executed directly with proper permissions
+        hook_path = Path(cmd)
+        if hook_path.is_absolute():
+            argv = [str(hook_path)]
+        else:
+            argv = [str(project_root / cmd)]
+        
+        # Ensure hook is executable
+        try:
+            hook_file = Path(argv[0])
+            if hook_file.exists():
+                hook_file.chmod(hook_file.stat().st_mode | 0o111)
+        except Exception:
+            pass
+        
+        cp = subprocess.run(
+            argv,
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            env={**os.environ, "RALPH_RUNNING_HOOK": "1"},
+        )
+    else:
+        cp = subprocess.run(
+            _gate_shell_argv(cmd),
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+        )
+    
     return GateResult(
         cmd=cmd,
         return_code=int(cp.returncode),
         duration_seconds=time.time() - start,
         stdout=cp.stdout or "",
         stderr=cp.stderr or "",
+        is_precommit_hook=is_precommit_hook,
     )
 
 
-def run_gates(project_root: Path, commands: List[str]) -> Tuple[bool, List[GateResult]]:
-    if not commands:
+def run_gates(project_root: Path, commands: List[str], cfg: GatesConfig) -> Tuple[bool, List[GateResult]]:
+    """Run all configured gates with fail-fast and pre-commit hook support."""
+    
+    all_commands = list(commands)
+    
+    # Auto-discover and prepend pre-commit hook if enabled
+    if cfg.precommit_hook:
+        hook_path = _discover_precommit_hook(project_root)
+        if hook_path:
+            # Insert at beginning for fail-fast (hooks are typically fast)
+            all_commands.insert(0, str(hook_path))
+    
+    if not all_commands:
         return True, []
+    
     results: List[GateResult] = []
     ok = True
-    for cmd in commands:
-        res = _run_gate_command(project_root, cmd)
+    
+    for cmd in all_commands:
+        # Check if this is the pre-commit hook
+        is_hook = cfg.precommit_hook and (cmd.endswith("pre-commit") or "/.husky/" in cmd or "/.git/hooks/" in cmd)
+        
+        res = _run_gate_command(project_root, cmd, is_precommit_hook=is_hook)
         results.append(res)
+        
         if res.return_code != 0:
             ok = False
+            if cfg.fail_fast:
+                break
+    
     return ok, results
 
 
-def _format_gate_results(gates_ok: Optional[bool], results: List[GateResult]) -> str:
+def _truncate_output(text: str, max_lines: int) -> str:
+    """Truncate output to max_lines, keeping first and last portions."""
+    if max_lines <= 0:
+        return text
+    
+    lines = text.splitlines()
+    if len(lines) <= max_lines:
+        return text
+    
+    # Keep first 60% and last 40% of allowed lines
+    head_count = int(max_lines * 0.6)
+    tail_count = max_lines - head_count
+    
+    head = lines[:head_count]
+    tail = lines[-tail_count:] if tail_count > 0 else []
+    
+    truncated = head + [f"... ({len(lines) - max_lines} lines truncated) ..."] + tail
+    return "\n".join(truncated)
+
+
+def _format_gate_results(gates_ok: Optional[bool], results: List[GateResult], output_mode: str = "summary", max_lines: int = 50) -> str:
+    """Format gate results with configurable output verbosity."""
+    
     if gates_ok is None:
         return "(gates: not configured)"
     if not results:
         return "(gates: configured but empty)"
+    
     status = "PASS" if gates_ok else "FAIL"
     lines: List[str] = [f"gates_overall: {status}"]
+    
     for i, r in enumerate(results, start=1):
         lines.append("")
-        lines.append(f"gate_{i}_cmd: {r.cmd}")
+        hook_label = " [pre-commit-hook]" if r.is_precommit_hook else ""
+        lines.append(f"gate_{i}_cmd: {r.cmd}{hook_label}")
         lines.append(f"gate_{i}_return_code: {r.return_code}")
         lines.append(f"gate_{i}_duration_seconds: {r.duration_seconds:.2f}")
-        if r.stdout.strip():
-            lines.append("--- gate stdout ---")
-            lines.append(r.stdout.rstrip())
-        if r.stderr.strip():
-            lines.append("--- gate stderr ---")
-            lines.append(r.stderr.rstrip())
+        
+        # Output mode logic
+        if output_mode == "errors_only":
+            # Only show output for failed gates
+            if r.return_code != 0:
+                if r.stdout.strip():
+                    lines.append("--- gate stdout (errors only) ---")
+                    lines.append(_truncate_output(r.stdout.rstrip(), max_lines))
+                if r.stderr.strip():
+                    lines.append("--- gate stderr (errors only) ---")
+                    lines.append(_truncate_output(r.stderr.rstrip(), max_lines))
+        
+        elif output_mode == "summary":
+            # Show truncated output for all gates
+            if r.stdout.strip():
+                lines.append("--- gate stdout (summary) ---")
+                lines.append(_truncate_output(r.stdout.rstrip(), max_lines))
+            if r.stderr.strip():
+                lines.append("--- gate stderr (summary) ---")
+                lines.append(_truncate_output(r.stderr.rstrip(), max_lines))
+        
+        else:  # "full"
+            # Show complete output
+            if r.stdout.strip():
+                lines.append("--- gate stdout ---")
+                lines.append(r.stdout.rstrip())
+            if r.stderr.strip():
+                lines.append("--- gate stderr ---")
+                lines.append(r.stderr.rstrip())
+    
     return "\n".join(lines) + "\n"
 
 
@@ -709,8 +822,8 @@ def run_iteration(
 
     # Gates
     gate_cmds = cfg.gates.commands if cfg.gates.commands else []
-    if gate_cmds:
-        gates_ok, gate_results = run_gates(project_root, gate_cmds)
+    if gate_cmds or cfg.gates.precommit_hook:
+        gates_ok, gate_results = run_gates(project_root, gate_cmds, cfg.gates)
     else:
         gates_ok, gate_results = None, []
 
@@ -966,7 +1079,7 @@ def run_iteration(
         f"commit_return_code: {commit_rc}\n"
         f"\n--- stdout ---\n{cp.stdout or ''}\n"
         f"\n--- stderr ---\n{cp.stderr or ''}\n"
-        f"\n--- gates ---\n{_format_gate_results(gates_ok, gate_results)}"
+        f"\n--- gates ---\n{_format_gate_results(gates_ok, gate_results, cfg.gates.output_mode, cfg.gates.max_output_lines)}"
         f"\n--- llm_judge ---\n{judge_section}"
         f"\n--- git_commit ---\n{commit_out}\n{commit_err}\n",
         encoding="utf-8",

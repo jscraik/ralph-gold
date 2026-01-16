@@ -52,6 +52,10 @@ class LlmJudgeConfig:
 class GatesConfig:
     commands: List[str]
     llm_judge: LlmJudgeConfig
+    precommit_hook: bool = False
+    fail_fast: bool = True
+    output_mode: str = "summary"  # full|summary|errors_only
+    max_output_lines: int = 50
 
 
 @dataclass(frozen=True)
@@ -287,7 +291,14 @@ def load_config(project_root: Path) -> Config:
         max_diff_chars=_coerce_int(llm_raw.get("max_diff_chars", gates_raw.get("llm_judge_max_diff_chars", 30000)), 30000),
     )
 
-    gates = GatesConfig(commands=gate_cmds, llm_judge=llm_judge)
+    gates = GatesConfig(
+        commands=gate_cmds,
+        llm_judge=llm_judge,
+        precommit_hook=_coerce_bool(gates_raw.get("precommit_hook", gates_raw.get("precommitHook")), False),
+        fail_fast=_coerce_bool(gates_raw.get("fail_fast", gates_raw.get("failFast")), True),
+        output_mode=str(gates_raw.get("output_mode", gates_raw.get("outputMode", "summary"))),
+        max_output_lines=_coerce_int(gates_raw.get("max_output_lines", gates_raw.get("maxOutputLines")), 50),
+    )
 
     git = GitConfig(
         branch_strategy=str(git_raw.get("branch_strategy", git_raw.get("branchStrategy", GitConfig.branch_strategy))),

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import __version__
 from .config import load_config
-from .doctor import check_tools
+from .doctor import check_tools, setup_checks
 from .loop import build_runner_invocation, next_iteration_number, run_iteration, run_loop
 from .trackers import make_tracker
 from .scaffold import init_project
@@ -35,6 +35,34 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
+    root = _project_root()
+    
+    # Setup checks mode
+    if args.setup_checks:
+        result = setup_checks(root, dry_run=args.dry_run)
+        
+        print(f"Project type: {result['project_type']}")
+        print(f"Check script: {result['script_name']}")
+        print(f"\nSuggested gate commands:")
+        for cmd in result['commands']:
+            print(f"  - {cmd}")
+        
+        if result['actions_taken']:
+            print(f"\n✓ Actions taken:")
+            for action in result['actions_taken']:
+                print(f"  - {action}")
+        
+        if result['suggestions']:
+            print(f"\n→ Suggestions:")
+            for suggestion in result['suggestions']:
+                print(f"  - {suggestion}")
+        
+        if args.dry_run:
+            print("\n(Dry run - no changes made)")
+        
+        return 0
+    
+    # Standard doctor checks
     statuses = check_tools()
     ok = True
     for st in statuses:
@@ -448,6 +476,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.set_defaults(func=cmd_init)
 
     p_doc = sub.add_parser("doctor", help="Check local prerequisites (git, uv, agent CLIs)")
+    p_doc.add_argument("--setup-checks", action="store_true", help="Auto-configure quality gates for your project")
+    p_doc.add_argument("--dry-run", action="store_true", help="Preview changes without applying them")
     p_doc.set_defaults(func=cmd_doctor)
 
     p_step = sub.add_parser("step", help="Run exactly one iteration")
