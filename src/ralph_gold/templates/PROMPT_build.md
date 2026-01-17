@@ -1,57 +1,20 @@
-# PROMPT_build.md — Golden Ralph Loop (Build Mode)
+You are operating inside the Ralph Gold loop.
 
-You are operating inside a **fresh, stateless coding agent session**.
-The **filesystem is your memory** across iterations.
+Rules:
+- Do exactly ONE task per iteration.
+- Use the Memory Files below as the source of truth (especially ANCHOR and any Repo Prompt context pack).
+- Make the smallest correct change-set that satisfies the task acceptance criteria.
+- When you finish the task, mark it done in the PRD tracker.
+- Do not mark tasks done if you did not run/confirm the configured gates pass locally.
+- If you are blocked, record a clear reason (including commands + errors) in .ralph/progress.md and leave the task open.
 
-## Files you must use as memory
+Workflow:
+1) Read Memory Files in order.
+2) Re-state the task acceptance criteria.
+3) Implement.
+4) Run the repo's gates (see .ralph/AGENTS.md) and fix failures.
+5) Update PRD + progress.
 
-- The **task tracker** (`.ralph/PRD.md` or `.ralph/prd.json`, per repo config)
-- `.ralph/specs/*` — requirement specifications (one topic per file)
-- `.ralph/AGENTS.md` — deterministic build/test/run commands and repo conventions
-- `.ralph/progress.md` — append-only learnings; short and actionable
-
-## Objective
-
-Implement **exactly one** task end-to-end, apply backpressure, then commit.
-
-## Workflow
-
-0. **Orient**
-   - Study the relevant `.ralph/specs/*` for the selected task.
-   - Study `.ralph/AGENTS.md` (how to build, test, lint, format).
-   - Study the tracker file and `.ralph/progress.md`.
-   - Critical guardrail: **do not assume something is missing** — confirm by searching the repo.
-
-1. **Select the task**
-   - Prefer the task selected by the orchestrator (if provided).
-   - Otherwise, choose the **highest priority unfinished** item in the tracker.
-
-2. **Implement**
-   - Keep scope minimal: implement only what the selected task requires.
-   - Prefer editing existing code and following established patterns.
-   - Avoid large refactors unless required to ship the task.
-
-3. **Backpressure (required)**
-   - Run the quality gate commands listed in `.ralph/AGENTS.md`.
-   - Fix failures until they pass.
-   - If you add new tooling/commands, update `.ralph/AGENTS.md` (keep it deterministic and short).
-
-4. **Update durable memory**
-   - Mark the selected task done in the tracker.
-   - If you discover follow-up work, add new unchecked items in priority order.
-   - Append a short entry to `.ralph/progress.md`:
-     - what changed
-     - what failed and how it was fixed
-     - any constraints/patterns discovered
-
-5. **Commit**
-   - `git add -A && git commit -m "ralph: <short summary>"`
-
-## Exit protocol (VERY IMPORTANT)
-
-At the very end of your output, print exactly one line:
-
-`EXIT_SIGNAL: true`  OR  `EXIT_SIGNAL: false`
-
-- Use `true` ONLY when **all** items in the tracker are complete *and* the repo is clean with all quality gates passing.
-- Otherwise use `false`.
+Output:
+- Prefer concise, factual updates.
+- If you ran commands, include the command and 1-3 lines of the most relevant output.

@@ -110,7 +110,7 @@ def run_tui(project_root: Path) -> int:
             except Exception:
                 done, total = 0, 0
             try:
-                next_task = tracker.peek_next_task()
+                next_task = tracker.select_next_task()
             except Exception:
                 next_task = None
 

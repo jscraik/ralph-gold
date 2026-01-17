@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import yaml
 
@@ -105,18 +105,35 @@ class YamlTracker:
             acceptance = []
         acceptance = [str(item) for item in acceptance]
 
-        return SelectedTask(id=task_id, title=title, kind="yaml", acceptance=acceptance)
+        group = str(task_data.get("group", "default"))
+        return SelectedTask(
+            id=task_id,
+            title=title,
+            kind="yaml",
+            acceptance=acceptance,
+            group=group,
+        )
 
-    def peek_next_task(self) -> Optional[SelectedTask]:
+    def select_next_task(
+        self, exclude_ids: Optional[Set[str]] = None
+    ) -> Optional[SelectedTask]:
         """Return the next available task without claiming it.
 
         Returns:
             Next uncompleted task, or None if all tasks are done
         """
+        exclude = exclude_ids or set()
         for task_data in self.data["tasks"]:
-            if not task_data.get("completed", False):
-                return self._task_from_data(task_data)
+            task_id = str(task_data.get("id"))
+            if task_id in exclude:
+                continue
+            if task_data.get("completed", False) or task_data.get("blocked", False):
+                continue
+            return self._task_from_data(task_data)
         return None
+
+    def peek_next_task(self) -> Optional[SelectedTask]:
+        return self.select_next_task()
 
     def claim_next_task(self) -> Optional[SelectedTask]:
         """Claim the next available task.
@@ -127,7 +144,7 @@ class YamlTracker:
         Returns:
             Next uncompleted task, or None if all tasks are done
         """
-        return self.peek_next_task()
+        return self.select_next_task()
 
     def counts(self) -> Tuple[int, int]:
         """Return (completed_count, total_count) for tasks.
@@ -137,7 +154,11 @@ class YamlTracker:
         """
         tasks = self.data.get("tasks", [])
         total = len(tasks)
-        completed = sum(1 for task in tasks if task.get("completed", False))
+        completed = sum(
+            1
+            for task in tasks
+            if task.get("completed", False) or task.get("blocked", False)
+        )
         return (completed, total)
 
     def all_done(self) -> bool:
@@ -149,7 +170,10 @@ class YamlTracker:
         tasks = self.data.get("tasks", [])
         if not tasks:
             return True
-        return all(task.get("completed", False) for task in tasks)
+        return all(
+            task.get("completed", False) or task.get("blocked", False)
+            for task in tasks
+        )
 
     def is_task_done(self, task_id: TaskId) -> bool:
         """Check if a specific task is marked done.
@@ -188,6 +212,20 @@ class YamlTracker:
             with open(self.prd_path, "w") as f:
                 yaml.safe_dump(self.data, f, default_flow_style=False, sort_keys=False)
 
+        return found
+
+    def block_task(self, task_id: TaskId, reason: str) -> bool:
+        found = False
+        for task in self.data.get("tasks", []):
+            if str(task.get("id")) == str(task_id):
+                task["blocked"] = True
+                if reason:
+                    task["blocked_reason"] = reason
+                found = True
+                break
+        if found:
+            with open(self.prd_path, "w") as f:
+                yaml.safe_dump(self.data, f, default_flow_style=False, sort_keys=False)
         return found
 
     def branch_name(self) -> Optional[str]:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import tomllib  # py>=3.11
@@ -23,6 +23,8 @@ class LoopConfig:
     rate_limit_per_hour: int = 0  # 0 = disabled
     sleep_seconds_between_iters: int = 0
     runner_timeout_seconds: int = 900  # 15m default (Codex can be slow)
+    max_attempts_per_task: int = 3
+    skip_blocked_tasks: bool = True
 
 
 @dataclass(frozen=True)
@@ -31,8 +33,12 @@ class FilesConfig:
     prd: str = ".ralph/PRD.md"
     progress: str = ".ralph/progress.md"
     prompt: str = ".ralph/PROMPT_build.md"
+    plan: str = ".ralph/PROMPT_plan.md"
+    judge: str = ".ralph/PROMPT_judge.md"
+    review: str = ".ralph/PROMPT_review.md"
     agents: str = ".ralph/AGENTS.md"
     specs_dir: str = ".ralph/specs"
+    feedback: str = ".ralph/FEEDBACK.md"
 
 
 @dataclass(frozen=True)
@@ -49,9 +55,27 @@ class LlmJudgeConfig:
 
 
 @dataclass(frozen=True)
+class ReviewConfig:
+    enabled: bool = False
+    backend: str = "runner"  # runner|repoprompt
+    agent: str = "claude"  # used when backend=runner
+    prompt: str = ".ralph/PROMPT_review.md"
+    max_diff_chars: int = 30000
+    required_token: str = "SHIP"
+
+
+@dataclass(frozen=True)
+class PrekConfig:
+    enabled: bool = False
+    argv: List[str] = field(default_factory=lambda: ["prek", "run", "--all-files"])
+
+
+@dataclass(frozen=True)
 class GatesConfig:
     commands: List[str]
     llm_judge: LlmJudgeConfig
+    review: ReviewConfig = field(default_factory=ReviewConfig)
+    prek: PrekConfig = field(default_factory=PrekConfig)
     precommit_hook: bool = False
     fail_fast: bool = True
     output_mode: str = "summary"  # full|summary|errors_only
@@ -61,12 +85,12 @@ class GatesConfig:
 @dataclass(frozen=True)
 class GitConfig:
     # Branch automation
-    branch_strategy: str = "per_prd"  # none|per_prd
+    branch_strategy: str = "none"  # none|per_prd|task
     base_branch: str = ""  # empty => current HEAD
     branch_prefix: str = "ralph/"
 
     # Commit automation
-    auto_commit: bool = True
+    auto_commit: bool = False
     commit_message_template: str = "ralph: {story_id} {title}"
     amend_if_needed: bool = True
 
@@ -110,6 +134,20 @@ class TrackerConfig:
 
 
 @dataclass(frozen=True)
+class RepoPromptConfig:
+    enabled: bool = False
+    required: bool = False
+    cli: str = "rp-cli"
+    window_id: Optional[int] = None
+    tab: str = ""
+    workspace: str = ""
+    builder_type: str = "clarify"  # clarify|plan|question
+    copy_preset: str = ""
+    timeout_seconds: int = 300
+    fail_open: bool = True
+
+
+@dataclass(frozen=True)
 class ParallelConfig:
     """Configuration for parallel execution with git worktrees."""
 
@@ -129,6 +167,7 @@ class Config:
     git: GitConfig
     tracker: TrackerConfig
     parallel: ParallelConfig
+    repoprompt: RepoPromptConfig = field(default_factory=RepoPromptConfig)
 
 
 # -------------------------
@@ -255,6 +294,8 @@ def load_config(project_root: Path) -> Config:
             loop_raw.get("sleep_seconds_between_iters"), 0
         ),
         runner_timeout_seconds=_coerce_int(loop_raw.get("runner_timeout_seconds"), 900),
+        max_attempts_per_task=_coerce_int(loop_raw.get("max_attempts_per_task"), 3),
+        skip_blocked_tasks=_coerce_bool(loop_raw.get("skip_blocked_tasks"), True),
     )
 
     # Default file layout: all durable memory files live in .ralph/
@@ -262,10 +303,14 @@ def load_config(project_root: Path) -> Config:
         prd=str(files_raw.get("prd", FilesConfig.prd)),
         progress=str(files_raw.get("progress", FilesConfig.progress)),
         prompt=str(files_raw.get("prompt", FilesConfig.prompt)),
+        plan=str(files_raw.get("plan", FilesConfig.plan)),
+        judge=str(files_raw.get("judge", FilesConfig.judge)),
+        review=str(files_raw.get("review", FilesConfig.review)),
         agents=str(files_raw.get("agents", FilesConfig.agents)),
         specs_dir=str(
             files_raw.get("specs_dir", files_raw.get("specsDir", FilesConfig.specs_dir))
         ),
+        feedback=str(files_raw.get("feedback", FilesConfig.feedback)),
     )
 
     # Resolve common filename mismatches automatically (prevents hard crashes).
@@ -296,6 +341,21 @@ def load_config(project_root: Path) -> Config:
                 "PROMPT.md",
             ],
         ),
+        plan=_resolve_existing(
+            project_root,
+            files.plan,
+            [".ralph/PROMPT_plan.md", "PROMPT_plan.md"],
+        ),
+        judge=_resolve_existing(
+            project_root,
+            files.judge,
+            [".ralph/PROMPT_judge.md", "PROMPT_judge.md"],
+        ),
+        review=_resolve_existing(
+            project_root,
+            files.review,
+            [".ralph/PROMPT_review.md", "PROMPT_review.md"],
+        ),
         agents=_resolve_existing(
             project_root,
             files.agents,
@@ -306,6 +366,11 @@ def load_config(project_root: Path) -> Config:
             files.specs_dir,
             [".ralph/specs", "specs"],
         ),
+        feedback=_resolve_existing(
+            project_root,
+            files.feedback,
+            [".ralph/FEEDBACK.md", "FEEDBACK.md"],
+        ),
     )
 
     # Default runner argv are intentionally conservative and easy to edit.
@@ -313,10 +378,8 @@ def load_config(project_root: Path) -> Config:
     # Using '-' is the most robust way to feed long prompts (no quoting issues).
     default_runners: Dict[str, RunnerConfig] = {
         "codex": RunnerConfig(argv=["codex", "exec", "--full-auto", "-"]),
-        # Claude Code best practice for automation is headless print mode (-p)
-        # with streaming JSON output for programmatic parsing/logging.
-        "claude": RunnerConfig(argv=["claude", "-p", "--output-format", "stream-json"]),
-        "copilot": RunnerConfig(argv=["copilot", "--prompt"]),
+        "claude": RunnerConfig(argv=["claude", "--output-format", "stream-json", "-p"]),
+        "copilot": RunnerConfig(argv=["gh", "copilot", "suggest", "--type", "shell", "--prompt"]),
     }
 
     runners: Dict[str, RunnerConfig] = {}
@@ -365,9 +428,38 @@ def load_config(project_root: Path) -> Config:
         ),
     )
 
+    review_raw = gates_raw.get("review", {}) or {}
+    if not isinstance(review_raw, dict):
+        review_raw = {}
+    review = ReviewConfig(
+        enabled=_coerce_bool(review_raw.get("enabled"), False),
+        backend=str(review_raw.get("backend", "runner")).strip() or "runner",
+        agent=str(review_raw.get("agent", "claude")).strip() or "claude",
+        prompt=str(review_raw.get("prompt", files.review)),
+        max_diff_chars=_coerce_int(review_raw.get("max_diff_chars"), 30000),
+        required_token=str(review_raw.get("required_token", "SHIP")).strip() or "SHIP",
+    )
+
+    prek_raw = gates_raw.get("prek", {}) or {}
+    if not isinstance(prek_raw, dict):
+        prek_raw = {}
+    prek_argv_raw = prek_raw.get("argv")
+    if isinstance(prek_argv_raw, list):
+        prek_argv = [str(x) for x in prek_argv_raw]
+    elif isinstance(prek_argv_raw, str):
+        prek_argv = [prek_argv_raw]
+    else:
+        prek_argv = ["prek", "run", "--all-files"]
+    prek = PrekConfig(
+        enabled=_coerce_bool(prek_raw.get("enabled"), False),
+        argv=prek_argv,
+    )
+
     gates = GatesConfig(
         commands=gate_cmds,
         llm_judge=llm_judge,
+        review=review,
+        prek=prek,
         precommit_hook=_coerce_bool(
             gates_raw.get("precommit_hook", gates_raw.get("precommitHook")), False
         ),
@@ -459,6 +551,26 @@ def load_config(project_root: Path) -> Config:
         github=github_config,
     )
 
+    repoprompt_raw = data.get("repoprompt", data.get("repo_prompt", {})) or {}
+    if not isinstance(repoprompt_raw, dict):
+        repoprompt_raw = {}
+    repoprompt = RepoPromptConfig(
+        enabled=_coerce_bool(repoprompt_raw.get("enabled"), False),
+        required=_coerce_bool(repoprompt_raw.get("required"), False),
+        cli=str(repoprompt_raw.get("cli", "rp-cli")),
+        window_id=(
+            int(repoprompt_raw.get("window_id"))
+            if repoprompt_raw.get("window_id") is not None
+            else None
+        ),
+        tab=str(repoprompt_raw.get("tab", "")),
+        workspace=str(repoprompt_raw.get("workspace", "")),
+        builder_type=str(repoprompt_raw.get("builder_type", "clarify")),
+        copy_preset=str(repoprompt_raw.get("copy_preset", "")),
+        timeout_seconds=_coerce_int(repoprompt_raw.get("timeout_seconds"), 300),
+        fail_open=_coerce_bool(repoprompt_raw.get("fail_open"), True),
+    )
+
     # Parse parallel configuration
     if not isinstance(parallel_raw, dict):
         parallel_raw = {}
@@ -499,4 +611,5 @@ def load_config(project_root: Path) -> Config:
         git=git,
         tracker=tracker,
         parallel=parallel,
+        repoprompt=repoprompt,
     )

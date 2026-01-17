@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ..github_auth import GitHubAuth, GitHubAuthError, create_auth
 from ..prd import SelectedTask, TaskId
@@ -322,7 +322,9 @@ class GitHubIssuesTracker:
 
         return sorted(issues, key=priority_key)
 
-    def peek_next_task(self) -> Optional[SelectedTask]:
+    def select_next_task(
+        self, exclude_ids: Optional[Set[str]] = None
+    ) -> Optional[SelectedTask]:
         """Return the next available task without claiming it.
 
         Returns:
@@ -337,8 +339,16 @@ class GitHubIssuesTracker:
         # Sort by priority
         sorted_issues = self._sort_issues_by_priority(issues)
 
-        # Return first issue
-        return self._issue_to_task(sorted_issues[0])
+        exclude = exclude_ids or set()
+        for issue in sorted_issues:
+            issue_number = str(issue.get("number", ""))
+            if issue_number and issue_number in exclude:
+                continue
+            return self._issue_to_task(issue)
+        return None
+
+    def peek_next_task(self) -> Optional[SelectedTask]:
+        return self.select_next_task()
 
     def claim_next_task(self) -> Optional[SelectedTask]:
         """Claim the next available task.
@@ -349,7 +359,7 @@ class GitHubIssuesTracker:
         Returns:
             Next uncompleted task, or None if no tasks available
         """
-        return self.peek_next_task()
+        return self.select_next_task()
 
     def counts(self) -> Tuple[int, int]:
         """Return (completed_count, total_count) for tasks.
@@ -410,6 +420,13 @@ class GitHubIssuesTracker:
         # This would require API call to reopen issue
         # Deferred to task 2.3 (GitHub Issues Updates)
         return False
+
+    def block_task(self, task_id: TaskId, reason: str) -> bool:
+        """Best-effort: label the issue as blocked."""
+        try:
+            return self._add_labels(str(task_id), ["blocked"])
+        except Exception:
+            return False
 
     def branch_name(self) -> Optional[str]:
         """Return the branch name for the current task.

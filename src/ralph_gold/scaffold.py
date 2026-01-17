@@ -31,10 +31,12 @@ def init_project(
         ("PROMPT_build.md", ".ralph/PROMPT_build.md"),
         ("PROMPT_plan.md", ".ralph/PROMPT_plan.md"),
         ("PROMPT_judge.md", ".ralph/PROMPT_judge.md"),
+        ("PROMPT_review.md", ".ralph/PROMPT_review.md"),
         # Backwards-compatible single prompt.
         ("PROMPT.md", ".ralph/PROMPT.md"),
         ("AGENTS.md", ".ralph/AGENTS.md"),
         ("progress.md", ".ralph/progress.md"),
+        ("FEEDBACK.md", ".ralph/FEEDBACK.md"),
         # Optional planning context
         ("AUDIENCE_JTBD.md", ".ralph/AUDIENCE_JTBD.md"),
         ("loop.sh", ".ralph/loop.sh"),
@@ -75,6 +77,9 @@ def init_project(
 
     # Ensure state dirs exist
     (project_root / ".ralph" / "logs").mkdir(parents=True, exist_ok=True)
+    (project_root / ".ralph" / "receipts").mkdir(parents=True, exist_ok=True)
+    (project_root / ".ralph" / "context").mkdir(parents=True, exist_ok=True)
+    (project_root / ".ralph" / "attempts").mkdir(parents=True, exist_ok=True)
 
     # Specs dir (requirements live here; used by PROMPT_plan.md)
     specs_dir = project_root / ".ralph" / "specs"

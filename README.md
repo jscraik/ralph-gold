@@ -25,6 +25,8 @@ Why use ralph-gold:
 - File-based memory under `.ralph/` keeps state and logs deterministic.
 - Runner-agnostic invocation with stdin-first prompt handling.
 - Optional TUI and VS Code bridge for operator visibility.
+- Receipts + context snapshots per iteration for auditability and review.
+- Optional review gate to require a final `SHIP` decision before exit.
 
 ---
 
@@ -41,6 +43,8 @@ ralph step --agent codex
 - git
 - uv
 - At least one agent CLI (`codex`, `claude`, or `copilot`)
+- Optional: `prek` (universal gate runner)
+- Optional: `rp-cli` (RepoPrompt context packs and review backend)
 
 ## Install (with uv)
 
@@ -72,8 +76,12 @@ This creates the recommended default layout:
 - `.ralph/AGENTS.md` (build/test/run commands for your repo)
 - `.ralph/progress.md` (append-only progress log)
 - `.ralph/specs/` (requirement specs)
-- `.ralph/PROMPT_build.md` / `.ralph/PROMPT_plan.md` / `.ralph/PROMPT_judge.md`
+- `.ralph/PROMPT_build.md` / `.ralph/PROMPT_plan.md` / `.ralph/PROMPT_judge.md` / `.ralph/PROMPT_review.md`
+- `.ralph/FEEDBACK.md` (operator feedback + review notes)
 - `.ralph/logs/` (per-iteration logs)
+- `.ralph/receipts/` (command receipts per iteration)
+- `.ralph/context/` (anchor/context snapshots per iteration)
+- `.ralph/attempts/` (attempt records per task)
 - `.ralph/state.json` (session state)
 
 You can switch trackers by changing `files.prd` in `.ralph/ralph.toml`.
@@ -90,9 +98,9 @@ ralph run --agent codex --max-iterations 10
 
 Exit codes:
 
-- 0: loop completed successfully (EXIT_SIGNAL true, gates/judge ok)
+- 0: loop completed successfully (EXIT_SIGNAL true, gates/judge/review ok)
 - 1: loop ended without a successful exit (e.g., max iterations / no-progress)
-- 2: one or more iterations failed (non-zero return code, gate failure, or judge failure)
+- 2: one or more iterations failed (non-zero return code, gate failure, judge failure, or review BLOCK)
 
 Run a single iteration:
 
@@ -107,6 +115,11 @@ ralph status
 ```
 
 Logs are written under `.ralph/logs/`.
+
+Receipts and context snapshots (anchor + optional RepoPrompt pack) live under:
+
+- `.ralph/receipts/`
+- `.ralph/context/`
 
 ---
 
@@ -160,6 +173,22 @@ If no branch is specified, a fallback branch is generated from the repo name usi
 
 ---
 
+## Review gate (optional)
+
+Enable a cross-model review that must end with `SHIP`:
+
+```toml
+[gates.review]
+enabled = true
+backend = "runner" # runner|repoprompt
+agent = "claude"
+required_token = "SHIP"
+```
+
+When enabled, `ralph run` will not exit until the review returns `SHIP`.
+
+---
+
 ## Codex prompt transport (fix)
 
 `codex exec --full-auto` expects the prompt via **stdin** (or an explicit prompt argument).
@@ -191,6 +220,10 @@ kind = "auto"    # auto|markdown|json|yaml|beads
 ```
 
 `beads` is supported as an optional tracker (requires the `bd` CLI to be installed).
+
+Blocked tasks:
+- Markdown tracker: `[-]` marks a blocked task.
+- YAML tracker: set `blocked: true` on a task.
 
 ### YAML Tracker
 

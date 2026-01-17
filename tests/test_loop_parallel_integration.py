@@ -45,8 +45,8 @@ def test_run_loop_sequential_mode_unchanged(tmp_path: Path):
         assert mock_iter.call_count == 1
 
 
-def test_run_loop_parallel_parameter_fallback(tmp_path: Path):
-    """Test that parallel=True falls back to sequential when ParallelExecutor not available."""
+def test_run_loop_parallel_parameter_enabled(tmp_path: Path):
+    """Test that parallel=True uses the ParallelExecutor path."""
     # Create .ralph directory
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()
@@ -59,9 +59,8 @@ def test_run_loop_parallel_parameter_fallback(tmp_path: Path):
 
     with (
         patch("ralph_gold.loop.ensure_git_repo"),
-        patch("ralph_gold.loop.run_iteration") as mock_iter,
         patch("ralph_gold.loop.make_tracker") as mock_tracker,
-        patch("builtins.print") as mock_print,
+        patch("ralph_gold.parallel.ParallelExecutor") as mock_exec,
     ):
         # Mock tracker
         tracker = MagicMock()
@@ -69,28 +68,21 @@ def test_run_loop_parallel_parameter_fallback(tmp_path: Path):
         tracker.all_done.return_value = False
         mock_tracker.return_value = tracker
 
-        # Mock iteration result
+        # Mock parallel executor result
         mock_result = MagicMock()
-        mock_result.iteration = 1
-        mock_result.exit_signal = True
-        mock_result.no_progress_streak = 0
-        mock_iter.return_value = mock_result
+        mock_result.gates_ok = True
+        mock_exec.return_value.run_parallel.return_value = [mock_result]
 
-        # Run loop with parallel=True (should fall back since ParallelExecutor doesn't exist yet)
+        # Run loop with parallel=True (should use ParallelExecutor)
         results = run_loop(tmp_path, agent="codex", max_iterations=1, parallel=True)
 
-        # Verify fallback to sequential
+        # Verify parallel execution path
         assert len(results) == 1
-        assert mock_iter.call_count == 1
-
-        # Verify warning was printed
-        mock_print.assert_called_once()
-        assert "Warning" in str(mock_print.call_args)
-        assert "ParallelExecutor not available" in str(mock_print.call_args)
+        mock_exec.return_value.run_parallel.assert_called_once()
 
 
 def test_run_loop_config_parallel_enabled(tmp_path: Path):
-    """Test that parallel mode is detected from config."""
+    """Test that parallel mode is detected from config and uses ParallelExecutor."""
     # Create .ralph directory
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()
@@ -123,9 +115,8 @@ def test_run_loop_config_parallel_enabled(tmp_path: Path):
 
     with (
         patch("ralph_gold.loop.ensure_git_repo"),
-        patch("ralph_gold.loop.run_iteration") as mock_iter,
         patch("ralph_gold.loop.make_tracker") as mock_tracker,
-        patch("builtins.print") as mock_print,
+        patch("ralph_gold.parallel.ParallelExecutor") as mock_exec,
     ):
         # Mock tracker
         tracker = MagicMock()
@@ -133,26 +124,21 @@ def test_run_loop_config_parallel_enabled(tmp_path: Path):
         tracker.all_done.return_value = False
         mock_tracker.return_value = tracker
 
-        # Mock iteration result
+        # Mock parallel executor result
         mock_result = MagicMock()
-        mock_result.iteration = 1
-        mock_result.exit_signal = True
-        mock_result.no_progress_streak = 0
-        mock_iter.return_value = mock_result
+        mock_result.gates_ok = True
+        mock_exec.return_value.run_parallel.return_value = [mock_result]
 
         # Run loop with config that has parallel enabled
         results = run_loop(tmp_path, agent="codex", max_iterations=1, cfg=cfg)
 
-        # Verify fallback to sequential (ParallelExecutor not available yet)
+        # Verify parallel execution path
         assert len(results) == 1
-
-        # Verify warning was printed
-        mock_print.assert_called_once()
-        assert "Warning" in str(mock_print.call_args)
+        mock_exec.return_value.run_parallel.assert_called_once()
 
 
 def test_run_loop_max_workers_override(tmp_path: Path):
-    """Test that max_workers parameter overrides config."""
+    """Test that max_workers parameter overrides config in parallel mode."""
     # Create .ralph directory
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()
@@ -165,9 +151,8 @@ def test_run_loop_max_workers_override(tmp_path: Path):
 
     with (
         patch("ralph_gold.loop.ensure_git_repo"),
-        patch("ralph_gold.loop.run_iteration") as mock_iter,
         patch("ralph_gold.loop.make_tracker") as mock_tracker,
-        patch("builtins.print"),
+        patch("ralph_gold.parallel.ParallelExecutor") as mock_exec,
     ):
         # Mock tracker
         tracker = MagicMock()
@@ -175,12 +160,10 @@ def test_run_loop_max_workers_override(tmp_path: Path):
         tracker.all_done.return_value = False
         mock_tracker.return_value = tracker
 
-        # Mock iteration result
+        # Mock parallel executor result
         mock_result = MagicMock()
-        mock_result.iteration = 1
-        mock_result.exit_signal = True
-        mock_result.no_progress_streak = 0
-        mock_iter.return_value = mock_result
+        mock_result.gates_ok = True
+        mock_exec.return_value.run_parallel.return_value = [mock_result]
 
         # Run loop with parallel=True and max_workers override
         results = run_loop(
@@ -191,5 +174,9 @@ def test_run_loop_max_workers_override(tmp_path: Path):
             max_workers=5,
         )
 
-        # Verify execution completed (falls back to sequential)
+        # Verify execution completed via parallel path
         assert len(results) == 1
+        mock_exec.return_value.run_parallel.assert_called_once()
+        # Ensure max_workers override was applied to executor config
+        called_cfg = mock_exec.call_args[0][1]
+        assert called_cfg.parallel.max_workers == 5

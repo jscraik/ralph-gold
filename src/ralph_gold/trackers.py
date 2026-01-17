@@ -6,11 +6,12 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
 
 from .config import Config
 from .prd import SelectedTask, TaskId, get_prd_branch_name, is_markdown_prd
 from .prd import all_done as prd_all_done
+from .prd import block_task as prd_block_task
 from .prd import force_task_open as prd_force_open
 from .prd import is_task_done as prd_is_done
 from .prd import select_next_task as prd_select_next
@@ -26,6 +27,8 @@ class Tracker(Protocol):
 
     kind: str
 
+    def select_next_task(self, exclude_ids: Optional[Set[str]] = None) -> Optional[SelectedTask]: ...
+
     def peek_next_task(self) -> Optional[SelectedTask]: ...
 
     def claim_next_task(self) -> Optional[SelectedTask]: ...
@@ -37,6 +40,8 @@ class Tracker(Protocol):
     def is_task_done(self, task_id: TaskId) -> bool: ...
 
     def force_task_open(self, task_id: TaskId) -> bool: ...
+
+    def block_task(self, task_id: TaskId, reason: str) -> bool: ...
 
     def branch_name(self) -> Optional[str]: ...
 
@@ -60,11 +65,14 @@ class FileTracker:
     def kind(self) -> str:
         return "md" if is_markdown_prd(self.prd_path) else "json"
 
+    def select_next_task(self, exclude_ids: Optional[Set[str]] = None) -> Optional[SelectedTask]:
+        return prd_select_next(self.prd_path, exclude_ids=exclude_ids)
+
     def peek_next_task(self) -> Optional[SelectedTask]:
-        return prd_select_next(self.prd_path)
+        return self.select_next_task()
 
     def claim_next_task(self) -> Optional[SelectedTask]:
-        return prd_select_next(self.prd_path)
+        return self.select_next_task()
 
     def counts(self) -> Tuple[int, int]:
         return prd_counts(self.prd_path)
@@ -77,6 +85,9 @@ class FileTracker:
 
     def force_task_open(self, task_id: TaskId) -> bool:
         return prd_force_open(self.prd_path, task_id)
+
+    def block_task(self, task_id: TaskId, reason: str) -> bool:
+        return prd_block_task(self.prd_path, task_id, reason=reason)
 
     def branch_name(self) -> Optional[str]:
         return get_prd_branch_name(self.prd_path)
@@ -176,29 +187,47 @@ class BeadsTracker:
         # sorted by priority/age per beads defaults).
         return issues[0]
 
-    def peek_next_task(self) -> Optional[SelectedTask]:
-        issue = self._select_next_issue()
-        if not issue:
+    def _select_issue(
+        self, exclude_ids: Optional[Set[str]] = None
+    ) -> Optional[Dict[str, Any]]:
+        issues = self._ready_json()
+        if issues is None:
+            issues = self._ready_text()
+        if not issues:
             return None
+        exclude = exclude_ids or set()
+        for cand in issues:
+            tid = str(cand.get("id") or "").strip()
+            if not tid or tid in exclude:
+                continue
+            return cand
+        return None
+
+    def _issue_to_task(self, issue: Dict[str, Any]) -> Optional[SelectedTask]:
         tid = str(issue.get("id") or "").strip()
         title = str(issue.get("title") or tid).strip() or tid
         if not tid:
             return None
         return SelectedTask(id=tid, title=title, kind="beads", acceptance=[])
+
+    def select_next_task(
+        self, exclude_ids: Optional[Set[str]] = None
+    ) -> Optional[SelectedTask]:
+        issue = self._select_issue(exclude_ids=exclude_ids)
+        if issue is None:
+            return None
+        return self._issue_to_task(issue)
+
+    def peek_next_task(self) -> Optional[SelectedTask]:
+        return self.select_next_task()
 
     def claim_next_task(self) -> Optional[SelectedTask]:
-        issue = self._select_next_issue()
-        if not issue:
+        task = self.select_next_task()
+        if task is None:
             return None
-        tid = str(issue.get("id") or "").strip()
-        title = str(issue.get("title") or tid).strip() or tid
-        if not tid:
-            return None
-
         # Mark as in progress (best-effort; ignore errors).
-        self._run(["bd", "update", tid, "--status", "in_progress", "--json"])
-
-        return SelectedTask(id=tid, title=title, kind="beads", acceptance=[])
+        self._run(["bd", "update", task.id, "--status", "in_progress", "--json"])
+        return task
 
     def counts(self) -> Tuple[int, int]:
         # Beads doesn't have a single "counts" API; keep this lightweight.
@@ -227,6 +256,13 @@ class BeadsTracker:
         # No direct equivalent. We attempt to reopen.
         cp = self._run(["bd", "update", str(task_id), "--status", "open", "--json"])
         return cp.returncode == 0
+
+    def block_task(self, task_id: TaskId, reason: str) -> bool:
+        cp = self._run(["bd", "update", str(task_id), "--status", "blocked", "--json"])
+        if cp.returncode != 0:
+            return False
+        self._run(["bd", "comment", str(task_id), reason])
+        return True
 
     def branch_name(self) -> Optional[str]:
         return None

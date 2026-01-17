@@ -200,11 +200,16 @@ def convert_markdown_to_yaml(
     # Convert markdown tasks to YAML tasks
     tasks: List[Dict[str, Any]] = []
     for md_task in prd.tasks:
+        task_id: Any = md_task.id
+        if isinstance(task_id, str) and re.fullmatch(r"\d+", task_id.strip() or ""):
+            task_id = int(task_id.strip())
         task: Dict[str, Any] = {
-            "id": md_task.id,
+            "id": task_id,
             "title": md_task.title,
-            "completed": md_task.done,
+            "completed": md_task.status == "done",
         }
+        if md_task.status == "blocked":
+            task["blocked"] = True
 
         # Add acceptance criteria if present
         if md_task.acceptance:

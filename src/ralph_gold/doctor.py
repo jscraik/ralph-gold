@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from .config import Config
+
 
 @dataclass
 class ToolStatus:
@@ -35,7 +37,7 @@ def _version(cmd: List[str]) -> Optional[str]:
         return None
 
 
-def check_tools() -> List[ToolStatus]:
+def check_tools(cfg: Optional[Config] = None) -> List[ToolStatus]:
     checks = [
         ("git", ["git", "--version"], "Install git and run `git init` in your project."),
         ("uv", ["uv", "--version"], "Install uv (https://docs.astral.sh/uv/)."),
@@ -44,6 +46,19 @@ def check_tools() -> List[ToolStatus]:
         ("copilot", ["copilot", "--version"], "Install GitHub Copilot CLI (or configure a different runner in ralph.toml)."),
         ("gh", ["gh", "--version"], "Optional: GitHub CLI, useful for Copilot workflows."),
     ]
+
+    if cfg is not None:
+        if cfg.repoprompt.enabled or cfg.repoprompt.required:
+            checks.append(
+                (
+                    cfg.repoprompt.cli,
+                    [cfg.repoprompt.cli, "--help"],
+                    "Install rp-cli to enable Repo Prompt integration.",
+                )
+            )
+        if cfg.gates.prek.enabled:
+            prek_bin = cfg.gates.prek.argv[0] if cfg.gates.prek.argv else "prek"
+            checks.append((prek_bin, [prek_bin, "--version"], "Install prek for gate runner."))
 
     results: List[ToolStatus] = []
     for name, ver_cmd, hint in checks:

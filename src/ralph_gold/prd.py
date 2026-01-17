@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
 
 PrdKind = Literal["json", "md", "beads"]
@@ -20,17 +20,24 @@ class SelectedTask:
     id: TaskId
     title: str
     kind: PrdKind
-    acceptance: List[str]
+    acceptance: List[str] = field(default_factory=list)
+    depends_on: List[str] = field(default_factory=list)
+    group: str = "default"
 
 
 @dataclass
 class MdTask:
-    id: int
+    id: str
     title: str
-    done: bool
+    status: str  # open|in_progress|done|blocked
     line_index: int
     indent: int
     acceptance: List[str]
+    depends_on: List[str] = field(default_factory=list)
+
+    @property
+    def done(self) -> bool:
+        return self.status == "done"
 
 
 @dataclass
@@ -42,9 +49,46 @@ class MdPrd:
 _MD_TASKS_HEADING_RE = re.compile(r"^\s*##\s+tasks\b", re.IGNORECASE)
 _MD_HEADING_RE = re.compile(r"^\s*#{1,6}\s+\S")
 _MD_FENCE_RE = re.compile(r"^\s*```")
-_MD_CHECKBOX_RE = re.compile(r"^(\s*[-*]\s+\[)([ xX])(\]\s+)(.+?)\s*$")
+_MD_CHECKBOX_RE = re.compile(r"^(\s*[-*]\s+\[)([^\]])(\]\s+)(.+?)\s*$")
 _MD_BULLET_RE = re.compile(r"^\s*[-*]\s+(?:\[[ xX]\]\s+)?(.+?)\s*$")
 _MD_BRANCH_RE = re.compile(r"^\s*(branch|branchname)\s*:\s*(.+?)\s*$", re.IGNORECASE)
+_MD_DEPENDS_RE = re.compile(r"^\s*depends\s+on\s*:\s*(.+?)\s*$", re.IGNORECASE)
+
+
+def _marker_to_status(marker: str) -> str:
+    m = marker.strip().lower()
+    if m == "x":
+        return "done"
+    if m in {"-", "!"}:
+        return "blocked"
+    if m == "~":
+        return "in_progress"
+    return "open"
+
+
+def _status_to_marker(status: str) -> str:
+    s = (status or "open").strip().lower()
+    if s == "done":
+        return "x"
+    if s == "blocked":
+        return "-"
+    if s == "in_progress":
+        return "~"
+    return " "
+
+
+def _parse_md_depends(acceptance: List[str]) -> List[str]:
+    deps: List[str] = []
+    for a in acceptance:
+        m = _MD_DEPENDS_RE.match(a)
+        if not m:
+            continue
+        tail = m.group(1)
+        nums = re.findall(r"\\d+", tail)
+        for n in nums:
+            if n not in deps:
+                deps.append(n)
+    return deps
 
 
 def is_markdown_prd(path: Path) -> bool:
@@ -68,6 +112,24 @@ def _story_done(story: Dict[str, Any]) -> bool:
     return status == "done"
 
 
+def _story_blocked(story: Dict[str, Any]) -> bool:
+    if story.get("blocked") is True:
+        return True
+    status = str(story.get("status", "open")).lower()
+    return status in {"blocked", "stuck"}
+
+
+def _story_depends(story: Dict[str, Any]) -> List[str]:
+    deps = story.get("depends_on")
+    if isinstance(deps, list):
+        return [str(x) for x in deps if x is not None]
+    return []
+
+
+def _deps_satisfied(deps: List[str], done_ids: Set[str]) -> bool:
+    return all(d in done_ids for d in deps)
+
+
 def _story_priority(story: Dict[str, Any]) -> int:
     try:
         return int(story.get("priority", 10_000))
@@ -75,11 +137,43 @@ def _story_priority(story: Dict[str, Any]) -> int:
         return 10_000
 
 
-def _select_next_story(prd: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _select_next_story(
+    prd: Dict[str, Any],
+    exclude_ids: Optional[Set[str]] = None,
+) -> Optional[Dict[str, Any]]:
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
         return None
-    remaining = [s for s in stories if isinstance(s, dict) and not _story_done(s)]
+    exclude = exclude_ids or set()
+
+    done_ids: Set[str] = set()
+    for s in stories:
+        if not isinstance(s, dict):
+            continue
+        sid = s.get("id", s.get("story_id", s.get("key")))
+        if sid is None:
+            continue
+        sid_str = str(sid)
+        if _story_done(s) or _story_blocked(s):
+            done_ids.add(sid_str)
+
+    remaining: List[Dict[str, Any]] = []
+    for s in stories:
+        if not isinstance(s, dict):
+            continue
+        sid = s.get("id", s.get("story_id", s.get("key")))
+        if sid is None:
+            continue
+        sid_str = str(sid)
+        if sid_str in exclude:
+            continue
+        if _story_done(s) or _story_blocked(s):
+            continue
+        deps = _story_depends(s)
+        if deps and not _deps_satisfied(deps, done_ids):
+            continue
+        remaining.append(s)
+
     if not remaining:
         return None
     remaining.sort(key=_story_priority)
@@ -90,10 +184,13 @@ def _json_all_done(prd: Dict[str, Any]) -> bool:
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
         return True
-    return all((not isinstance(s, dict)) or _story_done(s) for s in stories)
+    return all(
+        (not isinstance(s, dict)) or _story_done(s) or _story_blocked(s)
+        for s in stories
+    )
 
 
-def _json_force_story_open(prd: Dict[str, Any], story_id: int) -> bool:
+def _json_force_story_open(prd: Dict[str, Any], story_id: str) -> bool:
     """Force a JSON PRD story back to not-done.
 
     This is used as a post-iteration safety valve when quality gates fail.
@@ -106,11 +203,10 @@ def _json_force_story_open(prd: Dict[str, Any], story_id: int) -> bool:
     for s in stories:
         if not isinstance(s, dict):
             continue
-        try:
-            sid = int(s.get("id"))
-        except Exception:
+        sid = s.get("id", s.get("story_id", s.get("key")))
+        if sid is None:
             continue
-        if sid != story_id:
+        if str(sid) != str(story_id):
             continue
 
         if "passes" in s and s.get("passes") is True:
@@ -157,10 +253,19 @@ def _parse_md_prd(text: str) -> MdPrd:
             m = _MD_CHECKBOX_RE.match(line)
             if not m:
                 continue
-            done = m.group(2).lower() == "x"
+            status = _marker_to_status(m.group(2))
             title = m.group(4).strip()
             indent = len(line) - len(line.lstrip(" "))
-            tasks.append(MdTask(id=len(tasks) + 1, title=title, done=done, line_index=li, indent=indent, acceptance=[]))
+            tasks.append(
+                MdTask(
+                    id=str(len(tasks) + 1),
+                    title=title,
+                    status=status,
+                    line_index=li,
+                    indent=indent,
+                    acceptance=[],
+                )
+            )
 
     if tasks_start is not None:
         # End of tasks section is the next markdown heading outside fences.
@@ -209,6 +314,7 @@ def _parse_md_prd(text: str) -> MdPrd:
             if item:
                 acc.append(item)
         t.acceptance = acc
+        t.depends_on = _parse_md_depends(acc)
 
     return MdPrd(lines=lines, tasks=tasks)
 
@@ -228,47 +334,71 @@ def _save_md_prd(path: Path, prd: MdPrd) -> None:
 
 
 def _md_all_done(prd: MdPrd) -> bool:
-    return all(t.done for t in prd.tasks)
+    return all(t.status in {"done", "blocked"} for t in prd.tasks)
 
 
-def _md_force_task_open(prd: MdPrd, task_id: int) -> bool:
+def _md_force_task_open(prd: MdPrd, task_id: str) -> bool:
     for t in prd.tasks:
         if t.id != task_id:
             continue
-        if not t.done:
+        if t.status != "done":
             return False
         line = prd.lines[t.line_index]
-        # Replace first checkbox marker only.
-        prd.lines[t.line_index] = re.sub(r"\[[ xX]\]", "[ ]", line, count=1)
-        t.done = False
+        prd.lines[t.line_index] = re.sub(r"\[[^\]]\]", "[ ]", line, count=1)
+        t.status = "open"
         return True
     return False
 
 
-def select_next_task(prd_path: Path) -> Optional[SelectedTask]:
+def select_next_task(
+    prd_path: Path, exclude_ids: Optional[Set[str]] = None
+) -> Optional[SelectedTask]:
     """Return the next unfinished task in the configured PRD file."""
 
     if is_markdown_prd(prd_path):
         prd = _load_md_prd(prd_path)
+        exclude = exclude_ids or set()
+        done_ids: Set[str] = set()
         for t in prd.tasks:
-            if not t.done:
-                return SelectedTask(id=str(t.id), title=t.title, kind="md", acceptance=list(t.acceptance))
+            if t.status in {"done", "blocked"}:
+                done_ids.add(t.id)
+        for t in prd.tasks:
+            if t.id in exclude:
+                continue
+            if t.status != "open":
+                continue
+            if t.depends_on and not _deps_satisfied(t.depends_on, done_ids):
+                continue
+            return SelectedTask(
+                id=str(t.id),
+                title=t.title,
+                kind="md",
+                acceptance=list(t.acceptance),
+                depends_on=list(t.depends_on),
+            )
         return None
 
     prd = _load_json_prd(prd_path)
-    story = _select_next_story(prd)
+    story = _select_next_story(prd, exclude_ids=exclude_ids)
     if not story:
         return None
-    try:
-        sid = int(story.get("id"))
-    except Exception:
+    sid = story.get("id", story.get("story_id", story.get("key")))
+    if sid is None:
         return None
-    title = str(story.get("title", "")).strip() or f"Story {sid}"
+    sid_str = str(sid)
+    title = str(story.get("title", "")).strip() or f"Story {sid_str}"
     acc = story.get("acceptance", [])
     if not isinstance(acc, list):
         acc = []
     acceptance = [str(x).strip() for x in acc if str(x).strip()]
-    return SelectedTask(id=str(sid), title=title, kind="json", acceptance=acceptance)
+    depends = _story_depends(story)
+    return SelectedTask(
+        id=sid_str,
+        title=title,
+        kind="json",
+        acceptance=acceptance,
+        depends_on=depends,
+    )
 
 
 def task_counts(prd_path: Path) -> Tuple[int, int]:
@@ -277,7 +407,7 @@ def task_counts(prd_path: Path) -> Tuple[int, int]:
     if is_markdown_prd(prd_path):
         prd = _load_md_prd(prd_path)
         total = len(prd.tasks)
-        done = sum(1 for t in prd.tasks if t.done)
+        done = sum(1 for t in prd.tasks if t.status in {"done", "blocked"})
         return done, total
 
     prd = _load_json_prd(prd_path)
@@ -285,7 +415,11 @@ def task_counts(prd_path: Path) -> Tuple[int, int]:
     if not isinstance(stories, list):
         return 0, 0
     total = sum(1 for s in stories if isinstance(s, dict))
-    done = sum(1 for s in stories if isinstance(s, dict) and _story_done(s))
+    done = sum(
+        1
+        for s in stories
+        if isinstance(s, dict) and (_story_done(s) or _story_blocked(s))
+    )
     return done, total
 
 
@@ -298,20 +432,15 @@ def all_done(prd_path: Path) -> bool:
 def force_task_open(prd_path: Path, task_id: TaskId) -> bool:
     """Force a task/story back to unfinished (used when gates fail)."""
 
-    try:
-        tid_int = int(str(task_id))
-    except Exception:
-        return False
-
     if is_markdown_prd(prd_path):
         prd = _load_md_prd(prd_path)
-        changed = _md_force_task_open(prd, tid_int)
+        changed = _md_force_task_open(prd, str(task_id))
         if changed:
             _save_md_prd(prd_path, prd)
         return changed
 
     prd = _load_json_prd(prd_path)
-    changed = _json_force_story_open(prd, tid_int)
+    changed = _json_force_story_open(prd, str(task_id))
     if changed:
         _save_json_prd(prd_path, prd)
     return changed
@@ -320,16 +449,11 @@ def force_task_open(prd_path: Path, task_id: TaskId) -> bool:
 def is_task_done(prd_path: Path, task_id: TaskId) -> bool:
     """Return True if a given task/story is currently marked done."""
 
-    try:
-        tid_int = int(str(task_id))
-    except Exception:
-        return False
-
     if is_markdown_prd(prd_path):
         prd = _load_md_prd(prd_path)
         for t in prd.tasks:
-            if t.id == tid_int:
-                return bool(t.done)
+            if t.id == str(task_id):
+                return bool(t.status == "done")
         return False
 
     prd = _load_json_prd(prd_path)
@@ -339,14 +463,56 @@ def is_task_done(prd_path: Path, task_id: TaskId) -> bool:
     for s in stories:
         if not isinstance(s, dict):
             continue
-        try:
-            sid = int(s.get("id"))
-        except Exception:
+        sid = s.get("id", s.get("story_id", s.get("key")))
+        if sid is None:
             continue
-        if sid != tid_int:
+        if str(sid) != str(task_id):
             continue
         return _story_done(s)
     return False
+
+
+def block_task(prd_path: Path, task_id: TaskId, reason: str) -> bool:
+    """Mark a task/story as blocked (best effort)."""
+
+    if is_markdown_prd(prd_path):
+        prd = _load_md_prd(prd_path)
+        changed = False
+        for t in prd.tasks:
+            if t.id != str(task_id):
+                continue
+            if t.status == "blocked":
+                return False
+            line = prd.lines[t.line_index]
+            prd.lines[t.line_index] = re.sub(r"\[[^\]]\]", "[-]", line, count=1)
+            t.status = "blocked"
+            changed = True
+            break
+        if changed:
+            _save_md_prd(prd_path, prd)
+        return changed
+
+    prd = _load_json_prd(prd_path)
+    stories = prd.get("stories", [])
+    if not isinstance(stories, list):
+        return False
+    changed = False
+    for s in stories:
+        if not isinstance(s, dict):
+            continue
+        sid = s.get("id", s.get("story_id", s.get("key")))
+        if sid is None or str(sid) != str(task_id):
+            continue
+        s["blocked"] = True
+        if "status" in s:
+            s["status"] = "blocked"
+        if reason:
+            s.setdefault("blocked_reason", reason)
+        changed = True
+        break
+    if changed:
+        _save_json_prd(prd_path, prd)
+    return changed
 
 
 def get_prd_branch_name(prd_path: Path) -> Optional[str]:

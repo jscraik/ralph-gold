@@ -14,8 +14,9 @@ ralph bridge
 
 The process runs in the project root (cwd) and uses the same files as the CLI:
 - `ralph.toml`
-- `PROMPT.md`, `AGENTS.md`, PRD file, `progress.md`
+- `PROMPT_build.md`, `PROMPT_plan.md`, `PROMPT_judge.md`, `PROMPT_review.md`, `PROMPT.md`, `AGENTS.md`, PRD file, `progress.md`, `FEEDBACK.md`
 - `.ralph/state.json`, `.ralph/logs/*`
+- `.ralph/receipts/*`, `.ralph/context/*`, `.ralph/attempts/*`
 
 ---
 
@@ -92,6 +93,12 @@ Result:
 - `gates_ok`
 - `repo_clean`
 - `judge_ok` (nullable)
+- `review_ok` (nullable)
+- `blocked` (boolean)
+- `attempt_id` (nullable)
+- `receipts_dir` (nullable)
+- `context_dir` (nullable)
+- `task_title` (nullable)
 
 ### `run`
 Starts a long-running loop in a background thread.
@@ -158,6 +165,11 @@ Fields:
 - `repoClean`
 - `gatesOk` (nullable)
 - `judgeOk` (nullable)
+- `reviewOk` (nullable)
+- `blocked` (boolean)
+- `attemptId` (nullable)
+- `receiptsDir` (nullable)
+- `contextDir` (nullable)
 - `durationSeconds`
 - `logPath`
 

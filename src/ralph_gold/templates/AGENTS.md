@@ -1,28 +1,34 @@
-# AGENTS.md
+# Ralph Gold Agents & Gates
 
-This file is **project-specific operational memory**.
-Keep it short (target: **<~60 lines**) and deterministic. Add only what you repeatedly need.
+This file is read by Ralph Gold each iteration.
 
-## Repo commands
+## Gates (backpressure)
 
-### Install
-- (fill in) e.g. `uv sync` / `npm ci` / `pnpm i` / `pip install -e .`
+Ralph Gold will run gates *after* the agent makes changes. Configure them in `.ralph/ralph.toml`.
 
-### Build
-- (fill in) e.g. `uv run python -m build` / `npm run build`
+Recommended patterns:
 
-### Test
-- (fill in) e.g. `uv run pytest -q` / `npm test`
+### Option A (recommended): `prek` as the universal gate runner
 
-### Lint / Format
-- (fill in) e.g. `uv run ruff check .` / `npm run lint`
+- Put your quality contract in `.pre-commit-config.yaml`
+- Then enable the gate:
+  - `[gates.prek] enabled = true` (runs `prek run --all-files`)
 
-## Quality Gates (backpressure)
-List the commands Ralph must run (and fix) before committing:
+No git hooks are installed by Ralph Gold.
 
-1. (example) `uv run python -m compileall .`
-2. (example) `uv run pytest -q`
+### Option B: Explicit commands
 
-## Conventions
-- Write small commits.
-- Prefer local changes; avoid large refactors unless required for the story.
+Examples:
+- `uv run ruff check .`
+- `uv run mypy src`
+- `uv run pytest -q`
+- `npm test`
+
+## Review gate (cross-model)
+
+Optionally enable `[gates.review]` to require a reviewer model to return `SHIP`.
+
+## Notes
+
+- Receipts are written under `.ralph/receipts/` each iteration.
+- Repo Prompt context packs (if enabled) are written under `.ralph/context/`.

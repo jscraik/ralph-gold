@@ -127,7 +127,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         return 2
 
     # Standard doctor checks
-    statuses = check_tools()
+    cfg = load_config(root)
+    statuses = check_tools(cfg)
     ok = True
     for st in statuses:
         if st.found:
@@ -159,7 +160,7 @@ def cmd_step(args: argparse.Namespace) -> int:
 
     print(
         f"Iteration {res.iteration} agent={agent} story_id={res.story_id} rc={res.return_code} "
-        f"exit={res.exit_signal} gates={res.gates_ok} judge={res.judge_ok}"
+        f"exit={res.exit_signal} gates={res.gates_ok} judge={res.judge_ok} review={res.review_ok}"
     )
     print(f"Log: {res.log_path}")
 
@@ -223,7 +224,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         done, total = 0, 0
 
     try:
-        next_task = tracker.peek_next_task()
+        next_task = tracker.select_next_task()
     except Exception:
         next_task = None
 

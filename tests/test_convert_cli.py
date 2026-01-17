@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -65,8 +66,7 @@ def test_convert_json_to_yaml_cli(sample_json_prd: Path, tmp_path: Path):
 
     result = subprocess.run(
         [
-            "uv",
-            "run",
+            *_uv_run_cmd(),
             "python",
             "-m",
             "ralph_gold.cli",
@@ -96,8 +96,7 @@ def test_convert_markdown_to_yaml_cli(sample_md_prd: Path, tmp_path: Path):
 
     result = subprocess.run(
         [
-            "uv",
-            "run",
+            *_uv_run_cmd(),
             "python",
             "-m",
             "ralph_gold.cli",
@@ -127,8 +126,7 @@ def test_convert_with_infer_groups_cli(sample_json_prd: Path, tmp_path: Path):
 
     result = subprocess.run(
         [
-            "uv",
-            "run",
+            *_uv_run_cmd(),
             "python",
             "-m",
             "ralph_gold.cli",
@@ -165,8 +163,7 @@ def test_convert_missing_file_cli(tmp_path: Path):
 
     result = subprocess.run(
         [
-            "uv",
-            "run",
+            *_uv_run_cmd(),
             "python",
             "-m",
             "ralph_gold.cli",
@@ -235,3 +232,8 @@ def test_convert_shows_groups_summary_cli(sample_json_prd: Path, tmp_path: Path)
     assert "Groups:" in result.stdout
     assert "api" in result.stdout
     assert "ui" in result.stdout
+def _uv_run_cmd() -> list[str]:
+    cmd = ["uv", "run"]
+    if os.environ.get("VIRTUAL_ENV"):
+        cmd.append("--active")
+    return cmd

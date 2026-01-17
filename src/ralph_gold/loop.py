@@ -13,10 +13,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .config import Config, RunnerConfig, load_config
 from .prd import SelectedTask
+from .receipts import CommandReceipt, hash_text, iso_utc, truncate_text, write_receipt
+from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .trackers import make_tracker
 
 EXIT_RE = re.compile(r"EXIT_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
 JUDGE_RE = re.compile(r"JUDGE_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
+SHIP_TOKEN = "SHIP"
+BLOCK_TOKEN = "BLOCK"
 
 
 def _coerce_text(value: object) -> str:
@@ -64,6 +68,12 @@ class IterationResult:
     gates_ok: Optional[bool]
     repo_clean: bool
     judge_ok: Optional[bool]
+    review_ok: Optional[bool] = None
+    blocked: bool = False
+    attempt_id: Optional[str] = None
+    receipts_dir: Optional[str] = None
+    context_dir: Optional[str] = None
+    task_title: Optional[str] = None
 
 
 def utc_now_iso() -> str:
@@ -222,74 +232,199 @@ def parse_judge_signal(output: str) -> Optional[bool]:
     return _parse_bool_signal(output, JUDGE_RE)
 
 
-def build_prompt(
-    project_root: Path, cfg: Config, task: Optional[SelectedTask], iteration: int
-) -> str:
-    """Build the per-iteration prompt.
+def _safe_task_dirname(task_id: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_.-]+", "_", task_id.strip()) or "unknown"
 
-    Design goal:
-    - Keep orchestration deterministic and cross-tool.
-    - Load the (version-controlled) prompt file as the base instructions.
-    - Add a small, machine-generated addendum that injects the selected task.
-    """
+
+def _ensure_dir(path: Path) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _read_text_if_exists(path: Path, limit_chars: int = 200_000) -> str:
+    try:
+        if not path.exists():
+            return ""
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if len(text) > limit_chars:
+            return text[:limit_chars] + "\n...<truncated>...\n"
+        return text
+    except Exception:
+        return ""
+
+
+def _git_status_porcelain_raw(project_root: Path) -> str:
+    cp = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=str(project_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return (cp.stdout or "").strip()
+
+
+def _git_diff_stat_raw(project_root: Path) -> str:
+    cp = subprocess.run(
+        ["git", "diff", "--stat"],
+        cwd=str(project_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return (cp.stdout or "").strip()
+
+
+def _build_anchor(task: SelectedTask, project_root: Path) -> str:
+    branch = git_current_branch(project_root)
+    status = _git_status_porcelain_raw(project_root)
+    diffstat = _git_diff_stat_raw(project_root)
+
+    parts: List[str] = []
+    parts.append("# Ralph Gold Anchor")
+    parts.append("")
+    parts.append(f"Task: {task.id} - {task.title}")
+    parts.append("")
+    if task.acceptance:
+        parts.append("Acceptance criteria:")
+        for a in task.acceptance:
+            parts.append(f"- {a}")
+        parts.append("")
+    parts.append("Repo reality:")
+    parts.append(f"- branch: {branch}")
+    parts.append("- git status --porcelain:")
+    parts.append("```\n" + (status or "<clean>") + "\n```")
+    parts.append("- git diff --stat:")
+    parts.append("```\n" + (diffstat or "<no diff>") + "\n```")
+    parts.append("")
+    parts.append("Constraints:")
+    parts.append("- Work on exactly ONE task per iteration")
+    parts.append("- Do not claim completion without passing gates")
+    parts.append("- Prefer minimal diffs; keep repo clean")
+    parts.append("")
+    return "\n".join(parts)
+
+
+def _now_attempt_id(iteration: int) -> str:
+    ts = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+    return f"{ts}-iter{iteration:04d}"
+
+
+def _parse_review_token(output: str, required: str = SHIP_TOKEN) -> bool:
+    lines = [ln.strip() for ln in (output or "").splitlines() if ln.strip()]
+    if not lines:
+        return False
+    last = lines[-1].upper()
+    return last == required.upper()
+
+
+def build_prompt(
+    project_root: Path,
+    cfg: Config,
+    task: Optional[SelectedTask],
+    iteration: int,
+    *,
+    anchor_text: str = "",
+    repoprompt_context: str = "",
+) -> str:
+    """Build the per-iteration prompt."""
 
     prompt_path = project_root / cfg.files.prompt
-    base = ""
-    if prompt_path.exists():
-        base = prompt_path.read_text(encoding="utf-8")
+    base = _read_text_if_exists(prompt_path)
 
-    prompt_lines: List[str] = []
+    agents_path = project_root / cfg.files.agents
+    prd_path = project_root / cfg.files.prd
+    progress_path = project_root / cfg.files.progress
+    feedback_path = project_root / cfg.files.feedback
+    specs_dir = project_root / cfg.files.specs_dir
+
+    agents = _read_text_if_exists(agents_path)
+    prd = _read_text_if_exists(prd_path)
+    progress = _read_text_if_exists(progress_path)
+    feedback = _read_text_if_exists(feedback_path)
+
+    specs: List[tuple[str, str]] = []
+    if specs_dir.exists() and specs_dir.is_dir():
+        for p in sorted(specs_dir.glob("*.md"))[:20]:
+            specs.append((p.name, _read_text_if_exists(p)))
+
+    parts: List[str] = []
     if base.strip():
-        prompt_lines.append(base.rstrip())
-        prompt_lines.append("")
-        prompt_lines.append("---")
-        prompt_lines.append("")
+        parts.append(base.rstrip())
+        parts.append("")
     else:
-        prompt_lines.append("# Golden Ralph Loop")
-        prompt_lines.append("(missing prompt file; using fallback instructions)")
-        prompt_lines.append("")
+        parts.append("# Golden Ralph Loop")
+        parts.append("(missing prompt file; using fallback instructions)")
+        parts.append("")
 
-    prompt_lines.append("## Orchestrator Addendum (auto-generated)")
-    prompt_lines.append(f"Iteration: {iteration}")
-    prompt_lines.append("")
-    prompt_lines.append("Study these files for context and durable memory:")
-    prompt_lines.append(f"- {cfg.files.agents}")
-    prompt_lines.append(f"- {cfg.files.prd}")
-    prompt_lines.append(f"- {cfg.files.progress}")
-    prompt_lines.append("")
-    prompt_lines.append("Hard iteration constraints:")
-    prompt_lines.append("- One task per iteration (one commit per iteration).")
-    prompt_lines.append(
-        "- Apply backpressure: run the commands in AGENTS.md and fix until they pass."
-    )
-    prompt_lines.append("")
+    if anchor_text.strip():
+        parts.append("<ANCHOR>")
+        parts.append(anchor_text.strip())
+        parts.append("</ANCHOR>")
+        parts.append("")
+
+    if repoprompt_context.strip():
+        parts.append("<REPOPROMPT_CONTEXT_PACK>")
+        parts.append(repoprompt_context.strip())
+        parts.append("</REPOPROMPT_CONTEXT_PACK>")
+        parts.append("")
+
+    parts.append("## Orchestrator Addendum (auto-generated)")
+    parts.append(f"Iteration: {iteration}")
+    parts.append("")
+    parts.append("Hard iteration constraints:")
+    parts.append("- One task per iteration (one commit per iteration).")
+    parts.append("- Apply backpressure: run the commands in AGENTS.md and fix until they pass.")
+    parts.append("")
 
     if task is not None:
-        prompt_lines.append("Selected task for this iteration:")
-        prompt_lines.append(f"- id: {task.id}")
+        parts.append("Selected task for this iteration:")
+        parts.append(f"- id: {task.id}")
         if task.title:
-            prompt_lines.append(f"- title: {task.title}")
+            parts.append(f"- title: {task.title}")
         if task.acceptance:
-            prompt_lines.append("- acceptance:")
+            parts.append("- acceptance:")
             for a in task.acceptance[:20]:
-                prompt_lines.append(f"  - {a}")
-        prompt_lines.append("")
-        prompt_lines.append("Do not work on any other task in this iteration.")
-        prompt_lines.append("")
+                parts.append(f"  - {a}")
+        parts.append("")
+        parts.append("Do not work on any other task in this iteration.")
+        parts.append("")
     else:
-        prompt_lines.append(
-            "No task was selected (task file may be empty or malformed)."
-        )
-        prompt_lines.append(
-            "If the task file is complete, confirm and prepare to exit."
-        )
-        prompt_lines.append("")
+        parts.append("No task was selected (task file may be empty or malformed).")
+        parts.append("If the task file is complete, confirm and prepare to exit.")
+        parts.append("")
 
-    prompt_lines.append("Exit protocol (required):")
-    prompt_lines.append("At the very end of your output, print exactly one line:")
-    prompt_lines.append("EXIT_SIGNAL: true  OR  EXIT_SIGNAL: false")
-    prompt_lines.append("")
-    return "\n".join(prompt_lines) + "\n"
+    parts.append("<PROJECT_MEMORY>")
+    if agents.strip():
+        parts.append(f"## {cfg.files.agents}")
+        parts.append(agents)
+        parts.append("")
+    if prd.strip():
+        parts.append(f"## {cfg.files.prd}")
+        parts.append(prd)
+        parts.append("")
+    if progress.strip():
+        parts.append(f"## {cfg.files.progress}")
+        parts.append(progress)
+        parts.append("")
+    if feedback.strip():
+        parts.append(f"## {cfg.files.feedback}")
+        parts.append(feedback)
+        parts.append("")
+    for name, text in specs:
+        if not text.strip():
+            continue
+        parts.append(f"## {cfg.files.specs_dir}/{name}")
+        parts.append(text)
+        parts.append("")
+    parts.append("</PROJECT_MEMORY>")
+
+    parts.append("")
+    parts.append("Exit protocol (required):")
+    parts.append("At the very end of your output, print exactly one line:")
+    parts.append("EXIT_SIGNAL: true  OR  EXIT_SIGNAL: false")
+    parts.append("")
+    return "\n".join(parts) + "\n"
 
 
 def build_runner_invocation(
@@ -350,6 +485,9 @@ def load_state(state_path: Path) -> Dict[str, Any]:
             "invocations": [],  # epoch timestamps
             "noProgressStreak": 0,
             "history": [],
+            "task_attempts": {},
+            "blocked_tasks": {},
+            "session_id": "",
         }
     try:
         state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -358,6 +496,9 @@ def load_state(state_path: Path) -> Dict[str, Any]:
         state.setdefault("history", [])
         state.setdefault("invocations", [])
         state.setdefault("noProgressStreak", 0)
+        state.setdefault("task_attempts", {})
+        state.setdefault("blocked_tasks", {})
+        state.setdefault("session_id", "")
         return state
     except Exception:
         return {
@@ -365,6 +506,9 @@ def load_state(state_path: Path) -> Dict[str, Any]:
             "invocations": [],
             "noProgressStreak": 0,
             "history": [],
+            "task_attempts": {},
+            "blocked_tasks": {},
+            "session_id": "",
         }
 
 
@@ -497,6 +641,14 @@ def run_gates(
     """Run all configured gates with fail-fast and pre-commit hook support."""
 
     all_commands = list(commands)
+
+    # Optional: prepend prek if enabled and config exists.
+    if cfg.prek.enabled:
+        if (project_root / ".pre-commit-config.yaml").exists() or (
+            project_root / ".pre-commit-config.yml"
+        ).exists():
+            if cfg.prek.argv:
+                all_commands.insert(0, " ".join([str(x) for x in cfg.prek.argv]))
 
     # Auto-discover and prepend pre-commit hook if enabled
     if cfg.precommit_hook:
@@ -804,6 +956,7 @@ def run_iteration(
 ) -> IterationResult:
     cfg = cfg or load_config(project_root)
     ensure_git_repo(project_root)
+    iter_started = time.time()
 
     state_dir = project_root / ".ralph"
     logs_dir = state_dir / "logs"
@@ -831,10 +984,21 @@ def run_iteration(
     except Exception:
         done_before, total_before = 0, 0
 
+    blocked_ids = set()
+    if cfg.loop.skip_blocked_tasks:
+        blocked_raw = state.get("blocked_tasks", {}) or {}
+        if isinstance(blocked_raw, dict):
+            blocked_ids = set(str(k) for k in blocked_raw.keys())
+
     # Select task
     task: Optional[SelectedTask]
     try:
-        task = task_override if task_override is not None else tracker.claim_next_task()
+        if task_override is not None:
+            task = task_override
+        elif hasattr(tracker, "select_next_task"):
+            task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
+        else:
+            task = tracker.claim_next_task()
     except Exception as e:
         # Tracker failure (missing PRD, malformed JSON, etc.) should still produce a log + state entry.
         task = None
@@ -843,8 +1007,105 @@ def run_iteration(
         task_err = ""
 
     story_id: Optional[str] = task.id if task is not None else None
+    task_title = task.title if task is not None else "No remaining tasks"
 
-    prompt_text = build_prompt(project_root, cfg, task, iteration)
+    attempt_id = _now_attempt_id(iteration)
+    task_dirname = _safe_task_dirname(story_id or "(none)")
+    attempts_dir = _ensure_dir(state_dir / "attempts" / task_dirname)
+    receipts_dir = _ensure_dir(state_dir / "receipts" / task_dirname / attempt_id)
+    context_dir = _ensure_dir(state_dir / "context" / task_dirname / attempt_id)
+    attempt_record_path = attempts_dir / f"{attempt_id}.json"
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    log_path = logs_dir / f"{ts}-iter{iteration:04d}-{agent}.log"
+
+    anchor_text = ""
+    anchor_path: Optional[Path] = None
+    if task is not None:
+        anchor_text = _build_anchor(task, project_root)
+        anchor_path = context_dir / "ANCHOR.md"
+        anchor_path.write_text(anchor_text + "\n", encoding="utf-8")
+        write_receipt(
+            receipts_dir / "anchor.json",
+            CommandReceipt(
+                name="anchor",
+                argv=["git", "status", "--porcelain", "&&", "git", "diff", "--stat"],
+                returncode=0,
+                started_at=iso_utc(),
+                ended_at=iso_utc(),
+                duration_seconds=0.0,
+                stdout_path=str(anchor_path.relative_to(project_root)),
+            ),
+        )
+
+    rp_context_text = ""
+    if cfg.repoprompt.enabled and task is not None:
+        out_path = context_dir / "repoprompt_prompt.md"
+        try:
+            rp_run, rp_instructions = build_context_pack(
+                cfg=cfg.repoprompt,
+                task_id=task.id,
+                task_title=task.title,
+                acceptance=task.acceptance,
+                out_path=out_path,
+                cwd=project_root,
+                anchor_path=anchor_path,
+            )
+            rp_context_text = _read_text_if_exists(out_path, limit_chars=400_000)
+            write_receipt(
+                receipts_dir / "repoprompt_context.json",
+                CommandReceipt(
+                    name="repoprompt_context",
+                    argv=rp_run.argv,
+                    returncode=rp_run.returncode,
+                    started_at=iso_utc(time.time() - rp_run.duration_seconds),
+                    ended_at=iso_utc(),
+                    duration_seconds=rp_run.duration_seconds,
+                    stdout_path=str(out_path.relative_to(project_root)),
+                    stderr_path=str((receipts_dir / "repoprompt_context.stderr.txt").relative_to(project_root))
+                    if rp_run.stderr
+                    else None,
+                    notes={
+                        "instructions": rp_instructions,
+                        "stdout_tail": truncate_text(rp_run.stdout),
+                        "stderr_tail": truncate_text(rp_run.stderr),
+                    },
+                ),
+            )
+            if rp_run.stderr:
+                (receipts_dir / "repoprompt_context.stderr.txt").write_text(
+                    rp_run.stderr, encoding="utf-8"
+                )
+        except RepoPromptError as e:
+            if cfg.repoprompt.required and not cfg.repoprompt.fail_open:
+                raise
+            write_receipt(
+                receipts_dir / "repoprompt_context.json",
+                CommandReceipt(
+                    name="repoprompt_context",
+                    argv=[cfg.repoprompt.cli],
+                    returncode=127,
+                    started_at=iso_utc(),
+                    ended_at=iso_utc(),
+                    duration_seconds=0.0,
+                    stderr_path=str((receipts_dir / "repoprompt_context.error.txt").relative_to(project_root)),
+                    notes={"error": str(e)},
+                ),
+            )
+            (receipts_dir / "repoprompt_context.error.txt").write_text(
+                str(e) + "\n", encoding="utf-8"
+            )
+
+    prompt_text = build_prompt(
+        project_root,
+        cfg,
+        task,
+        iteration,
+        anchor_text=anchor_text,
+        repoprompt_context=rp_context_text,
+    )
+    prompt_hash = hash_text(prompt_text)
+
     # Prompt snapshots are debug artifacts; keep them under .ralph/logs/.
     prompt_file = logs_dir / f"prompt-iter{iteration:04d}.txt"
     prompt_file.write_text(prompt_text, encoding="utf-8")
@@ -877,13 +1138,62 @@ def run_iteration(
     except FileNotFoundError as e:
         cp = subprocess.CompletedProcess(argv, returncode=127, stdout="", stderr=str(e))
     duration_s = time.time() - start
+    runner_ok = int(cp.returncode) == 0
+
+    write_receipt(
+        receipts_dir / "runner.json",
+        CommandReceipt(
+            name="runner",
+            argv=argv,
+            returncode=int(cp.returncode),
+            started_at=iso_utc(time.time() - duration_s),
+            ended_at=iso_utc(),
+            duration_seconds=duration_s,
+            stdout_path=str(log_path.relative_to(project_root)),
+            notes={
+                "prompt_hash": prompt_hash,
+                "stdout_tail": truncate_text(cp.stdout or ""),
+                "stderr_tail": truncate_text(cp.stderr or ""),
+            },
+        ),
+    )
 
     # Gates
     gate_cmds = cfg.gates.commands if cfg.gates.commands else []
-    if gate_cmds or cfg.gates.precommit_hook:
+    if gate_cmds or cfg.gates.precommit_hook or cfg.gates.prek.enabled:
         gates_ok, gate_results = run_gates(project_root, gate_cmds, cfg.gates)
     else:
         gates_ok, gate_results = None, []
+
+    gate_summaries: List[str] = []
+    for idx, gr in enumerate(gate_results, start=1):
+        stdout_path = receipts_dir / f"gate_{idx:02d}.stdout.txt"
+        stderr_path = receipts_dir / f"gate_{idx:02d}.stderr.txt"
+        stdout_path.write_text(gr.stdout or "", encoding="utf-8")
+        stderr_path.write_text(gr.stderr or "", encoding="utf-8")
+
+        write_receipt(
+            receipts_dir / f"gate_{idx:02d}.json",
+            CommandReceipt(
+                name=f"gate_{idx:02d}",
+                argv=[gr.cmd],
+                returncode=int(gr.return_code),
+                started_at=iso_utc(time.time() - gr.duration_seconds),
+                ended_at=iso_utc(),
+                duration_seconds=gr.duration_seconds,
+                stdout_path=str(stdout_path.relative_to(project_root)),
+                stderr_path=str(stderr_path.relative_to(project_root)),
+                notes={
+                    "cmd": gr.cmd,
+                    "stdout_tail": truncate_text(gr.stdout or ""),
+                    "stderr_tail": truncate_text(gr.stderr or ""),
+                },
+            ),
+        )
+
+        gate_summaries.append(
+            f"[{'OK' if gr.return_code == 0 else 'FAIL'}] {gr.cmd}"
+        )
 
     # Safety valve: if gates fail, force the task open again.
     if gates_ok is False and story_id is not None:
@@ -982,18 +1292,153 @@ def run_iteration(
         else:
             judge_ok = None
 
-    # Append orchestrator entry to progress.md (append-only)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    log_path = logs_dir / f"{ts}-iter{iteration:04d}-{agent}.log"
+    # Optional: review gate (SHIP/BLOCK)
+    review_cfg = cfg.gates.review
+    review_ok: Optional[bool] = None
+    if review_cfg.enabled and gates_ok is not False:
+        diff_text = _diff_for_judge(
+            project_root,
+            head_before=head_before,
+            head_after=head_after_agent,
+            max_chars=int(review_cfg.max_diff_chars),
+        )
+        review_prompt = _read_text_if_exists(project_root / review_cfg.prompt)
+        if not review_prompt:
+            review_prompt = (
+                "You are a strict cross-model reviewer. Review the diff and gate results.\n"
+                "Return your decision on the final line only: SHIP or BLOCK."
+            )
+        message = (
+            review_prompt
+            + "\n\nGate summary:\n"
+            + "\n".join(gate_summaries)
+            + "\n\nDiff:\n"
+            + diff_text
+        )
 
-    # Decide status for progress log
-    try:
-        done_now = bool(story_id) and tracker.is_task_done(story_id or "")
-    except Exception:
-        done_now = False
+        if review_cfg.backend.strip().lower() == "repoprompt":
+            try:
+                rp = run_review(message=message, cfg=cfg.repoprompt, cwd=project_root)
+                review_ok = _parse_review_token(
+                    rp.stdout or "", required=review_cfg.required_token
+                )
+                write_receipt(
+                    receipts_dir / "review.json",
+                    CommandReceipt(
+                        name="review",
+                        argv=rp.argv,
+                        returncode=rp.returncode,
+                        started_at=iso_utc(time.time() - rp.duration_seconds),
+                        ended_at=iso_utc(),
+                        duration_seconds=rp.duration_seconds,
+                        notes={
+                            "required_token": review_cfg.required_token,
+                            "stdout_tail": truncate_text(rp.stdout),
+                            "stderr_tail": truncate_text(rp.stderr),
+                        },
+                    ),
+                )
+            except RepoPromptError as e:
+                review_ok = False
+                write_receipt(
+                    receipts_dir / "review.json",
+                    CommandReceipt(
+                        name="review",
+                        argv=[cfg.repoprompt.cli],
+                        returncode=127,
+                        started_at=iso_utc(),
+                        ended_at=iso_utc(),
+                        duration_seconds=0.0,
+                        notes={"error": str(e)},
+                    ),
+                )
+        else:
+            try:
+                rr_runner = _get_runner(cfg, review_cfg.agent)
+                rr_argv, rr_stdin = build_runner_invocation(
+                    review_cfg.agent, rr_runner.argv, message
+                )
+            except Exception as e:
+                review_ok = False
+                write_receipt(
+                    receipts_dir / "review.json",
+                    CommandReceipt(
+                        name="review",
+                        argv=[review_cfg.agent],
+                        returncode=127,
+                        started_at=iso_utc(),
+                        ended_at=iso_utc(),
+                        duration_seconds=0.0,
+                        notes={"error": str(e)},
+                    ),
+                )
+            else:
+                r_start = time.time()
+                try:
+                    r_cp = subprocess.run(
+                        rr_argv,
+                        cwd=str(project_root),
+                        input=rr_stdin,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                    )
+                except subprocess.TimeoutExpired as e:
+                    r_cp = subprocess.CompletedProcess(
+                        rr_argv,
+                        returncode=124,
+                        stdout=e.stdout or "",
+                        stderr=e.stderr or "(timeout)",
+                    )
+                r_dur = time.time() - r_start
+                r_out = _coerce_text(r_cp.stdout)
+                r_err = _coerce_text(r_cp.stderr)
+                review_ok = bool(
+                    int(r_cp.returncode) == 0
+                    and _parse_review_token(
+                        r_out + "\n" + r_err, required=review_cfg.required_token
+                    )
+                )
+                write_receipt(
+                    receipts_dir / "review.json",
+                    CommandReceipt(
+                        name="review",
+                        argv=rr_argv,
+                        returncode=int(r_cp.returncode),
+                        started_at=iso_utc(time.time() - r_dur),
+                        ended_at=iso_utc(),
+                        duration_seconds=r_dur,
+                        notes={
+                            "required_token": review_cfg.required_token,
+                            "stdout_tail": truncate_text(r_out),
+                            "stderr_tail": truncate_text(r_err),
+                        },
+                    ),
+                )
+
+        if review_ok is False and story_id is not None:
+            try:
+                tracker.force_task_open(story_id)
+            except Exception:
+                pass
+
+    # Append orchestrator entry to progress.md (append-only)
+
+    task_done_now = False
+    if story_id is not None:
+        try:
+            task_done_now = tracker.is_task_done(story_id)
+        except Exception:
+            task_done_now = False
+
     status = (
         "DONE"
-        if (done_now and gates_ok is not False and judge_ok is not False)
+        if (
+            task_done_now
+            and gates_ok is not False
+            and judge_ok is not False
+            and review_ok is not False
+        )
         else "CONTINUE"
     )
     checks = "PASS" if gates_ok is not False else "FAIL"
@@ -1023,7 +1468,12 @@ def run_iteration(
     commit_rc: Optional[int] = None
     commit_out = ""
     commit_err = ""
-    if cfg.git.auto_commit and (gates_ok is not False) and (judge_ok is not False):
+    if (
+        cfg.git.auto_commit
+        and (gates_ok is not False)
+        and (judge_ok is not False)
+        and (review_ok is not False)
+    ):
         # If the agent already committed but left a dirty tree, prefer amend.
         dirty = not git_is_clean(project_root)
         if dirty:
@@ -1097,6 +1547,66 @@ def run_iteration(
                 commit_rc = 1
                 commit_err = str(e)
 
+    # Attempt tracking + auto-block backstop
+    blocked_now = False
+
+    if task is not None:
+        attempts_raw = state.get("task_attempts", {}) or {}
+        blocked_raw = state.get("blocked_tasks", {}) or {}
+        try:
+            cur_attempts = int(attempts_raw.get(task.id, 0))
+        except Exception:
+            cur_attempts = 0
+
+        progress_success = bool(
+            task_done_now
+            and runner_ok
+            and (gates_ok is not False)
+            and (judge_ok is not False)
+            and (review_ok is not False)
+        )
+        if not progress_success:
+            cur_attempts += 1
+            attempts_raw[task.id] = cur_attempts
+
+            max_attempts = int(cfg.loop.max_attempts_per_task or 0)
+            if max_attempts > 0 and cur_attempts >= max_attempts:
+                if gates_ok is False:
+                    reason = "gates failed"
+                elif review_ok is False:
+                    reason = "review BLOCK"
+                elif judge_ok is False:
+                    reason = "judge failed"
+                elif not runner_ok:
+                    reason = "runner failed"
+                else:
+                    reason = "unknown"
+
+                blocked_raw[task.id] = {
+                    "blocked_at": iso_utc(),
+                    "attempts": cur_attempts,
+                    "reason": reason,
+                    "attempt_id": attempt_id,
+                }
+                state["blocked_tasks"] = blocked_raw
+                try:
+                    tracker.block_task(
+                        task.id, f"Auto-blocked after {cur_attempts} attempts: {reason}"
+                    )
+                except Exception:
+                    pass
+                blocked_now = True
+                progress_success = True
+
+                progress_path = project_root / cfg.files.progress
+                progress_path.parent.mkdir(parents=True, exist_ok=True)
+                with progress_path.open("a", encoding="utf-8") as f:
+                    f.write(
+                        f"[{iso_utc()}] BLOCKED task {task.id} ({task.title}) after {cur_attempts} attempts: {reason}\n"
+                    )
+
+        state["task_attempts"] = attempts_raw
+
     try:
         done_after, total_after = tracker.counts()
     except Exception:
@@ -1105,7 +1615,7 @@ def run_iteration(
     head_after = git_head(project_root)
     repo_clean = git_is_clean(project_root)
     done_delta = (done_after > done_before) and (total_after >= done_before)
-    progress_made = done_delta or (head_after != head_before) or (not repo_clean)
+    progress_made = done_delta or (head_after != head_before) or (not repo_clean) or blocked_now
 
     stdout_text = _coerce_text(cp.stdout)
     stderr_text = _coerce_text(cp.stderr)
@@ -1129,6 +1639,8 @@ def run_iteration(
     if exit_signal is True and gates_ok is False:
         exit_signal = False
     if exit_signal is True and judge_ok is False:
+        exit_signal = False
+    if exit_signal is True and review_ok is False:
         exit_signal = False
 
     # Persist log
@@ -1155,6 +1667,15 @@ def run_iteration(
                     "--- judge stderr ---\n" + judge_result.stderr.rstrip() + "\n"
                 )
 
+    review_section = "(review: not run)\n"
+    if review_cfg.enabled:
+        review_section = (
+            f"review_enabled: true\n"
+            f"review_backend: {review_cfg.backend}\n"
+            f"review_required_token: {review_cfg.required_token}\n"
+            f"review_ok: {review_ok}\n"
+        )
+
     stdin_flag = "true" if stdin_text is not None else "false"
     log_path.write_text(
         f"# ralph-gold log\n"
@@ -1163,6 +1684,11 @@ def run_iteration(
         f"agent: {agent}\n"
         f"branch: {branch_label}\n"
         f"story_id: {story_id}\n"
+        f"task_title: {task_title}\n"
+        f"attempt_id: {attempt_id}\n"
+        f"prompt_hash: {prompt_hash}\n"
+        f"receipts_dir: {receipts_dir}\n"
+        f"context_dir: {context_dir}\n"
         f"tracker_error: {task_err}\n"
         f"cmd: {json.dumps(argv)}\n"
         f"stdin_prompt: {stdin_flag}\n"
@@ -1179,6 +1705,7 @@ def run_iteration(
         f"\n--- stderr ---\n{stderr_text}\n"
         f"\n--- gates ---\n{_format_gate_results(gates_ok, gate_results, cfg.gates.output_mode, cfg.gates.max_output_lines)}"
         f"\n--- llm_judge ---\n{judge_section}"
+        f"\n--- review ---\n{review_section}"
         f"\n--- git_commit ---\n{commit_out}\n{commit_err}\n",
         encoding="utf-8",
     )
@@ -1235,6 +1762,11 @@ def run_iteration(
                 if judge_result is not None
                 else None
             ),
+            "review_ok": review_ok,
+            "blocked": blocked_now,
+            "attempt_id": attempt_id,
+            "receipts_dir": str(Path(receipts_dir).relative_to(project_root)),
+            "context_dir": str(Path(context_dir).relative_to(project_root)),
             "timed_out": bool(timed_out),
             "commit_action": commit_action,
             "commit_return_code": commit_rc,
@@ -1250,7 +1782,37 @@ def run_iteration(
         }
     )
     state["history"] = history[-200:]
+    if not state.get("session_id"):
+        state["session_id"] = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
     save_state(state_path, state)
+
+    attempt_record_path.write_text(
+        json.dumps(
+            {
+                "attempt_id": attempt_id,
+                "iteration": iteration,
+                "task_id": story_id,
+                "task_title": task_title,
+                "started_at": iso_utc(iter_started),
+                "ended_at": iso_utc(),
+                "runner_ok": runner_ok,
+                "gates_ok": gates_ok,
+                "judge_ok": judge_ok,
+                "review_ok": review_ok,
+                "blocked": blocked_now,
+                "exit_signal": exit_signal,
+                "return_code": int(cp.returncode),
+                "prompt_hash": prompt_hash,
+                "branch": branch_label,
+                "log_path": str(log_path),
+                "receipts_dir": str(receipts_dir),
+                "context_dir": str(context_dir),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     return IterationResult(
         iteration=iteration,
@@ -1264,6 +1826,12 @@ def run_iteration(
         gates_ok=gates_ok,
         repo_clean=repo_clean,
         judge_ok=judge_ok,
+        review_ok=review_ok,
+        blocked=blocked_now,
+        attempt_id=attempt_id,
+        receipts_dir=str(receipts_dir),
+        context_dir=str(context_dir),
+        task_title=task_title,
     )
 
 

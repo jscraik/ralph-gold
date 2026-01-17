@@ -88,7 +88,7 @@ class BridgeServer:
             done, total = 0, 0
 
         try:
-            t = tracker.peek_next_task()
+            t = tracker.select_next_task()
             if t is not None:
                 next_task = {"id": t.id, "title": t.title, "kind": t.kind}
         except Exception:
@@ -155,6 +155,12 @@ class BridgeServer:
             "gates_ok": res.gates_ok,
             "repo_clean": res.repo_clean,
             "judge_ok": res.judge_ok,
+            "review_ok": res.review_ok,
+            "blocked": res.blocked,
+            "attempt_id": res.attempt_id,
+            "receipts_dir": res.receipts_dir,
+            "context_dir": res.context_dir,
+            "task_title": res.task_title,
         }
 
     def _handle_step(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -166,7 +172,7 @@ class BridgeServer:
 
         # Preselect for deterministic event emission; pass into run_iteration to avoid drift.
         try:
-            task = tracker.peek_next_task()
+            task = tracker.select_next_task()
         except Exception:
             task = None
 
@@ -183,7 +189,13 @@ class BridgeServer:
         )
 
         start = time.time()
-        res = run_iteration(self.project_root, agent=agent, cfg=cfg, iteration=iter_n)
+        res = run_iteration(
+            self.project_root,
+            agent=agent,
+            cfg=cfg,
+            iteration=iter_n,
+            task_override=task,
+        )
         dur = time.time() - start
 
         self._event(
@@ -197,6 +209,11 @@ class BridgeServer:
             repoClean=res.repo_clean,
             gatesOk=res.gates_ok,
             judgeOk=res.judge_ok,
+            reviewOk=res.review_ok,
+            blocked=res.blocked,
+            attemptId=res.attempt_id,
+            receiptsDir=res.receipts_dir,
+            contextDir=res.context_dir,
             durationSeconds=round(dur, 2),
             logPath=str(res.log_path),
         )
@@ -234,7 +251,7 @@ class BridgeServer:
                     iter_n = start_iter + offset
 
                     try:
-                        task = tracker.peek_next_task()
+                        task = tracker.select_next_task()
                     except Exception:
                         task = None
 
@@ -253,6 +270,7 @@ class BridgeServer:
                         agent=agent,
                         cfg=cfg,
                         iteration=iter_n,
+                        task_override=task,
                     )
                     dur = time.time() - start
 
@@ -267,6 +285,11 @@ class BridgeServer:
                         repoClean=res.repo_clean,
                         gatesOk=res.gates_ok,
                         judgeOk=res.judge_ok,
+                        reviewOk=res.review_ok,
+                        blocked=res.blocked,
+                        attemptId=res.attempt_id,
+                        receiptsDir=res.receipts_dir,
+                        contextDir=res.context_dir,
                         durationSeconds=round(dur, 2),
                         logPath=str(res.log_path),
                     )

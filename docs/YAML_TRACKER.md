@@ -79,6 +79,8 @@ tasks:
 - `group` (string): Parallel execution group (default: "default")
 - `priority` (integer): Task priority for sorting
 - `completed` (boolean): Completion status (default: false)
+- `blocked` (boolean): Marks a task as blocked (treated as done for loop exit)
+- `blocked_reason` (string): Optional reason for block
 - `acceptance` (array of strings): Acceptance criteria
 
 ## Schema Validation
