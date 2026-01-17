@@ -1,0 +1,41 @@
+# Example configuration for GitHub Issues tracker
+# Place this in .ralph/ralph.toml
+
+[tracker]
+# Set tracker kind to use GitHub Issues
+kind = "github_issues"
+
+[tracker.github]
+# Required: GitHub repository in "owner/repo" format
+repo = "myorg/myrepo"
+
+# Authentication method: "gh_cli" (default) or "token"
+# gh_cli: Uses GitHub CLI (gh) for authentication (recommended)
+# token: Uses personal access token from environment variable
+auth_method = "gh_cli"
+
+# Environment variable name for token authentication (default: GITHUB_TOKEN)
+# Only used when auth_method = "token"
+token_env = "GITHUB_TOKEN"
+
+# Label that issues must have to be tracked (default: "ready")
+label_filter = "ready"
+
+# Labels that exclude issues from being tracked (default: ["blocked"])
+exclude_labels = ["blocked", "wontfix", "duplicate"]
+
+# Whether to close issues when tasks complete (default: true)
+close_on_done = true
+
+# Whether to add completion comments to issues (default: true)
+comment_on_done = true
+
+# Labels to add when starting work on an issue (default: ["in-progress"])
+add_labels_on_start = ["in-progress", "automated"]
+
+# Labels to add when completing an issue (default: ["completed"])
+add_labels_on_done = ["completed", "verified"]
+
+# Cache time-to-live in seconds (default: 300 = 5 minutes)
+# Reduces GitHub API calls by caching issue data locally
+cache_ttl_seconds = 300

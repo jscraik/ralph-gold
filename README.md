@@ -179,17 +179,74 @@ The `-` means "read prompt from stdin".
 
 Built-ins:
 
-- Markdown tracker: checkbox tasks in `PRD.md`
-- JSON tracker: `prd.json`
+- **Markdown tracker**: checkbox tasks in `PRD.md`
+- **JSON tracker**: `prd.json`
+- **YAML tracker**: `tasks.yaml` with parallel execution support
 
 Select via:
 
 ```toml
 [tracker]
-kind = "auto"    # auto|markdown|json|beads
+kind = "auto"    # auto|markdown|json|yaml|beads
 ```
 
 `beads` is supported as an optional tracker (requires the `bd` CLI to be installed).
+
+### YAML Tracker
+
+The YAML tracker provides structured task tracking with native parallel execution grouping:
+
+```yaml
+version: 1
+metadata:
+  project: my-app
+  branch: ralph/my-feature
+
+tasks:
+  - id: 1
+    title: Implement authentication API
+    group: backend
+    completed: false
+    acceptance:
+      - User can login with email/password
+      - JWT token returned on success
+      
+  - id: 2
+    title: Create login UI component
+    group: frontend
+    completed: false
+    acceptance:
+      - Login form with email and password fields
+      - Error messages displayed on failure
+```
+
+**Initialize with YAML:**
+
+```bash
+ralph init --format yaml
+```
+
+**Convert existing PRD to YAML:**
+
+```bash
+# From JSON
+ralph convert .ralph/prd.json tasks.yaml
+
+# From Markdown
+ralph convert .ralph/PRD.md tasks.yaml
+
+# With automatic group inference
+ralph convert .ralph/prd.json tasks.yaml --infer-groups
+```
+
+**Benefits:**
+
+- Structured schema with validation
+- Parallel execution groups (tasks in different groups can run concurrently)
+- Comments support for documentation
+- Machine-editable format
+
+See [docs/YAML_TRACKER.md](docs/YAML_TRACKER.md) for complete documentation.
 
 ---
 

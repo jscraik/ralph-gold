@@ -1,0 +1,235 @@
+"""YAML-based task tracker with native parallel grouping support."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import yaml
+
+from ..prd import SelectedTask, TaskId
+
+
+@dataclass
+class YamlTracker:
+    """YAML-based task tracker with native parallel grouping.
+
+    Supports the YAML task format with version, metadata, and tasks.
+    Tasks can declare a "group" field for parallel scheduling.
+    """
+
+    prd_path: Path
+    data: Dict[str, Any]
+
+    def __init__(self, prd_path: Path):
+        """Initialize YamlTracker and load/validate YAML file.
+
+        Args:
+            prd_path: Path to the tasks.yaml file
+
+        Raises:
+            ValueError: If YAML is invalid or doesn't match schema
+            FileNotFoundError: If YAML file doesn't exist
+        """
+        self.prd_path = prd_path
+        self.data = self._load_and_validate()
+
+    @property
+    def kind(self) -> str:
+        """Return tracker kind identifier."""
+        return "yaml"
+
+    def _load_and_validate(self) -> Dict[str, Any]:
+        """Load YAML and validate against schema.
+
+        Returns:
+            Parsed YAML data as dictionary
+
+        Raises:
+            ValueError: If YAML is invalid or doesn't match schema
+            FileNotFoundError: If file doesn't exist
+        """
+        if not self.prd_path.exists():
+            raise FileNotFoundError(f"YAML file not found: {self.prd_path}")
+
+        try:
+            with open(self.prd_path, "r") as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML syntax: {e}")
+
+        if not isinstance(data, dict):
+            raise ValueError("YAML root must be a dictionary")
+
+        # Validate version
+        version = data.get("version")
+        if version != 1:
+            raise ValueError(f"Unsupported YAML version: {version} (expected 1)")
+
+        # Validate tasks structure
+        if "tasks" not in data:
+            raise ValueError("YAML must have 'tasks' field")
+
+        if not isinstance(data["tasks"], list):
+            raise ValueError("YAML 'tasks' field must be a list")
+
+        # Validate each task has required fields
+        for i, task in enumerate(data["tasks"]):
+            if not isinstance(task, dict):
+                raise ValueError(f"Task at index {i} must be a dictionary")
+
+            if "id" not in task:
+                raise ValueError(f"Task at index {i} missing required 'id' field")
+
+            if "title" not in task:
+                raise ValueError(f"Task at index {i} missing required 'title' field")
+
+        return data
+
+    def _task_from_data(self, task_data: Dict[str, Any]) -> SelectedTask:
+        """Convert YAML task data to SelectedTask.
+
+        Args:
+            task_data: Task dictionary from YAML
+
+        Returns:
+            SelectedTask instance
+        """
+        task_id = str(task_data["id"])
+        title = str(task_data["title"])
+
+        # Extract acceptance criteria
+        acceptance = task_data.get("acceptance", [])
+        if not isinstance(acceptance, list):
+            acceptance = []
+        acceptance = [str(item) for item in acceptance]
+
+        return SelectedTask(id=task_id, title=title, kind="yaml", acceptance=acceptance)
+
+    def peek_next_task(self) -> Optional[SelectedTask]:
+        """Return the next available task without claiming it.
+
+        Returns:
+            Next uncompleted task, or None if all tasks are done
+        """
+        for task_data in self.data["tasks"]:
+            if not task_data.get("completed", False):
+                return self._task_from_data(task_data)
+        return None
+
+    def claim_next_task(self) -> Optional[SelectedTask]:
+        """Claim the next available task.
+
+        For YAML tracker, this is the same as peek_next_task since
+        we don't modify the file on claim (only on completion).
+
+        Returns:
+            Next uncompleted task, or None if all tasks are done
+        """
+        return self.peek_next_task()
+
+    def counts(self) -> Tuple[int, int]:
+        """Return (completed_count, total_count) for tasks.
+
+        Returns:
+            Tuple of (completed, total) task counts
+        """
+        tasks = self.data.get("tasks", [])
+        total = len(tasks)
+        completed = sum(1 for task in tasks if task.get("completed", False))
+        return (completed, total)
+
+    def all_done(self) -> bool:
+        """Check if all tasks are completed.
+
+        Returns:
+            True if all tasks are marked as completed
+        """
+        tasks = self.data.get("tasks", [])
+        if not tasks:
+            return True
+        return all(task.get("completed", False) for task in tasks)
+
+    def is_task_done(self, task_id: TaskId) -> bool:
+        """Check if a specific task is marked done.
+
+        Args:
+            task_id: Task identifier to check
+
+        Returns:
+            True if task is marked as completed
+        """
+        for task in self.data.get("tasks", []):
+            if str(task.get("id")) == str(task_id):
+                return task.get("completed", False)
+        return False
+
+    def force_task_open(self, task_id: TaskId) -> bool:
+        """Force a task to be marked as open (not completed).
+
+        This modifies the YAML file to set completed=false for the task.
+
+        Args:
+            task_id: Task identifier to reopen
+
+        Returns:
+            True if task was found and reopened, False otherwise
+        """
+        found = False
+        for task in self.data.get("tasks", []):
+            if str(task.get("id")) == str(task_id):
+                task["completed"] = False
+                found = True
+                break
+
+        if found:
+            # Write updated data back to file
+            with open(self.prd_path, "w") as f:
+                yaml.safe_dump(self.data, f, default_flow_style=False, sort_keys=False)
+
+        return found
+
+    def branch_name(self) -> Optional[str]:
+        """Return the branch name from metadata, if specified.
+
+        Returns:
+            Branch name from metadata, or None if not specified
+        """
+        metadata = self.data.get("metadata", {})
+        if isinstance(metadata, dict):
+            branch = metadata.get("branch")
+            if branch:
+                return str(branch)
+        return None
+
+    def get_parallel_groups(self) -> Dict[str, List[SelectedTask]]:
+        """Return tasks grouped by parallel group.
+
+        Tasks are grouped by their "group" field. Tasks without a group
+        field default to the "default" group.
+
+        Only uncompleted tasks are included in the groups.
+
+        Returns:
+            Dictionary mapping group names to lists of SelectedTask instances
+        """
+        groups: Dict[str, List[SelectedTask]] = {}
+
+        for task_data in self.data.get("tasks", []):
+            # Skip completed tasks
+            if task_data.get("completed", False):
+                continue
+
+            # Get group name (default to "default")
+            group = str(task_data.get("group", "default"))
+
+            # Convert to SelectedTask
+            task = self._task_from_data(task_data)
+
+            # Add to group
+            if group not in groups:
+                groups[group] = []
+            groups[group].append(task)
+
+        return groups

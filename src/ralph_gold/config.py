@@ -72,10 +72,52 @@ class GitConfig:
 
 
 @dataclass(frozen=True)
+class GitHubTrackerConfig:
+    """Configuration for GitHub Issues tracker."""
+
+    repo: str = ""
+    auth_method: str = "gh_cli"  # gh_cli|token
+    token_env: str = "GITHUB_TOKEN"
+    label_filter: str = "ready"
+    exclude_labels: List[str] = None  # type: ignore
+    close_on_done: bool = True
+    comment_on_done: bool = True
+    add_labels_on_start: List[str] = None  # type: ignore
+    add_labels_on_done: List[str] = None  # type: ignore
+    cache_ttl_seconds: int = 300
+
+    def __post_init__(self) -> None:
+        """Initialize mutable default values."""
+        if self.exclude_labels is None:
+            object.__setattr__(self, "exclude_labels", ["blocked"])
+        if self.add_labels_on_start is None:
+            object.__setattr__(self, "add_labels_on_start", ["in-progress"])
+        if self.add_labels_on_done is None:
+            object.__setattr__(self, "add_labels_on_done", ["completed"])
+
+
+@dataclass(frozen=True)
 class TrackerConfig:
-    # auto|markdown|json|beads
+    # auto|markdown|json|beads|yaml|github_issues
     kind: str = "auto"
     plugin: str = ""  # optional: module:callable
+    github: GitHubTrackerConfig = None  # type: ignore
+
+    def __post_init__(self) -> None:
+        """Initialize mutable default values."""
+        if self.github is None:
+            object.__setattr__(self, "github", GitHubTrackerConfig())
+
+
+@dataclass(frozen=True)
+class ParallelConfig:
+    """Configuration for parallel execution with git worktrees."""
+
+    enabled: bool = False
+    max_workers: int = 3
+    worktree_root: str = ".ralph/worktrees"
+    strategy: str = "queue"  # queue|group
+    merge_policy: str = "manual"  # manual|auto_merge
 
 
 @dataclass(frozen=True)
@@ -86,6 +128,7 @@ class Config:
     gates: GatesConfig
     git: GitConfig
     tracker: TrackerConfig
+    parallel: ParallelConfig
 
 
 # -------------------------
@@ -202,12 +245,15 @@ def load_config(project_root: Path) -> Config:
     gates_raw = data.get("gates", {}) or {}
     git_raw = data.get("git", {}) or {}
     tracker_raw = data.get("tracker", {}) or {}
+    parallel_raw = data.get("parallel", {}) or {}
 
     loop = LoopConfig(
         max_iterations=_coerce_int(loop_raw.get("max_iterations"), 10),
         no_progress_limit=_coerce_int(loop_raw.get("no_progress_limit"), 3),
         rate_limit_per_hour=_coerce_int(loop_raw.get("rate_limit_per_hour"), 0),
-        sleep_seconds_between_iters=_coerce_int(loop_raw.get("sleep_seconds_between_iters"), 0),
+        sleep_seconds_between_iters=_coerce_int(
+            loop_raw.get("sleep_seconds_between_iters"), 0
+        ),
         runner_timeout_seconds=_coerce_int(loop_raw.get("runner_timeout_seconds"), 900),
     )
 
@@ -217,7 +263,9 @@ def load_config(project_root: Path) -> Config:
         progress=str(files_raw.get("progress", FilesConfig.progress)),
         prompt=str(files_raw.get("prompt", FilesConfig.prompt)),
         agents=str(files_raw.get("agents", FilesConfig.agents)),
-        specs_dir=str(files_raw.get("specs_dir", files_raw.get("specsDir", FilesConfig.specs_dir))),
+        specs_dir=str(
+            files_raw.get("specs_dir", files_raw.get("specsDir", FilesConfig.specs_dir))
+        ),
     )
 
     # Resolve common filename mismatches automatically (prevents hard crashes).
@@ -225,7 +273,13 @@ def load_config(project_root: Path) -> Config:
         prd=_resolve_existing(
             project_root,
             files.prd,
-            [".ralph/PRD.md", ".ralph/prd.json", "PRD.md", "prd.json", "IMPLEMENTATION_PLAN.md"],
+            [
+                ".ralph/PRD.md",
+                ".ralph/prd.json",
+                "PRD.md",
+                "prd.json",
+                "IMPLEMENTATION_PLAN.md",
+            ],
         ),
         progress=_resolve_existing(
             project_root,
@@ -235,7 +289,12 @@ def load_config(project_root: Path) -> Config:
         prompt=_resolve_existing(
             project_root,
             files.prompt,
-            [".ralph/PROMPT_build.md", ".ralph/PROMPT.md", "PROMPT_build.md", "PROMPT.md"],
+            [
+                ".ralph/PROMPT_build.md",
+                ".ralph/PROMPT.md",
+                "PROMPT_build.md",
+                "PROMPT.md",
+            ],
         ),
         agents=_resolve_existing(
             project_root,
@@ -285,33 +344,159 @@ def load_config(project_root: Path) -> Config:
         llm_raw = {}
 
     llm_judge = LlmJudgeConfig(
-        enabled=_coerce_bool(llm_raw.get("enabled", gates_raw.get("llm_judge_enabled")), False),
+        enabled=_coerce_bool(
+            llm_raw.get("enabled", gates_raw.get("llm_judge_enabled")), False
+        ),
         agent=str(llm_raw.get("agent", gates_raw.get("llm_judge_agent", "claude"))),
-        prompt=str(llm_raw.get("prompt", gates_raw.get("llm_judge_prompt", FilesConfig.prompt.replace("PROMPT_build", "PROMPT_judge")))),
-        max_diff_chars=_coerce_int(llm_raw.get("max_diff_chars", gates_raw.get("llm_judge_max_diff_chars", 30000)), 30000),
+        prompt=str(
+            llm_raw.get(
+                "prompt",
+                gates_raw.get(
+                    "llm_judge_prompt",
+                    FilesConfig.prompt.replace("PROMPT_build", "PROMPT_judge"),
+                ),
+            )
+        ),
+        max_diff_chars=_coerce_int(
+            llm_raw.get(
+                "max_diff_chars", gates_raw.get("llm_judge_max_diff_chars", 30000)
+            ),
+            30000,
+        ),
     )
 
     gates = GatesConfig(
         commands=gate_cmds,
         llm_judge=llm_judge,
-        precommit_hook=_coerce_bool(gates_raw.get("precommit_hook", gates_raw.get("precommitHook")), False),
-        fail_fast=_coerce_bool(gates_raw.get("fail_fast", gates_raw.get("failFast")), True),
-        output_mode=str(gates_raw.get("output_mode", gates_raw.get("outputMode", "summary"))),
-        max_output_lines=_coerce_int(gates_raw.get("max_output_lines", gates_raw.get("maxOutputLines")), 50),
+        precommit_hook=_coerce_bool(
+            gates_raw.get("precommit_hook", gates_raw.get("precommitHook")), False
+        ),
+        fail_fast=_coerce_bool(
+            gates_raw.get("fail_fast", gates_raw.get("failFast")), True
+        ),
+        output_mode=str(
+            gates_raw.get("output_mode", gates_raw.get("outputMode", "summary"))
+        ),
+        max_output_lines=_coerce_int(
+            gates_raw.get("max_output_lines", gates_raw.get("maxOutputLines")), 50
+        ),
     )
 
     git = GitConfig(
-        branch_strategy=str(git_raw.get("branch_strategy", git_raw.get("branchStrategy", GitConfig.branch_strategy))),
-        base_branch=str(git_raw.get("base_branch", git_raw.get("baseBranch", GitConfig.base_branch))),
-        branch_prefix=str(git_raw.get("branch_prefix", git_raw.get("branchPrefix", GitConfig.branch_prefix))),
-        auto_commit=_coerce_bool(git_raw.get("auto_commit", git_raw.get("autoCommit")), GitConfig.auto_commit),
-        commit_message_template=str(git_raw.get("commit_message_template", git_raw.get("commitMessageTemplate", GitConfig.commit_message_template))),
-        amend_if_needed=_coerce_bool(git_raw.get("amend_if_needed", git_raw.get("amendIfNeeded")), GitConfig.amend_if_needed),
+        branch_strategy=str(
+            git_raw.get(
+                "branch_strategy",
+                git_raw.get("branchStrategy", GitConfig.branch_strategy),
+            )
+        ),
+        base_branch=str(
+            git_raw.get("base_branch", git_raw.get("baseBranch", GitConfig.base_branch))
+        ),
+        branch_prefix=str(
+            git_raw.get(
+                "branch_prefix", git_raw.get("branchPrefix", GitConfig.branch_prefix)
+            )
+        ),
+        auto_commit=_coerce_bool(
+            git_raw.get("auto_commit", git_raw.get("autoCommit")), GitConfig.auto_commit
+        ),
+        commit_message_template=str(
+            git_raw.get(
+                "commit_message_template",
+                git_raw.get("commitMessageTemplate", GitConfig.commit_message_template),
+            )
+        ),
+        amend_if_needed=_coerce_bool(
+            git_raw.get("amend_if_needed", git_raw.get("amendIfNeeded")),
+            GitConfig.amend_if_needed,
+        ),
+    )
+
+    # Parse GitHub tracker configuration
+    github_raw = tracker_raw.get("github", {}) or {}
+    if not isinstance(github_raw, dict):
+        github_raw = {}
+
+    # Parse exclude_labels list
+    exclude_labels_raw = github_raw.get("exclude_labels", ["blocked"])
+    if isinstance(exclude_labels_raw, list):
+        exclude_labels = [str(x) for x in exclude_labels_raw]
+    else:
+        exclude_labels = ["blocked"]
+
+    # Parse add_labels_on_start list
+    add_labels_on_start_raw = github_raw.get("add_labels_on_start", ["in-progress"])
+    if isinstance(add_labels_on_start_raw, list):
+        add_labels_on_start = [str(x) for x in add_labels_on_start_raw]
+    else:
+        add_labels_on_start = ["in-progress"]
+
+    # Parse add_labels_on_done list
+    add_labels_on_done_raw = github_raw.get("add_labels_on_done", ["completed"])
+    if isinstance(add_labels_on_done_raw, list):
+        add_labels_on_done = [str(x) for x in add_labels_on_done_raw]
+    else:
+        add_labels_on_done = ["completed"]
+
+    github_config = GitHubTrackerConfig(
+        repo=str(github_raw.get("repo", "")),
+        auth_method=str(github_raw.get("auth_method", "gh_cli")),
+        token_env=str(github_raw.get("token_env", "GITHUB_TOKEN")),
+        label_filter=str(github_raw.get("label_filter", "ready")),
+        exclude_labels=exclude_labels,
+        close_on_done=_coerce_bool(github_raw.get("close_on_done"), True),
+        comment_on_done=_coerce_bool(github_raw.get("comment_on_done"), True),
+        add_labels_on_start=add_labels_on_start,
+        add_labels_on_done=add_labels_on_done,
+        cache_ttl_seconds=_coerce_int(github_raw.get("cache_ttl_seconds"), 300),
     )
 
     tracker = TrackerConfig(
         kind=str(tracker_raw.get("kind", TrackerConfig.kind)).strip() or "auto",
-        plugin=str(tracker_raw.get("plugin", tracker_raw.get("plugin_path", ""))).strip(),
+        plugin=str(
+            tracker_raw.get("plugin", tracker_raw.get("plugin_path", ""))
+        ).strip(),
+        github=github_config,
     )
 
-    return Config(loop=loop, files=files, runners=runners, gates=gates, git=git, tracker=tracker)
+    # Parse parallel configuration
+    if not isinstance(parallel_raw, dict):
+        parallel_raw = {}
+
+    # Validate strategy
+    strategy = str(parallel_raw.get("strategy", "queue")).strip().lower()
+    if strategy not in {"queue", "group"}:
+        raise ValueError(
+            f"Invalid parallel.strategy: {strategy!r}. Must be 'queue' or 'group'."
+        )
+
+    # Validate merge_policy
+    merge_policy = str(parallel_raw.get("merge_policy", "manual")).strip().lower()
+    if merge_policy not in {"manual", "auto_merge"}:
+        raise ValueError(
+            f"Invalid parallel.merge_policy: {merge_policy!r}. "
+            f"Must be 'manual' or 'auto_merge'."
+        )
+
+    # Validate max_workers
+    max_workers = _coerce_int(parallel_raw.get("max_workers"), 3)
+    if max_workers < 1:
+        raise ValueError(f"Invalid parallel.max_workers: {max_workers}. Must be >= 1.")
+
+    parallel = ParallelConfig(
+        enabled=_coerce_bool(parallel_raw.get("enabled"), False),
+        max_workers=max_workers,
+        worktree_root=str(parallel_raw.get("worktree_root", ".ralph/worktrees")),
+        strategy=strategy,
+        merge_policy=merge_policy,
+    )
+
+    return Config(
+        loop=loop,
+        files=files,
+        runners=runners,
+        gates=gates,
+        git=git,
+        tracker=tracker,
+        parallel=parallel,
+    )

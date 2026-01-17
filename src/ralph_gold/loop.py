@@ -15,9 +15,9 @@ from .config import Config, RunnerConfig, load_config
 from .prd import SelectedTask
 from .trackers import make_tracker
 
-
 EXIT_RE = re.compile(r"EXIT_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
 JUDGE_RE = re.compile(r"JUDGE_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
+
 
 def _coerce_text(value: object) -> str:
     if value is None:
@@ -80,7 +80,9 @@ def ensure_git_repo(project_root: Path) -> None:
             text=True,
         )
     except Exception as e:
-        raise RuntimeError("This tool must be run inside a git repository (git init).") from e
+        raise RuntimeError(
+            "This tool must be run inside a git repository (git init)."
+        ) from e
 
 
 def git_head(project_root: Path) -> str:
@@ -128,7 +130,9 @@ def git_checkout(project_root: Path, branch: str) -> None:
     )
 
 
-def git_create_and_checkout(project_root: Path, branch: str, base_ref: Optional[str]) -> None:
+def git_create_and_checkout(
+    project_root: Path, branch: str, base_ref: Optional[str]
+) -> None:
     argv = ["git", "checkout", "-b", branch]
     if base_ref:
         argv.append(base_ref)
@@ -141,9 +145,7 @@ def git_create_and_checkout(project_root: Path, branch: str, base_ref: Optional[
     )
 
 
-_IGNORED_GIT_STATUS_PREFIXES = (
-    ".ralph/",
-)
+_IGNORED_GIT_STATUS_PREFIXES = (".ralph/",)
 
 
 def _git_status_lines(project_root: Path) -> List[str]:
@@ -220,7 +222,9 @@ def parse_judge_signal(output: str) -> Optional[bool]:
     return _parse_bool_signal(output, JUDGE_RE)
 
 
-def build_prompt(project_root: Path, cfg: Config, task: Optional[SelectedTask], iteration: int) -> str:
+def build_prompt(
+    project_root: Path, cfg: Config, task: Optional[SelectedTask], iteration: int
+) -> str:
     """Build the per-iteration prompt.
 
     Design goal:
@@ -255,7 +259,9 @@ def build_prompt(project_root: Path, cfg: Config, task: Optional[SelectedTask], 
     prompt_lines.append("")
     prompt_lines.append("Hard iteration constraints:")
     prompt_lines.append("- One task per iteration (one commit per iteration).")
-    prompt_lines.append("- Apply backpressure: run the commands in AGENTS.md and fix until they pass.")
+    prompt_lines.append(
+        "- Apply backpressure: run the commands in AGENTS.md and fix until they pass."
+    )
     prompt_lines.append("")
 
     if task is not None:
@@ -271,8 +277,12 @@ def build_prompt(project_root: Path, cfg: Config, task: Optional[SelectedTask], 
         prompt_lines.append("Do not work on any other task in this iteration.")
         prompt_lines.append("")
     else:
-        prompt_lines.append("No task was selected (task file may be empty or malformed).")
-        prompt_lines.append("If the task file is complete, confirm and prepare to exit.")
+        prompt_lines.append(
+            "No task was selected (task file may be empty or malformed)."
+        )
+        prompt_lines.append(
+            "If the task file is complete, confirm and prepare to exit."
+        )
         prompt_lines.append("")
 
     prompt_lines.append("Exit protocol (required):")
@@ -282,7 +292,9 @@ def build_prompt(project_root: Path, cfg: Config, task: Optional[SelectedTask], 
     return "\n".join(prompt_lines) + "\n"
 
 
-def build_runner_invocation(agent: str, argv_template: List[str], prompt_text: str) -> Tuple[List[str], Optional[str]]:
+def build_runner_invocation(
+    agent: str, argv_template: List[str], prompt_text: str
+) -> Tuple[List[str], Optional[str]]:
     """Build argv and optional stdin for the configured agent runner.
 
     Key rule for Codex:
@@ -380,7 +392,6 @@ def next_iteration_number(project_root: Path) -> int:
     return 1
 
 
-
 def _rate_limit_ok(state: Dict[str, Any], per_hour: int) -> Tuple[bool, int]:
     """Returns (ok, remaining_wait_seconds). If disabled, ok=True."""
 
@@ -418,25 +429,27 @@ def _gate_shell_argv(cmd: str) -> List[str]:
 
 def _discover_precommit_hook(project_root: Path) -> Optional[Path]:
     """Auto-discover pre-commit hook in .husky/ or .git/hooks/."""
-    
+
     # Prefer Husky (modern standard)
     husky = project_root / ".husky" / "pre-commit"
     if husky.exists() and husky.is_file():
         return husky
-    
+
     # Fallback to git hooks
     git_hook = project_root / ".git" / "hooks" / "pre-commit"
     if git_hook.exists() and git_hook.is_file():
         return git_hook
-    
+
     return None
 
 
-def _run_gate_command(project_root: Path, cmd: str, is_precommit_hook: bool = False) -> GateResult:
+def _run_gate_command(
+    project_root: Path, cmd: str, is_precommit_hook: bool = False
+) -> GateResult:
     """Run a single gate command in a predictable shell environment."""
 
     start = time.time()
-    
+
     if is_precommit_hook:
         # Pre-commit hooks need to be executed directly with proper permissions
         hook_path = Path(cmd)
@@ -444,7 +457,7 @@ def _run_gate_command(project_root: Path, cmd: str, is_precommit_hook: bool = Fa
             argv = [str(hook_path)]
         else:
             argv = [str(project_root / cmd)]
-        
+
         # Ensure hook is executable
         try:
             hook_file = Path(argv[0])
@@ -452,7 +465,7 @@ def _run_gate_command(project_root: Path, cmd: str, is_precommit_hook: bool = Fa
                 hook_file.chmod(hook_file.stat().st_mode | 0o111)
         except Exception:
             pass
-        
+
         cp = subprocess.run(
             argv,
             cwd=str(project_root),
@@ -467,7 +480,7 @@ def _run_gate_command(project_root: Path, cmd: str, is_precommit_hook: bool = Fa
             capture_output=True,
             text=True,
         )
-    
+
     return GateResult(
         cmd=cmd,
         return_code=int(cp.returncode),
@@ -478,36 +491,40 @@ def _run_gate_command(project_root: Path, cmd: str, is_precommit_hook: bool = Fa
     )
 
 
-def run_gates(project_root: Path, commands: List[str], cfg: GatesConfig) -> Tuple[bool, List[GateResult]]:
+def run_gates(
+    project_root: Path, commands: List[str], cfg: GatesConfig
+) -> Tuple[bool, List[GateResult]]:
     """Run all configured gates with fail-fast and pre-commit hook support."""
-    
+
     all_commands = list(commands)
-    
+
     # Auto-discover and prepend pre-commit hook if enabled
     if cfg.precommit_hook:
         hook_path = _discover_precommit_hook(project_root)
         if hook_path:
             # Insert at beginning for fail-fast (hooks are typically fast)
             all_commands.insert(0, str(hook_path))
-    
+
     if not all_commands:
         return True, []
-    
+
     results: List[GateResult] = []
     ok = True
-    
+
     for cmd in all_commands:
         # Check if this is the pre-commit hook
-        is_hook = cfg.precommit_hook and (cmd.endswith("pre-commit") or "/.husky/" in cmd or "/.git/hooks/" in cmd)
-        
+        is_hook = cfg.precommit_hook and (
+            cmd.endswith("pre-commit") or "/.husky/" in cmd or "/.git/hooks/" in cmd
+        )
+
         res = _run_gate_command(project_root, cmd, is_precommit_hook=is_hook)
         results.append(res)
-        
+
         if res.return_code != 0:
             ok = False
             if cfg.fail_fast:
                 break
-    
+
     return ok, results
 
 
@@ -515,40 +532,45 @@ def _truncate_output(text: str, max_lines: int) -> str:
     """Truncate output to max_lines, keeping first and last portions."""
     if max_lines <= 0:
         return text
-    
+
     lines = text.splitlines()
     if len(lines) <= max_lines:
         return text
-    
+
     # Keep first 60% and last 40% of allowed lines
     head_count = int(max_lines * 0.6)
     tail_count = max_lines - head_count
-    
+
     head = lines[:head_count]
     tail = lines[-tail_count:] if tail_count > 0 else []
-    
+
     truncated = head + [f"... ({len(lines) - max_lines} lines truncated) ..."] + tail
     return "\n".join(truncated)
 
 
-def _format_gate_results(gates_ok: Optional[bool], results: List[GateResult], output_mode: str = "summary", max_lines: int = 50) -> str:
+def _format_gate_results(
+    gates_ok: Optional[bool],
+    results: List[GateResult],
+    output_mode: str = "summary",
+    max_lines: int = 50,
+) -> str:
     """Format gate results with configurable output verbosity."""
-    
+
     if gates_ok is None:
         return "(gates: not configured)"
     if not results:
         return "(gates: configured but empty)"
-    
+
     status = "PASS" if gates_ok else "FAIL"
     lines: List[str] = [f"gates_overall: {status}"]
-    
+
     for i, r in enumerate(results, start=1):
         lines.append("")
         hook_label = " [pre-commit-hook]" if r.is_precommit_hook else ""
         lines.append(f"gate_{i}_cmd: {r.cmd}{hook_label}")
         lines.append(f"gate_{i}_return_code: {r.return_code}")
         lines.append(f"gate_{i}_duration_seconds: {r.duration_seconds:.2f}")
-        
+
         # Output mode logic
         if output_mode == "errors_only":
             # Only show output for failed gates
@@ -559,7 +581,7 @@ def _format_gate_results(gates_ok: Optional[bool], results: List[GateResult], ou
                 if r.stderr.strip():
                     lines.append("--- gate stderr (errors only) ---")
                     lines.append(_truncate_output(r.stderr.rstrip(), max_lines))
-        
+
         elif output_mode == "summary":
             # Show truncated output for all gates
             if r.stdout.strip():
@@ -568,7 +590,7 @@ def _format_gate_results(gates_ok: Optional[bool], results: List[GateResult], ou
             if r.stderr.strip():
                 lines.append("--- gate stderr (summary) ---")
                 lines.append(_truncate_output(r.stderr.rstrip(), max_lines))
-        
+
         else:  # "full"
             # Show complete output
             if r.stdout.strip():
@@ -577,7 +599,7 @@ def _format_gate_results(gates_ok: Optional[bool], results: List[GateResult], ou
             if r.stderr.strip():
                 lines.append("--- gate stderr ---")
                 lines.append(r.stderr.rstrip())
-    
+
     return "\n".join(lines) + "\n"
 
 
@@ -598,7 +620,9 @@ def _git_capture(project_root: Path, argv: List[str]) -> str:
     return out
 
 
-def _diff_for_judge(project_root: Path, head_before: str, head_after: str, max_chars: int) -> str:
+def _diff_for_judge(
+    project_root: Path, head_before: str, head_after: str, max_chars: int
+) -> str:
     """Collect a reasonably informative diff payload for the judge."""
 
     parts: List[str] = []
@@ -617,7 +641,9 @@ def _diff_for_judge(project_root: Path, head_before: str, head_after: str, max_c
     else:
         try:
             diff = _git_capture(project_root, ["git", "diff", "--no-color"])
-            parts.append("\n# git diff (working tree)\n" + (diff.strip() or "(no diff)"))
+            parts.append(
+                "\n# git diff (working tree)\n" + (diff.strip() or "(no diff)")
+            )
         except Exception:
             pass
 
@@ -628,7 +654,14 @@ def _diff_for_judge(project_root: Path, head_before: str, head_after: str, max_c
     return combined
 
 
-def build_judge_prompt(project_root: Path, cfg: Config, task: SelectedTask, diff_text: str, gates_ok: Optional[bool], gate_results: List[GateResult]) -> str:
+def build_judge_prompt(
+    project_root: Path,
+    cfg: Config,
+    task: SelectedTask,
+    diff_text: str,
+    gates_ok: Optional[bool],
+    gate_results: List[GateResult],
+) -> str:
     """Build the LLM-as-judge prompt."""
 
     prompt_path = project_root / cfg.gates.llm_judge.prompt
@@ -648,7 +681,9 @@ def build_judge_prompt(project_root: Path, cfg: Config, task: SelectedTask, diff
         lines.append("(missing PROMPT_judge.md; using fallback instructions)")
         lines.append("")
         lines.append("You are a strict reviewer.")
-        lines.append("Return JUDGE_SIGNAL: true only when the task is complete and correct.")
+        lines.append(
+            "Return JUDGE_SIGNAL: true only when the task is complete and correct."
+        )
         lines.append("")
 
     lines.append("## Orchestrator Addendum (auto-generated)")
@@ -674,8 +709,12 @@ def build_judge_prompt(project_root: Path, cfg: Config, task: SelectedTask, diff
     lines.append("```")
     lines.append("")
     lines.append("Decision protocol:")
-    lines.append("- If anything important is missing/incorrect, return JUDGE_SIGNAL: false.")
-    lines.append("- If requirements are satisfied and implementation quality is acceptable, return JUDGE_SIGNAL: true.")
+    lines.append(
+        "- If anything important is missing/incorrect, return JUDGE_SIGNAL: false."
+    )
+    lines.append(
+        "- If requirements are satisfied and implementation quality is acceptable, return JUDGE_SIGNAL: true."
+    )
     lines.append("")
     lines.append("Output format (required):")
     lines.append("- Provide a short rationale (bullets ok).")
@@ -712,7 +751,9 @@ def _normalize_git_branch_name(branch: str) -> str:
     return b
 
 
-def _ensure_feature_branch(project_root: Path, cfg: Config, tracker_branch: Optional[str]) -> Optional[str]:
+def _ensure_feature_branch(
+    project_root: Path, cfg: Config, tracker_branch: Optional[str]
+) -> Optional[str]:
     """Checkout/create a feature branch based on PRD metadata."""
 
     strategy = (cfg.git.branch_strategy or "none").strip().lower()
@@ -724,7 +765,9 @@ def _ensure_feature_branch(project_root: Path, cfg: Config, tracker_branch: Opti
     # Resolve branch name.
     branch = _normalize_git_branch_name(tracker_branch or "")
     if not branch:
-        branch = _normalize_git_branch_name(f"{cfg.git.branch_prefix}{_slugify(project_root.name)}")
+        branch = _normalize_git_branch_name(
+            f"{cfg.git.branch_prefix}{_slugify(project_root.name)}"
+        )
     if not branch:
         return None
 
@@ -777,8 +820,10 @@ def run_iteration(
         )
 
     tracker = make_tracker(project_root, cfg)
-    allow_exit_without_all_done = (tracker.kind == "beads")
-    branch = _ensure_feature_branch(project_root, cfg, tracker_branch=tracker.branch_name())
+    allow_exit_without_all_done = tracker.kind == "beads"
+    branch = _ensure_feature_branch(
+        project_root, cfg, tracker_branch=tracker.branch_name()
+    )
 
     # Capture done count before claiming a task (used for no-progress detection).
     try:
@@ -812,7 +857,9 @@ def run_iteration(
     # Run agent
     start = time.time()
     timed_out = False
-    timeout = cfg.loop.runner_timeout_seconds if cfg.loop.runner_timeout_seconds > 0 else None
+    timeout = (
+        cfg.loop.runner_timeout_seconds if cfg.loop.runner_timeout_seconds > 0 else None
+    )
     try:
         cp = subprocess.run(
             argv,
@@ -824,7 +871,9 @@ def run_iteration(
         )
     except subprocess.TimeoutExpired as e:
         timed_out = True
-        cp = subprocess.CompletedProcess(argv, returncode=124, stdout=e.stdout or "", stderr=e.stderr or "(timeout)")
+        cp = subprocess.CompletedProcess(
+            argv, returncode=124, stdout=e.stdout or "", stderr=e.stderr or "(timeout)"
+        )
     except FileNotFoundError as e:
         cp = subprocess.CompletedProcess(argv, returncode=127, stdout="", stderr=str(e))
     duration_s = time.time() - start
@@ -873,7 +922,9 @@ def run_iteration(
 
             try:
                 jr_runner = _get_runner(cfg, judge_cfg.agent)
-                jr_argv, jr_stdin = build_runner_invocation(judge_cfg.agent, jr_runner.argv, judge_prompt)
+                jr_argv, jr_stdin = build_runner_invocation(
+                    judge_cfg.agent, jr_runner.argv, judge_prompt
+                )
             except Exception as e:
                 judge_result = LlmJudgeResult(
                     enabled=True,
@@ -898,7 +949,12 @@ def run_iteration(
                         timeout=timeout,
                     )
                 except subprocess.TimeoutExpired as e:
-                    j_cp = subprocess.CompletedProcess(jr_argv, returncode=124, stdout=e.stdout or "", stderr=e.stderr or "(timeout)")
+                    j_cp = subprocess.CompletedProcess(
+                        jr_argv,
+                        returncode=124,
+                        stdout=e.stdout or "",
+                        stderr=e.stderr or "(timeout)",
+                    )
                 j_dur = time.time() - j_start
                 j_out = _coerce_text(j_cp.stdout)
                 j_err = _coerce_text(j_cp.stderr)
@@ -935,7 +991,11 @@ def run_iteration(
         done_now = bool(story_id) and tracker.is_task_done(story_id or "")
     except Exception:
         done_now = False
-    status = "DONE" if (done_now and gates_ok is not False and judge_ok is not False) else "CONTINUE"
+    status = (
+        "DONE"
+        if (done_now and gates_ok is not False and judge_ok is not False)
+        else "CONTINUE"
+    )
     checks = "PASS" if gates_ok is not False else "FAIL"
 
     progress_path = project_root / cfg.files.progress
@@ -969,18 +1029,39 @@ def run_iteration(
         if dirty:
             try:
                 # Stage everything, then unstage orchestrator operational state.
-                subprocess.run(["git", "add", "-A"], cwd=str(project_root), check=True, capture_output=True, text=True)
-                subprocess.run(["git", "reset", "--quiet", "--", ".ralph/logs/"], cwd=str(project_root), check=False, capture_output=True, text=True)
-                subprocess.run(["git", "reset", "--quiet", "--", ".ralph/state.json"], cwd=str(project_root), check=False, capture_output=True, text=True)
-
-                # Nothing staged? Don't create empty commits.
-                staged = subprocess.run(
-                    ["git", "diff", "--cached", "--quiet"],
+                subprocess.run(
+                    ["git", "add", "-A"],
                     cwd=str(project_root),
+                    check=True,
                     capture_output=True,
                     text=True,
+                )
+                subprocess.run(
+                    ["git", "reset", "--quiet", "--", ".ralph/logs/"],
+                    cwd=str(project_root),
                     check=False,
-                ).returncode != 0
+                    capture_output=True,
+                    text=True,
+                )
+                subprocess.run(
+                    ["git", "reset", "--quiet", "--", ".ralph/state.json"],
+                    cwd=str(project_root),
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+
+                # Nothing staged? Don't create empty commits.
+                staged = (
+                    subprocess.run(
+                        ["git", "diff", "--cached", "--quiet"],
+                        cwd=str(project_root),
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    ).returncode
+                    != 0
+                )
                 if not staged:
                     commit_action = "noop"
                     commit_rc = 0
@@ -995,7 +1076,9 @@ def run_iteration(
                     commit_action = "amend"
                 else:
                     title = (task.title if task is not None else "no-task").strip()
-                    msg = cfg.git.commit_message_template.format(story_id=story_id or "-", title=title)
+                    msg = cfg.git.commit_message_template.format(
+                        story_id=story_id or "-", title=title
+                    )
                     msg = msg.strip() or f"ralph: {story_id or '-'}"
                     c_cp = subprocess.run(
                         ["git", "commit", "-m", msg],
@@ -1037,7 +1120,7 @@ def run_iteration(
         tracker_done = False
 
     # Beads has no reliable "all done" signal; allow exit if the agent says so.
-    allow_exit_without_all_done = (tracker.kind == "beads")
+    allow_exit_without_all_done = tracker.kind == "beads"
 
     if exit_signal is True and (not tracker_done) and (not allow_exit_without_all_done):
         exit_signal = False
@@ -1064,9 +1147,13 @@ def run_iteration(
                 f"llm_judge_signal_effective: {judge_result.judge_signal_effective}\n"
             )
             if (judge_result.stdout or "").strip():
-                judge_section += "--- judge stdout ---\n" + judge_result.stdout.rstrip() + "\n"
+                judge_section += (
+                    "--- judge stdout ---\n" + judge_result.stdout.rstrip() + "\n"
+                )
             if (judge_result.stderr or "").strip():
-                judge_section += "--- judge stderr ---\n" + judge_result.stderr.rstrip() + "\n"
+                judge_section += (
+                    "--- judge stderr ---\n" + judge_result.stderr.rstrip() + "\n"
+                )
 
     stdin_flag = "true" if stdin_text is not None else "false"
     log_path.write_text(
@@ -1132,10 +1219,22 @@ def run_iteration(
             "judge_enabled": bool(judge_cfg.enabled),
             "judge_agent": str(judge_cfg.agent),
             "judge_ran": bool(judge_result is not None),
-            "judge_return_code": (judge_result.return_code if judge_result is not None else None),
-            "judge_duration_seconds": (round(judge_result.duration_seconds, 2) if judge_result is not None else None),
-            "judge_signal_raw": (judge_result.judge_signal_raw if judge_result is not None else None),
-            "judge_signal_effective": (judge_result.judge_signal_effective if judge_result is not None else None),
+            "judge_return_code": (
+                judge_result.return_code if judge_result is not None else None
+            ),
+            "judge_duration_seconds": (
+                round(judge_result.duration_seconds, 2)
+                if judge_result is not None
+                else None
+            ),
+            "judge_signal_raw": (
+                judge_result.judge_signal_raw if judge_result is not None else None
+            ),
+            "judge_signal_effective": (
+                judge_result.judge_signal_effective
+                if judge_result is not None
+                else None
+            ),
             "timed_out": bool(timed_out),
             "commit_action": commit_action,
             "commit_return_code": commit_rc,
@@ -1173,10 +1272,86 @@ def run_loop(
     agent: str,
     max_iterations: Optional[int] = None,
     cfg: Optional[Config] = None,
+    parallel: bool = False,
+    max_workers: Optional[int] = None,
 ) -> List[IterationResult]:
+    """Run the Ralph loop in sequential or parallel mode.
+
+    Args:
+        project_root: Project root directory
+        agent: Agent/runner to use (e.g., "codex", "claude")
+        max_iterations: Maximum iterations (overrides config)
+        cfg: Configuration (loaded if not provided)
+        parallel: Enable parallel execution (overrides config)
+        max_workers: Number of parallel workers (overrides config)
+
+    Returns:
+        List of iteration results
+    """
     cfg = cfg or load_config(project_root)
     ensure_git_repo(project_root)
 
+    # Determine if parallel mode should be used
+    parallel_enabled = parallel or cfg.parallel.enabled
+
+    # If parallel mode is enabled, try to delegate to ParallelExecutor
+    if parallel_enabled:
+        try:
+            from .parallel import ParallelExecutor
+
+            # Override max_workers if specified
+            if max_workers is not None:
+                from dataclasses import replace
+
+                cfg = replace(
+                    cfg, parallel=replace(cfg.parallel, max_workers=max_workers)
+                )
+
+            # Create parallel executor and run
+            executor = ParallelExecutor(project_root, cfg)
+
+            # Set up parallel logging
+            state_dir = project_root / ".ralph"
+            logs_dir = state_dir / "logs"
+            logs_dir.mkdir(parents=True, exist_ok=True)
+
+            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            parallel_log = logs_dir / f"parallel-{ts}.log"
+
+            # Log parallel execution start
+            with open(parallel_log, "w", encoding="utf-8") as f:
+                f.write("# Ralph Parallel Execution Log\n")
+                f.write(f"timestamp_utc: {ts}\n")
+                f.write(f"agent: {agent}\n")
+                f.write(f"max_workers: {cfg.parallel.max_workers}\n")
+                f.write(f"strategy: {cfg.parallel.strategy}\n")
+                f.write(f"merge_policy: {cfg.parallel.merge_policy}\n")
+                f.write("\n--- Parallel execution started ---\n\n")
+
+            # Run parallel execution
+            tracker = make_tracker(project_root, cfg)
+            results = executor.run_parallel(agent, tracker)
+
+            # Log parallel execution completion
+            with open(parallel_log, "a", encoding="utf-8") as f:
+                f.write("\n--- Parallel execution completed ---\n")
+                f.write(f"total_workers: {len(results)}\n")
+                f.write(
+                    f"successful: {sum(1 for r in results if r.gates_ok is not False)}\n"
+                )
+                f.write(f"failed: {sum(1 for r in results if r.gates_ok is False)}\n")
+
+            return results
+
+        except ImportError:
+            # ParallelExecutor not yet implemented, fall back to sequential
+            print(
+                "Warning: Parallel mode requested but ParallelExecutor not available. Running sequentially."
+            )
+            # Fall through to sequential mode below
+            parallel_enabled = False
+
+    # Sequential mode (existing implementation)
     state_dir = project_root / ".ralph"
     state_dir.mkdir(exist_ok=True)
     state_path = state_dir / "state.json"
@@ -1185,7 +1360,7 @@ def run_loop(
     save_state(state_path, state)
 
     tracker = make_tracker(project_root, cfg)
-    allow_exit_without_all_done = (tracker.kind == "beads")
+    allow_exit_without_all_done = tracker.kind == "beads"
 
     results: List[IterationResult] = []
     limit = max_iterations if max_iterations is not None else cfg.loop.max_iterations

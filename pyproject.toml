@@ -9,11 +9,10 @@ description = "Golden Ralph Loop orchestrator for Codex, Claude Code, and Copilo
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [
-  { name = "Jamie (local install template)" }
-]
+authors = [{ name = "Jamie (local install template)" }]
 dependencies = [
   "pyyaml>=6.0.3",
+  "requests>=2.31.0",
   "tomli; python_version < '3.11'",
   "windows-curses; platform_system == 'Windows'",
 ]

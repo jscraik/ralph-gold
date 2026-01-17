@@ -1,0 +1,32 @@
+# Example configuration for parallel execution in Ralph Gold v0.7.0
+
+[loop]
+max_iterations = 10
+
+[parallel]
+# Enable parallel execution (disabled by default for safety)
+enabled = false
+
+# Maximum number of concurrent workers
+# Each worker runs in an isolated git worktree
+max_workers = 3
+
+# Directory for git worktrees (relative to project root)
+worktree_root = ".ralph/worktrees"
+
+# Task scheduling strategy:
+#   "queue" - Flatten all groups, run tasks FIFO
+#   "group" - Run groups sequentially, tasks within group in parallel
+strategy = "queue"
+
+# Merge policy for successful tasks:
+#   "manual" - Preserve branches, no automatic merging (safest)
+#   "auto_merge" - Automatically merge successful tasks to main branch
+merge_policy = "manual"
+
+[tracker]
+# Use YAML tracker for parallel grouping support
+kind = "yaml"
+
+[gates]
+commands = ["pytest", "mypy"]

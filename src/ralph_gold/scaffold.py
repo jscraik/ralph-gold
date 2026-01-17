@@ -8,9 +8,16 @@ def _template_dir() -> Path:
     return Path(__file__).resolve().parent / "templates"
 
 
-def init_project(project_root: Path, force: bool = False) -> None:
+def init_project(
+    project_root: Path, force: bool = False, format_type: str | None = None
+) -> None:
     """
     Write default Ralph files into .ralph/ (durable memory + config).
+
+    Args:
+        project_root: Root directory of the project
+        force: If True, overwrite existing files
+        format_type: Task tracker format ("markdown", "json", "yaml", or None for default)
     """
     tdir = _template_dir()
     if not tdir.exists():
@@ -28,14 +35,25 @@ def init_project(project_root: Path, force: bool = False) -> None:
         ("PROMPT.md", ".ralph/PROMPT.md"),
         ("AGENTS.md", ".ralph/AGENTS.md"),
         ("progress.md", ".ralph/progress.md"),
-        # Task trackers (choose one via .ralph/ralph.toml)
-        ("PRD.md", ".ralph/PRD.md"),
-        ("prd.json", ".ralph/prd.json"),
         # Optional planning context
         ("AUDIENCE_JTBD.md", ".ralph/AUDIENCE_JTBD.md"),
         ("loop.sh", ".ralph/loop.sh"),
         ("ralph.toml", ".ralph/ralph.toml"),
     ]
+
+    # Add task tracker files based on format
+    if format_type == "yaml":
+        files.append(("tasks.yaml", "tasks.yaml"))
+    elif format_type == "json":
+        files.append(("prd.json", ".ralph/prd.json"))
+    else:
+        # Default to markdown, and include both for compatibility
+        files.extend(
+            [
+                ("PRD.md", ".ralph/PRD.md"),
+                ("prd.json", ".ralph/prd.json"),
+            ]
+        )
 
     for src_name, dst_name in files:
         src = tdir / src_name
@@ -51,6 +69,10 @@ def init_project(project_root: Path, force: bool = False) -> None:
             except Exception:
                 pass
 
+    # Update ralph.toml to use the correct tracker format
+    if format_type:
+        _update_config_for_format(project_root, format_type)
+
     # Ensure state dirs exist
     (project_root / ".ralph" / "logs").mkdir(parents=True, exist_ok=True)
 
@@ -60,4 +82,59 @@ def init_project(project_root: Path, force: bool = False) -> None:
     specs_readme = specs_dir / "README.md"
     tpl_specs_readme = tdir / "specs_README.md"
     if tpl_specs_readme.exists() and (force or not specs_readme.exists()):
-        specs_readme.write_text(tpl_specs_readme.read_text(encoding="utf-8"), encoding="utf-8")
+        specs_readme.write_text(
+            tpl_specs_readme.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+
+
+def _update_config_for_format(project_root: Path, format_type: str) -> None:
+    """Update ralph.toml to use the specified tracker format.
+
+    Args:
+        project_root: Root directory of the project
+        format_type: Task tracker format ("markdown", "json", or "yaml")
+    """
+    config_path = project_root / ".ralph" / "ralph.toml"
+
+    if not config_path.exists():
+        return
+
+    # Read current config
+    config_text = config_path.read_text(encoding="utf-8")
+
+    # Update the prd file path based on format
+    if format_type == "yaml":
+        prd_path = "tasks.yaml"
+        tracker_kind = "yaml"
+    elif format_type == "json":
+        prd_path = ".ralph/prd.json"
+        tracker_kind = "json"
+    else:  # markdown
+        prd_path = ".ralph/PRD.md"
+        tracker_kind = "markdown"
+
+    # Replace the prd line in [files] section
+    import re
+
+    config_text = re.sub(r'prd\s*=\s*"[^"]*"', f'prd = "{prd_path}"', config_text)
+
+    # Replace or add tracker kind in [tracker] section
+    if "[tracker]" in config_text:
+        # Update existing tracker section
+        config_text = re.sub(
+            r'(\[tracker\][^\[]*?)kind\s*=\s*"[^"]*"',
+            rf'\1kind = "{tracker_kind}"',
+            config_text,
+            flags=re.DOTALL,
+        )
+        # If kind wasn't found, add it after [tracker]
+        if f'kind = "{tracker_kind}"' not in config_text:
+            config_text = re.sub(
+                r"\[tracker\]", f'[tracker]\nkind = "{tracker_kind}"', config_text
+            )
+    else:
+        # Add tracker section at the end
+        config_text += f'\n\n[tracker]\nkind = "{tracker_kind}"\n'
+
+    # Write updated config
+    config_path.write_text(config_text, encoding="utf-8")

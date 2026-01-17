@@ -1,0 +1,71 @@
+# Ralph Gold Task Tracker (YAML Format)
+#
+# This file tracks tasks for the Golden Ralph Loop.
+# Each task runs in one iteration and should be independently verifiable.
+#
+# Schema: https://github.com/jscraik/ralph-gold/blob/main/docs/YAML_TRACKER.md
+
+version: 1
+
+metadata:
+  # Project metadata (optional)
+  project: my-project
+  created: 2024-01-15
+  # Branch name for git automation (optional)
+  # branch: ralph/my-feature
+
+tasks:
+  # Example task with all fields
+  - id: 1
+    title: Example task - implement feature X
+    description: |
+      Detailed description of what needs to be done.
+      This field is optional but recommended for complex tasks.
+    group: default # Parallel execution group (default: "default")
+    priority: 1 # Task priority for sorting (optional)
+    completed: false
+    acceptance:
+      - Acceptance criterion 1: feature works as expected
+      - Acceptance criterion 2: tests pass
+      - Acceptance criterion 3: documentation updated
+
+  # Minimal task (only required fields)
+  - id: 2
+    title: Example task - add tests
+    completed: false
+
+  # Task with parallel grouping
+  # Tasks in different groups can run in parallel
+  - id: 3
+    title: Implement backend API endpoint
+    group: backend
+    completed: false
+    acceptance:
+      - API endpoint responds with correct data
+      - Error handling implemented
+      - Tests cover happy path and error cases
+
+  - id: 4
+    title: Create frontend UI component
+    group: frontend # Different group = can run in parallel with backend
+    completed: false
+    acceptance:
+      - Component renders correctly
+      - User interactions work as expected
+      - Component is accessible (WCAG 2.1 AA)
+# Common parallel groups:
+# - backend: Backend/API tasks
+# - frontend: UI/frontend tasks
+# - database: Database schema/migration tasks
+# - testing: Test implementation tasks
+# - docs: Documentation tasks
+# - infra: Infrastructure/deployment tasks
+#
+# Tasks in the same group run sequentially.
+# Tasks in different groups can run in parallel (with --parallel flag).
+#
+# Usage:
+#   ralph run --agent codex              # Sequential execution
+#   ralph run --agent codex --parallel   # Parallel execution
+#   ralph status                         # Show progress
+#   ralph convert tasks.yaml PRD.md      # Convert to Markdown

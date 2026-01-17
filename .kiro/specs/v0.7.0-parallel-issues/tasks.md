@@ -4,20 +4,20 @@
 
 ### 1.1 YAML Tracker Core Implementation
 
-- [ ] Create `src/ralph_gold/trackers/` package structure with `__init__.py`
-- [ ] Implement `YamlTracker` class in `src/ralph_gold/trackers/yaml_tracker.py`
-  - [ ] Add YAML loading with PyYAML/ruamel.yaml
-  - [ ] Implement schema validation (version, tasks structure)
-  - [ ] Implement `peek_next_task()` method
-  - [ ] Implement `claim_next_task()` method
-  - [ ] Implement `counts()` method
-  - [ ] Implement `all_done()` method
-  - [ ] Implement `is_task_done()` method
-  - [ ] Implement `force_task_open()` method
-  - [ ] Implement `branch_name()` method
-  - [ ] Implement `get_parallel_groups()` method (returns dict[str, list[SelectedTask]])
-- [ ] Update `make_tracker()` in `trackers.py` to support "yaml" kind
-- [ ] Add PyYAML dependency to `pyproject.toml`
+- [x] Create `src/ralph_gold/trackers/` package structure with `__init__.py`
+- [x] Implement `YamlTracker` class in `src/ralph_gold/trackers/yaml_tracker.py`
+  - [x] Add YAML loading with PyYAML/ruamel.yaml
+  - [x] Implement schema validation (version, tasks structure)
+  - [x] Implement `peek_next_task()` method
+  - [x] Implement `claim_next_task()` method
+  - [x] Implement `counts()` method
+  - [x] Implement `all_done()` method
+  - [x] Implement `is_task_done()` method
+  - [x] Implement `force_task_open()` method
+  - [x] Implement `branch_name()` method
+  - [x] Implement `get_parallel_groups()` method (returns dict[str, list[SelectedTask]])
+- [x] Update `make_tracker()` in `trackers.py` to support "yaml" kind
+- [x] Add PyYAML dependency to `pyproject.toml`
 
 **Validates Requirements:** 3 (YAML tracker with parallel grouping)
 
@@ -31,13 +31,13 @@
 
 ### 1.2 YAML Tracker Tests
 
-- [ ] Create `tests/test_yaml_tracker.py`
-- [ ] Write unit tests for YAML loading (valid and invalid files)
-- [ ] Write unit tests for schema validation
-- [ ] Write unit tests for parallel group extraction
-- [ ] Write unit tests for task claiming and completion
-- [ ] Write tests for error cases (missing fields, malformed YAML)
-- [ ] Write tests for edge cases (empty tasks, duplicate IDs)
+- [x] Create `tests/test_yaml_tracker.py`
+- [x] Write unit tests for YAML loading (valid and invalid files)
+- [x] Write unit tests for schema validation
+- [x] Write unit tests for parallel group extraction
+- [x] Write unit tests for task claiming and completion
+- [x] Write tests for error cases (missing fields, malformed YAML)
+- [x] Write tests for edge cases (empty tasks, duplicate IDs)
 
 **Validates Requirements:** 3
 
@@ -49,12 +49,12 @@
 
 ### 1.3 YAML Migration Tool
 
-- [ ] Add `convert` subcommand to CLI in `cli.py`
-- [ ] Implement JSON → YAML converter
-- [ ] Implement Markdown → YAML converter
-- [ ] Add validation of converted YAML
-- [ ] Add `--output` flag for output file path
-- [ ] Add `--infer-groups` flag for optional group inference
+- [x] Add `convert` subcommand to CLI in `cli.py`
+- [x] Implement JSON → YAML converter
+- [x] Implement Markdown → YAML converter
+- [x] Add validation of converted YAML
+- [x] Add `--output` flag for output file path
+- [x] Add `--infer-groups` flag for optional group inference
 
 **Validates Requirements:** 8 (Migration from existing PRDs)
 
@@ -67,11 +67,11 @@
 
 ### 1.4 YAML Documentation & Templates
 
-- [ ] Create `docs/YAML_TRACKER.md` with format reference
-- [ ] Add YAML examples to README
-- [ ] Add `--format yaml` flag to `ralph init` command
-- [ ] Create `tasks.yaml` template in `src/ralph_gold/templates/`
-- [ ] Update scaffold.py to support YAML format
+- [x] Create `docs/YAML_TRACKER.md` with format reference
+- [x] Add YAML examples to README
+- [x] Add `--format yaml` flag to `ralph init` command
+- [x] Create `tasks.yaml` template in `src/ralph_gold/templates/`
+- [x] Update scaffold.py to support YAML format
 
 **Validates Requirements:** 3
 
@@ -85,21 +85,21 @@
 
 ### 2.1 GitHub Authentication Layer
 
-- [ ] Create `src/ralph_gold/github_auth.py`
-- [ ] Implement `GitHubAuth` base class/protocol
-- [ ] Implement `GhCliAuth` class
-  - [ ] Use `gh api` commands for API calls
-  - [ ] Validate gh CLI is installed and authenticated
-  - [ ] Handle gh CLI errors gracefully
-- [ ] Implement `TokenAuth` class
-  - [ ] Read token from environment variable
-  - [ ] Use requests library for API calls
-  - [ ] Add proper headers (Authorization, User-Agent)
-- [ ] Add token security measures
-  - [ ] Never log tokens
-  - [ ] Use `__repr__` to hide tokens
-  - [ ] Clear tokens on cleanup
-- [ ] Add `--check-github` flag to `ralph doctor` command
+- [x] Create `src/ralph_gold/github_auth.py`
+- [x] Implement `GitHubAuth` base class/protocol
+- [x] Implement `GhCliAuth` class
+  - [x] Use `gh api` commands for API calls
+  - [x] Validate gh CLI is installed and authenticated
+  - [x] Handle gh CLI errors gracefully
+- [x] Implement `TokenAuth` class
+  - [x] Read token from environment variable
+  - [x] Use requests library for API calls
+  - [x] Add proper headers (Authorization, User-Agent)
+- [x] Add token security measures
+  - [x] Never log tokens
+  - [x] Use `__repr__` to hide tokens
+  - [x] Clear tokens on cleanup
+- [x] Add `--check-github` flag to `ralph doctor` command
 
 **Validates Requirements:** 2 (GitHub authentication)
 
@@ -113,20 +113,20 @@
 
 ### 2.2 GitHub Issues Tracker Core
 
-- [ ] Create `src/ralph_gold/trackers/github_issues.py`
-- [ ] Implement `GitHubIssuesTracker` class
-  - [ ] Implement all Tracker protocol methods
-  - [ ] Add `_sync_cache()` method for issue fetching
-  - [ ] Add `_load_cache()` method
-  - [ ] Add `_save_cache()` method
-  - [ ] Add `_cache_is_fresh()` method with TTL check
-  - [ ] Add `_issue_to_task()` converter
-  - [ ] Add `_extract_group_from_labels()` for parallel grouping
-- [ ] Implement issue fetching with label filtering
-- [ ] Implement cache to `.ralph/github_cache.json`
-- [ ] Add rate limit detection from response headers
-- [ ] Implement priority sorting (milestone, then created_at)
-- [ ] Implement `get_parallel_groups()` using "group:*" labels
+- [x] Create `src/ralph_gold/trackers/github_issues.py`
+- [x] Implement `GitHubIssuesTracker` class
+  - [x] Implement all Tracker protocol methods
+  - [x] Add `_sync_cache()` method for issue fetching
+  - [x] Add `_load_cache()` method
+  - [x] Add `_save_cache()` method
+  - [x] Add `_cache_is_fresh()` method with TTL check
+  - [x] Add `_issue_to_task()` converter
+  - [x] Add `_extract_group_from_labels()` for parallel grouping
+- [x] Implement issue fetching with label filtering
+- [x] Implement cache to `.ralph/github_cache.json`
+- [x] Add rate limit detection from response headers
+- [x] Implement priority sorting (milestone, then created_at)
+- [x] Implement `get_parallel_groups()` using "group:*" labels
 
 **Validates Requirements:** 2, 5 (GitHub Issues with parallel grouping)
 
@@ -141,13 +141,13 @@
 
 ### 2.3 GitHub Issues Updates
 
-- [ ] Add `mark_task_done()` method to GitHubIssuesTracker
-- [ ] Implement issue closing via API
-- [ ] Implement comment posting with iteration results
-- [ ] Implement label management (add/remove)
-- [ ] Add commit SHA linking in comments
-- [ ] Handle API failures gracefully (log but don't crash)
-- [ ] Add update logging to `.ralph/logs/github-api.log`
+- [x] Add `mark_task_done()` method to GitHubIssuesTracker
+- [x] Implement issue closing via API
+- [x] Implement comment posting with iteration results
+- [x] Implement label management (add/remove)
+- [x] Add commit SHA linking in comments
+- [x] Handle API failures gracefully (log but don't crash)
+- [x] Add update logging to `.ralph/logs/github-api.log`
 
 **Validates Requirements:** 2
 
@@ -161,21 +161,21 @@
 
 ### 2.4 GitHub Configuration
 
-- [ ] Extend `Config` dataclass in `config.py`
-  - [ ] Add `GitHubTrackerConfig` dataclass
-  - [ ] Add `github` field to `TrackerConfig`
-  - [ ] Parse `[tracker.github]` section from TOML
-- [ ] Add configuration fields:
-  - [ ] `repo` (required)
-  - [ ] `auth_method` (gh_cli|token)
-  - [ ] `token_env` (default: GITHUB_TOKEN)
-  - [ ] `label_filter` (required label)
-  - [ ] `exclude_labels` (list)
-  - [ ] `close_on_done` (bool)
-  - [ ] `comment_on_done` (bool)
-  - [ ] `add_labels_on_start` (list)
-  - [ ] `add_labels_on_done` (list)
-  - [ ] `cache_ttl_seconds` (default: 300)
+- [x] Extend `Config` dataclass in `config.py`
+  - [x] Add `GitHubTrackerConfig` dataclass
+  - [x] Add `github` field to `TrackerConfig`
+  - [x] Parse `[tracker.github]` section from TOML
+- [x] Add configuration fields:
+  - [x] `repo` (required)
+  - [x] `auth_method` (gh_cli|token)
+  - [x] `token_env` (default: GITHUB_TOKEN)
+  - [x] `label_filter` (required label)
+  - [x] `exclude_labels` (list)
+  - [x] `close_on_done` (bool)
+  - [x] `comment_on_done` (bool)
+  - [x] `add_labels_on_start` (list)
+  - [x] `add_labels_on_done` (list)
+  - [x] `cache_ttl_seconds` (default: 300)
 
 **Validates Requirements:** 2
 
@@ -187,20 +187,20 @@
 
 ### 2.5 GitHub Issues Tests
 
-- [ ] Create `tests/test_github_auth.py`
-  - [ ] Test GhCliAuth with mocked subprocess
-  - [ ] Test TokenAuth with mocked requests
-  - [ ] Test token security (no logging)
-- [ ] Create `tests/test_github_issues.py`
-  - [ ] Test issue fetching with mocked API
-  - [ ] Test caching logic
-  - [ ] Test TTL expiration
-  - [ ] Test rate limit handling
-  - [ ] Test label filtering
-  - [ ] Test priority sorting
-  - [ ] Test parallel group extraction
-  - [ ] Test issue updates
-  - [ ] Test error handling
+- [x] Create `tests/test_github_auth.py`
+  - [x] Test GhCliAuth with mocked subprocess
+  - [x] Test TokenAuth with mocked requests
+  - [x] Test token security (no logging)
+- [x] Create `tests/test_github_issues.py`
+  - [x] Test issue fetching with mocked API
+  - [x] Test caching logic
+  - [x] Test TTL expiration
+  - [x] Test rate limit handling
+  - [x] Test label filtering
+  - [x] Test priority sorting
+  - [x] Test parallel group extraction
+  - [x] Test issue updates
+  - [x] Test error handling
 
 **Validates Requirements:** 2, 7
 
@@ -237,17 +237,17 @@
 
 ### 3.1 Configuration Extension
 
-- [ ] Extend `Config` dataclass in `config.py`
-  - [ ] Add `ParallelConfig` dataclass with fields:
-    - [ ] `enabled` (bool, default False)
-    - [ ] `max_workers` (int, default 3)
-    - [ ] `worktree_root` (str, default ".ralph/worktrees")
-    - [ ] `strategy` (str, default "queue") # queue|group
-    - [ ] `merge_policy` (str, default "manual") # manual|auto_merge
-  - [ ] Add `parallel` field to `Config`
-  - [ ] Parse `[parallel]` section from TOML
-- [ ] Add config validation
-- [ ] Add safe defaults (parallel disabled by default)
+- [x] Extend `Config` dataclass in `config.py`
+  - [x] Add `ParallelConfig` dataclass with fields:
+    - [x] `enabled` (bool, default False)
+    - [x] `max_workers` (int, default 3)
+    - [x] `worktree_root` (str, default ".ralph/worktrees")
+    - [x] `strategy` (str, default "queue") # queue|group
+    - [x] `merge_policy` (str, default "manual") # manual|auto_merge
+  - [x] Add `parallel` field to `Config`
+  - [x] Parse `[parallel]` section from TOML
+- [x] Add config validation
+- [x] Add safe defaults (parallel disabled by default)
 
 **Validates Requirements:** 1, 4 (Parallel execution configuration)
 
@@ -260,17 +260,17 @@
 
 ### 3.2 Git Worktree Manager
 
-- [ ] Create `src/ralph_gold/worktree.py`
-- [ ] Implement `WorktreeManager` class
-  - [ ] `__init__(project_root, worktree_root)`
-  - [ ] `create_worktree(task, worker_id)` → (path, branch_name)
-  - [ ] `remove_worktree(worktree_path)`
-  - [ ] `_generate_branch_name(task, worker_id)` → str
-  - [ ] `list_worktrees()` → list[Path]
-  - [ ] `cleanup_stale_worktrees()`
-- [ ] Add unique branch name generation (ralph/worker-{id}-task-{task_id})
-- [ ] Add error handling for git worktree operations
-- [ ] Preserve failed worktrees for debugging
+- [x] Create `src/ralph_gold/worktree.py`
+- [x] Implement `WorktreeManager` class
+  - [x] `__init__(project_root, worktree_root)`
+  - [x] `create_worktree(task, worker_id)` → (path, branch_name)
+  - [x] `remove_worktree(worktree_path)`
+  - [x] `_generate_branch_name(task, worker_id)` → str
+  - [x] `list_worktrees()` → list[Path]
+  - [x] `cleanup_stale_worktrees()`
+- [x] Add unique branch name generation (ralph/worker-{id}-task-{task_id})
+- [x] Add error handling for git worktree operations
+- [x] Preserve failed worktrees for debugging
 
 **Validates Requirements:** 1, 4 (Worker isolation)
 
@@ -284,22 +284,22 @@
 
 ### 3.3 Parallel Executor Core
 
-- [ ] Create `src/ralph_gold/parallel.py`
-- [ ] Implement `WorkerState` dataclass
-  - [ ] Fields: worker_id, task, worktree_path, branch_name, status, started_at, completed_at, iteration_result, error
-- [ ] Implement `ParallelExecutor` class
-  - [ ] `__init__(project_root, cfg)`
-  - [ ] `run_parallel(agent, tracker)` → list[IterationResult]
-  - [ ] `_run_worker(worker_id, task, agent)` → IterationResult
-  - [ ] `_flatten_groups(groups)` → list[SelectedTask]
-  - [ ] `_schedule_by_groups(groups)` → list[SelectedTask]
-  - [ ] `_merge_worker(worker)` (for auto_merge policy)
-- [ ] Use ThreadPoolExecutor for worker pool
-- [ ] Add task scheduling strategies:
-  - [ ] "queue": flatten all groups, run FIFO
-  - [ ] "group": run groups sequentially, tasks within group in parallel
-- [ ] Add worker state tracking
-- [ ] Isolate worker failures (don't kill other workers)
+- [x] Create `src/ralph_gold/parallel.py`
+- [x] Implement `WorkerState` dataclass
+  - [x] Fields: worker_id, task, worktree_path, branch_name, status, started_at, completed_at, iteration_result, error
+- [x] Implement `ParallelExecutor` class
+  - [x] `__init__(project_root, cfg)`
+  - [x] `run_parallel(agent, tracker)` → list[IterationResult]
+  - [x] `_run_worker(worker_id, task, agent)` → IterationResult
+  - [x] `_flatten_groups(groups)` → list[SelectedTask]
+  - [x] `_schedule_by_groups(groups)` → list[SelectedTask]
+  - [x] `_merge_worker(worker)` (for auto_merge policy)
+- [x] Use ThreadPoolExecutor for worker pool
+- [x] Add task scheduling strategies:
+  - [x] "queue": flatten all groups, run FIFO
+  - [x] "group": run groups sequentially, tasks within group in parallel
+- [x] Add worker state tracking
+- [x] Isolate worker failures (don't kill other workers)
 
 **Validates Requirements:** 1, 5 (Parallel execution engine)
 
@@ -334,15 +334,15 @@
 
 ### 3.5 Loop Integration
 
-- [ ] Update `run_loop()` in `loop.py` to support parallel mode
-  - [ ] Add `parallel` parameter (bool)
-  - [ ] Detect parallel mode from config
-  - [ ] Delegate to ParallelExecutor when enabled
-  - [ ] Keep sequential mode unchanged
-- [ ] Add `--parallel` flag to `ralph run` command in CLI
-- [ ] Add `--max-workers` flag to `ralph run` command
-- [ ] Add parallel execution logging to `.ralph/logs/parallel-{timestamp}.log`
-- [ ] Ensure sequential mode still works (no breaking changes)
+- [x] Update `run_loop()` in `loop.py` to support parallel mode
+  - [x] Add `parallel` parameter (bool)
+  - [x] Detect parallel mode from config
+  - [x] Delegate to ParallelExecutor when enabled
+  - [x] Keep sequential mode unchanged
+- [x] Add `--parallel` flag to `ralph run` command in CLI
+- [x] Add `--max-workers` flag to `ralph run` command
+- [x] Add parallel execution logging to `.ralph/logs/parallel-{timestamp}.log`
+- [x] Ensure sequential mode still works (no breaking changes)
 
 **Validates Requirements:** 1
 
