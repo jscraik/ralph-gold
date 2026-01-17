@@ -17,7 +17,7 @@ agents = ".ralph/AGENTS.md"
 commands = []
 
 [runners.codex]
-argv = ["codex", "exec", "--full-auto"]
+argv = ["timeout", "900", "codex", "exec", "--full-auto"]
 
 [runners.claude]
 # Note: Add --allow-write if Claude Code has permission issues

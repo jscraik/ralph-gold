@@ -1,5 +1,11 @@
 # Golden Ralph Loop — PROMPT.md
 
+## Fast Start
+- Read only: `.ralph/AGENTS.md`, `.ralph/prd.json`.
+- Read only the last 200 lines of `.ralph/progress.md` (do not read the whole file).
+- Read required standards files once, then proceed.
+- Skip huge docs unless needed for the task.
+
 You are operating inside an **autonomous coding loop**.
 Each loop iteration starts from fresh context; **the filesystem is your memory**.
 

@@ -19,6 +19,15 @@ from .trackers import make_tracker
 EXIT_RE = re.compile(r"EXIT_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
 JUDGE_RE = re.compile(r"JUDGE_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
 
+def _coerce_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
 
 @dataclass
 class GateResult:
@@ -891,8 +900,8 @@ def run_iteration(
                 except subprocess.TimeoutExpired as e:
                     j_cp = subprocess.CompletedProcess(jr_argv, returncode=124, stdout=e.stdout or "", stderr=e.stderr or "(timeout)")
                 j_dur = time.time() - j_start
-                j_out = (j_cp.stdout or "")
-                j_err = (j_cp.stderr or "")
+                j_out = _coerce_text(j_cp.stdout)
+                j_err = _coerce_text(j_cp.stderr)
                 j_combined = j_out + "\n" + j_err
                 j_raw = parse_judge_signal(j_combined)
                 j_pass = (int(j_cp.returncode) == 0) and (j_raw is True)
@@ -1015,7 +1024,9 @@ def run_iteration(
     done_delta = (done_after > done_before) and (total_after >= done_before)
     progress_made = done_delta or (head_after != head_before) or (not repo_clean)
 
-    combined_output = (cp.stdout or "") + "\n" + (cp.stderr or "")
+    stdout_text = _coerce_text(cp.stdout)
+    stderr_text = _coerce_text(cp.stderr)
+    combined_output = stdout_text + "\n" + stderr_text
     exit_signal_raw = parse_exit_signal(combined_output)
     exit_signal = exit_signal_raw
 
@@ -1077,8 +1088,8 @@ def run_iteration(
         f"exit_signal_effective: {exit_signal}\n"
         f"commit_action: {commit_action}\n"
         f"commit_return_code: {commit_rc}\n"
-        f"\n--- stdout ---\n{cp.stdout or ''}\n"
-        f"\n--- stderr ---\n{cp.stderr or ''}\n"
+        f"\n--- stdout ---\n{stdout_text}\n"
+        f"\n--- stderr ---\n{stderr_text}\n"
         f"\n--- gates ---\n{_format_gate_results(gates_ok, gate_results, cfg.gates.output_mode, cfg.gates.max_output_lines)}"
         f"\n--- llm_judge ---\n{judge_section}"
         f"\n--- git_commit ---\n{commit_out}\n{commit_err}\n",
