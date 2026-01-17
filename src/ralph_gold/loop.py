@@ -995,6 +995,8 @@ def run_iteration(
     try:
         if task_override is not None:
             task = task_override
+        elif hasattr(tracker, "claim_next_task") and not blocked_ids:
+            task = tracker.claim_next_task()
         elif hasattr(tracker, "select_next_task"):
             task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
         else:
@@ -1319,8 +1321,11 @@ def run_iteration(
         if review_cfg.backend.strip().lower() == "repoprompt":
             try:
                 rp = run_review(message=message, cfg=cfg.repoprompt, cwd=project_root)
-                review_ok = _parse_review_token(
-                    rp.stdout or "", required=review_cfg.required_token
+                review_ok = bool(
+                    rp.returncode == 0
+                    and _parse_review_token(
+                        rp.stdout or "", required=review_cfg.required_token
+                    )
                 )
                 write_receipt(
                     receipts_dir / "review.json",
