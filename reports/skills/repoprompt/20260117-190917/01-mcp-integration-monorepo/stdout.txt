@@ -1,0 +1,34 @@
+Objective: Integrate Repo Prompt with Claude Code for a monorepo, with a low-friction, reliable workflow and a clear validation path.
+
+Plan:
+1) Pick the best integration path for your workflow (MCP-backed editor path vs rp-cli path).
+2) Define a monorepo context strategy (full files + codemaps/slices + multi-root binding).
+3) Draft a setup checklist and validation gates.
+4) Run a basic setup and smoke test to confirm tools and context flow.
+5) Lock in the default workflow (Compose for planning or Chat for implementation with Pro Edit).
+6) Document the working path as a short runbook.
+
+Next single step: choose the integration path so I can tailor the checklist and smoke test.
+
+**Recommended path (default)**  
+MCP-backed editor path: use Repo Prompt as a context backend for Claude Code, then edit directly in Claude Code.
+
+**Minimal setup checklist and validation (monorepo)**
+1) Confirm Repo Prompt is installed and can open the monorepo workspace.
+2) Connect the Repo Prompt MCP server inside Claude Code (if MCP is supported in your environment).
+3) In Repo Prompt, bind to the correct workspace/tab (avoid multi-window drift).
+4) Use Context Builder to discover targets; select full files for edits + codemaps/slices for dependencies.
+5) Run a basic setup and smoke test: `file_search` on a known filename + build a prompt for 2–3 files.
+6) If MCP isn’t available, switch to the rp-cli path for prompt building and manual apply.
+
+**Context strategy (token-efficient defaults)**
+- Full: files you will edit
+- codemaps/slices: large or dependency files
+- Avoid dumping the full repo unless a search fails
+- For monorepos: treat each package as a root; slice within packages to keep context tight
+
+**Alternatives (if MCP is not available or you prefer CLI)**
+- rp-cli path: build prompt via CLI → paste into Claude Code → apply edits manually.
+- Compose → External Chat: use Compose for planning or Chat for implementation with Pro Edit.
+
+Should I use /interview-me to explore this systematically?

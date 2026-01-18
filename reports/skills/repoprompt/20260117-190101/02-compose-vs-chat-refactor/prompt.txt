@@ -1,0 +1,3 @@
+$repoprompt
+
+Should I use Compose or Chat mode for a large refactor?

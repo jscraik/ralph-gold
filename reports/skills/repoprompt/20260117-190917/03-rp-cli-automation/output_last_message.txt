@@ -1,0 +1,36 @@
+Objective: explain how to use `rp-cli` for automation and give a minimal, safe workflow you can script.
+
+Plan:
+1) Confirm your automation shape (CI, local script, or agent runner).
+2) Choose the `rp-cli path` (exec vs interactive vs scripting).
+3) Outline the minimal “build context → call model → apply edits” loop.
+4) Provide a setup checklist and validation (smoke test).
+5) List 2–3 next-step options and a recommendation.
+
+Next step to execute: confirm your automation shape (local script, CI job, or agent runner).
+
+Here’s the minimal, safe automation flow using `rp-cli` (no invented flags):
+
+- Use `rp-cli` in exec or script mode to build context from your repo.
+- Export the prompt/context and send it to your model (CLI provider or your own API keys).
+- If the model returns XML edits, apply them via Repo Prompt Apply/Pro Edit.
+- Keep contexts token-efficient with `codemaps/slices` when repo is large.
+- Add a “basic setup and smoke test”: select 2–3 files, build prompt, get a response.
+
+Recommendation (default):
+- Use exec mode in a script: build context → call model → apply XML edits.
+- This keeps automation linear, auditable, and easy to gate.
+
+Setup checklist and validation:
+1) Ensure Repo Prompt app is installed and workspace opens.
+2) Verify `rp-cli` is available in PATH (or your script can invoke it).
+3) Build a tiny context (2–3 files) and export a prompt.
+4) Run a model call and confirm you get a response.
+5) If the response includes XML, run Apply/Pro Edit and review diffs.
+
+Options (pick one):
+1) Simple local script (recommended): `rp-cli` → model call → Apply/Pro Edit.
+2) CI job: `rp-cli` to build prompt, model call in CI, then save XML for manual apply.
+3) Agent runner: use `rp-cli` as a context backend for your agent.
+
+Should I use /interview-me to explore this systematically? (yes/no)

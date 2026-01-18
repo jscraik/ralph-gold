@@ -1,0 +1,14 @@
+Using skill: repoprompt (you asked to integrate Repo Prompt with Claude Code for a monorepo).
+
+Objective: integrate Repo Prompt with Claude Code for a monorepo, choosing the right workflow and context strategy.
+
+Plan:
+1) Confirm workflow, repo shape, and constraints (editor-first vs chat-first, monorepo structure, token/cost/security).
+2) Select the best integration path (MCP-backed editor vs Compose/Chat vs rp-cli) with a recommendation.
+3) Provide a short setup checklist tailored to Claude Code + monorepo.
+4) Define a context strategy (full vs slices vs codemaps; multi-root handling).
+5) Run a smoke test checklist to validate the integration.
+
+Next step: decide whether to run a brief requirements interview.
+
+Should I use /interview-me to explore this systematically? (yes/no)

@@ -36,8 +36,17 @@ def _project_root() -> Path:
 def cmd_init(args: argparse.Namespace) -> int:
     root = _project_root()
     format_type = getattr(args, "format", None)
-    init_project(root, force=bool(args.force), format_type=format_type)
+    archived = init_project(root, force=bool(args.force), format_type=format_type)
+
     print(f"Initialized Ralph files in: {root / '.ralph'}")
+
+    if archived:
+        print(f"\n✓ Archived {len(archived)} existing file(s) to .ralph/archive/")
+        for path in archived[:5]:  # Show first 5
+            print(f"  - {path}")
+        if len(archived) > 5:
+            print(f"  ... and {len(archived) - 5} more")
+
     if format_type == "yaml":
         print("Created tasks.yaml template (YAML tracker)")
     return 0

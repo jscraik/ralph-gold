@@ -1,0 +1,31 @@
+Objective: choose the best Repo Prompt workflow (Compose vs Chat) for a large refactor, and outline the fastest safe path to proceed.
+
+Plan:
+1. Confirm your primary workflow and target tool (editor-first, chat-first, automation).
+2. Choose the recommended path for a large refactor.
+3. Set a context strategy (full vs codemaps/slices).
+4. Run a basic setup and smoke test.
+5. Start planning and then execute edits with the chosen mode.
+
+Next single step: confirm your primary workflow and target tool so I can lock the path.
+
+Recommendation for large refactor:
+- Use Compose for planning or Chat for implementation with Pro Edit. Compose yields a structured refactor plan; Chat/Pro Edit is better for coordinated multi-file changes.
+
+Options (with one recommendation):
+1) MCP-backed editor path (recommended if you live in Cursor/Claude Code/Codex): fast iteration in-editor, Repo Prompt supplies context.  
+2) Compose → External Chat: best for deep reasoning/planning; apply edits via Apply/Pro Edit.  
+3) Chat mode in Repo Prompt: good for integrated context + diffs without leaving the app.
+
+Context strategy:
+- Full: files you will edit.
+- codemaps/slices: large files, dependencies, and reference-only areas.
+
+Setup checklist and validation:
+1. Open Repo Prompt workspace.
+2. Build Context Builder selection with codemaps/slices.
+3. Generate prompt; verify it includes target files.
+4. Run basic setup and smoke test: a small file_search or 2–3 file selection and a quick response.
+5. Start planning in Compose; switch to Chat/Pro Edit for implementation.
+
+Action to take now: tell me your primary workflow (editor-first/chat-first/automation) and target tool.

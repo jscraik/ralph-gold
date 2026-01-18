@@ -1,0 +1,110 @@
+OpenAI Codex v0.87.0-alpha.1 (research preview)
+--------
+workdir: /Users/jamiecraik/dev/agent-skills
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019bcd5f-048c-7362-bce3-99866349fe31
+--------
+user
+$repoprompt
+
+Should I use Compose or Chat mode for a large refactor?
+
+mcp: RepoPrompt starting
+mcp: XcodeBuildMCP starting
+mcp: openaiDeveloperDocs starting
+mcp: local-memory starting
+mcp: pieces starting
+mcp: RepoPrompt ready
+mcp: local-memory ready
+mcp: pieces ready
+mcp: openaiDeveloperDocs ready
+mcp: XcodeBuildMCP ready
+mcp startup: ready: RepoPrompt, local-memory, pieces, openaiDeveloperDocs, XcodeBuildMCP
+
+thinking
+**Loading skill documentation**
+
+I'm retrieving SKILL.md to understand the skill details, then I'll restate the objective and plan a concise next-step approach.
+exec
+/bin/zsh -lc ls in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+README.md
+SKILL.md
+apple
+backend
+build
+frontend
+github
+product
+scripts
+skills
+utilities
+
+thinking
+**Identifying missing skill file**
+
+The expected skill file is missing, which may block progress until it's created or located.
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/product/repoprompt/SKILL.md' in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+---
+name: repoprompt
+description: "Plan and guide integration of Repo Prompt (MCP, rp-cli, Compose/Chat/Apply) into AI coding workflows. Use when Codex needs to work with Repo Prompt for: (1) setup/integration, (2) workflow selection, (3) context optimization with codemaps/slices, or (4) comparisons with AI editors."
+metadata:
+  short-description: Integrate Repo Prompt into workflows
+  version: "1.0.0"
+  last_updated: "2026-01-17"
+---
+
+# Repo Prompt Integration
+
+## Compliance
+- Check against GOLD Industry Standards guide in ~/.codex/AGENTS.override.md
+
+## Overview
+Guide the user to the most effective Repo Prompt integration path for their workflow, with minimal setup friction and maximal context efficiency.
+
+## When to Use
+- User asks how to integrate Repo Prompt with Claude Code, Cursor, Codex, or other editors/agents.
+- User asks how to use Compose vs Chat vs Apply/Pro Edit workflows.
+
+thinking
+**Recommending refactor workflow**
+
+Objective: Plan and implement a large refactor efficiently.  
+Plan:  
+1. Use Compose for detailed planning and breaking down tasks.  
+2. Use Chat with Pro Edit for coding implementation.  
+3. Leverage Context Builder to supply relevant context.  
+4. Utilize codemaps and slices to navigate and manage code sections.  
+5. Follow default interaction format for clarity.  
+6. Regularly review progress and adjust plan as needed.  
+7. Keep communication minimal and focused.
+
+Next step: Create a high-level Compose outline for the refactor plan.
+
+Should I start by drafting the Compose plan now? (yes/no)
+codex
+Objective: Decide whether to use Compose or Chat mode in Repo Prompt for a large refactor and pick a safe default.
+
+Plan:
+1) Choose the workflow goal (planning vs implementation) for the refactor.
+2) Select the Repo Prompt path: Compose for planning or Chat for implementation with Pro Edit.
+3) Set a context strategy: full files to edit + codemaps/slices for dependencies.
+4) Run a basic setup and smoke test to validate context and tool access.
+
+Next step to execute: Confirm whether you want to plan first or implement first.
+
+Recommendation: Use Compose for planning or Chat for implementation with Pro Edit. For a large refactor, start in Compose with Context Builder and codemaps/slices, then switch to Chat for applying edits once the plan is locked.
+
+Options:
+- MCP-backed editor path (best if you want in-editor edits and strong context tools).
+- Chat Mode in Repo Prompt (fastest for implementation with Pro Edit).
+- rp-cli path (automation-heavy workflows).
+
+Should I proceed with the recommendation to start in Compose for planning?
+tokens used
+25,516

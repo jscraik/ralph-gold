@@ -1,0 +1,11 @@
+{
+  "name": "mcp-integration-monorepo",
+  "passed": false,
+  "failures": [
+    "contains failed: 'recommends MCP-backed editor path'",
+    "contains failed: 'mentions Context Builder and codemaps/slices'",
+    "contains failed: 'provides setup checklist and validation'"
+  ],
+  "dir": "/Users/jamiecraik/dev/ralph-gold/reports/skills/repoprompt/20260117-185901/01-mcp-integration-monorepo",
+  "used_schema": false
+}

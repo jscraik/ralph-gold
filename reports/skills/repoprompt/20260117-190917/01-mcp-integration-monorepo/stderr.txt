@@ -1,0 +1,166 @@
+OpenAI Codex v0.87.0-alpha.1 (research preview)
+--------
+workdir: /Users/jamiecraik/dev/agent-skills
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019bcd5c-9cdc-7c63-a275-00cc53e6a2e2
+--------
+user
+$repoprompt
+
+Integrate Repo Prompt with Claude Code for a monorepo.
+
+mcp: local-memory starting
+mcp: openaiDeveloperDocs starting
+mcp: RepoPrompt starting
+mcp: XcodeBuildMCP starting
+mcp: pieces starting
+mcp: RepoPrompt ready
+mcp: local-memory ready
+mcp: openaiDeveloperDocs ready
+mcp: XcodeBuildMCP ready
+mcp: pieces ready
+mcp startup: ready: RepoPrompt, local-memory, openaiDeveloperDocs, XcodeBuildMCP, pieces
+
+thinking
+**Planning skill file read**
+
+I'm preparing to read the skill file using cat to gather necessary command details and confirm how to proceed with the integration plan; I'll end with a binary question about using the /interview-me flow.
+exec
+/bin/zsh -lc ls in /Users/jamiecraik/dev/agent-skills succeeded in 50ms:
+README.md
+SKILL.md
+apple
+backend
+build
+frontend
+github
+product
+scripts
+skills
+utilities
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/product/repoprompt/SKILL.md' in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+---
+name: repoprompt
+description: "Plan and guide integration of Repo Prompt (MCP, rp-cli, Compose/Chat/Apply) into AI coding workflows. Use when Codex needs to work with Repo Prompt for: (1) setup/integration, (2) workflow selection, (3) context optimization with codemaps/slices, or (4) comparisons with AI editors."
+metadata:
+  short-description: Integrate Repo Prompt into workflows
+  version: "1.0.0"
+  last_updated: "2026-01-17"
+---
+
+# Repo Prompt Integration
+
+## Compliance
+- Check against GOLD Industry Standards guide in ~/.codex/AGENTS.override.md
+
+## Overview
+Guide the user to the most effective Repo Prompt integration path for their workflow, with minimal setup friction and maximal context efficiency.
+
+## When to Use
+- User asks how to integrate Repo Prompt with Claude Code, Cursor, Codex, or other editors/agents.
+- User asks how to use Compose vs Chat vs Apply/Pro Edit workflows.
+
+thinking
+**Planning reads of user profile and override files**
+
+I'll read /.codex/AGENTS.override.md and USER_PROFILE.md as instructed to ensure compliance and properly reference user profile guidance before proceeding.
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/.codex/AGENTS.override.md' in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+Standards & Compliance (Gold Industry Standard, baseline 31 Jan 2026)
+
+User profile reference: `/Users/jamiecraik/.codex/USER_PROFILE.md`
+
+Assistant Brief (inline; source USER_PROFILE.md Section 1)
+If sharing this file externally, share only the Assistant Brief section.
+
+1) Collaboration Contract
+
+When assisting Jamie, optimize for:
+- Single-threaded execution (one task at a time)
+- Explicit steps (no implied instructions)
+- Externalized state (write things down; do not rely on memory)
+- Concrete artifacts (checklists, diffs, commands, diagrams, files)
+
+Default interaction format:
+1. Restate the objective in 1-2 lines.
+2. Provide a 3-7 step plan (numbered).
+3. Identify the next single step to execute.
+4. End with either:
+
+thinking
+**Identifying user profile need**
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/.codex/USER_PROFILE.md' in /Users/jamiecraik/dev/agent-skills succeeded in 51ms:
+---
+title: "User Context Profile: Jamie Scott Craik"
+display_name: "Jamie"
+author: "Jamie Scott Craik"
+generated_at: "2026-01-17"
+last_updated: "2026-01-17"
+version: "1.1"
+status: "active"
+audience:
+  - "AI assistants"
+  - "coding agents"
+  - "collaborators"
+privacy:
+  share_level: "internal"
+  notes:
+    - "Contains medical/cognitive context. Consider sharing only the 'Assistant Brief' section by default."
+tags:
+  - cognitive-profile
+  - accessibility
+  - brain-injury
+
+
+thinking
+**Outlining minimal plan with info-gathering step**
+
+The objective is to develop a repeatable editor workflow leveraging MCP-backed tools (like Claude Code if supported) for multi-root monorepos with context strategies (codemaps, slices). The plan includes validating environment capabilities, setting up RepoPrompt workspaces with multi-root support, designing context builders, and smoke testing edits. Next, I'll gather detailed info on the user's workflow, repo structure, model access, and constraints, then ask if I should use /interview-me for systematic exploration. Meanwhile, I provide a minimal recommended path and checklist covering MCP usage assumptions, context strategies, multi-root binding, and fallback to rp-cli.
+thinking
+**Providing structured plan with checklist and final binary question**
+
+I'm preparing a concise response including a simple ASCII diagram illustrating the MCP-backed RepoPrompt workflow for Claude Code in a monorepo, emphasizing constraints like no secret requests and no unapproved dependency changes. The plan restates the objective with key steps, offers a minimal setup and smoke test checklist, and embeds an assumption statement for confirmation. The final line will ask only one clear binary question: whether to use /interview-me to explore this systematically.
+codex
+Objective: Integrate Repo Prompt with Claude Code for a monorepo, with a low-friction, reliable workflow and a clear validation path.
+
+Plan:
+1) Pick the best integration path for your workflow (MCP-backed editor path vs rp-cli path).
+2) Define a monorepo context strategy (full files + codemaps/slices + multi-root binding).
+3) Draft a setup checklist and validation gates.
+4) Run a basic setup and smoke test to confirm tools and context flow.
+5) Lock in the default workflow (Compose for planning or Chat for implementation with Pro Edit).
+6) Document the working path as a short runbook.
+
+Next single step: choose the integration path so I can tailor the checklist and smoke test.
+
+**Recommended path (default)**  
+MCP-backed editor path: use Repo Prompt as a context backend for Claude Code, then edit directly in Claude Code.
+
+**Minimal setup checklist and validation (monorepo)**
+1) Confirm Repo Prompt is installed and can open the monorepo workspace.
+2) Connect the Repo Prompt MCP server inside Claude Code (if MCP is supported in your environment).
+3) In Repo Prompt, bind to the correct workspace/tab (avoid multi-window drift).
+4) Use Context Builder to discover targets; select full files for edits + codemaps/slices for dependencies.
+5) Run a basic setup and smoke test: `file_search` on a known filename + build a prompt for 2–3 files.
+6) If MCP isn’t available, switch to the rp-cli path for prompt building and manual apply.
+
+**Context strategy (token-efficient defaults)**
+- Full: files you will edit
+- codemaps/slices: large or dependency files
+- Avoid dumping the full repo unless a search fails
+- For monorepos: treat each package as a root; slice within packages to keep context tight
+
+**Alternatives (if MCP is not available or you prefer CLI)**
+- rp-cli path: build prompt via CLI → paste into Claude Code → apply edits manually.
+- Compose → External Chat: use Compose for planning or Chat for implementation with Pro Edit.
+
+Should I use /interview-me to explore this systematically?
+tokens used
+31,899

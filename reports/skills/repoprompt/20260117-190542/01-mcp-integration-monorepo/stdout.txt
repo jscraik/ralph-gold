@@ -1,0 +1,39 @@
+Using the repoprompt skill because you asked to integrate Repo Prompt with Claude Code.
+
+Objective: integrate Repo Prompt with Claude Code for a monorepo, using the most efficient context strategy.
+
+Plan:
+1) Confirm your workflow + access (Claude Code + Repo Prompt Pro for MCP, monorepo scope).
+2) Choose the MCP-backed editor path as the default integration.
+3) Connect the Repo Prompt MCP server in Claude Code.
+4) Set a context strategy (full + codemaps/slices).
+5) Run a basic setup and smoke test.
+
+Next step to execute: confirm you have Repo Prompt Pro (MCP server + Context Builder) and Claude Code MCP settings access.
+
+Recommendation: MCP-backed editor path
+- Why: best fit for Claude Code + monorepo, keeps editing in Claude Code while Repo Prompt supplies context/tools.
+
+Setup checklist and validation:
+- Setup
+  - Install and launch Repo Prompt; open the monorepo workspace.
+  - In Repo Prompt, ensure MCP server is enabled (Pro feature).
+  - In Claude Code, add the Repo Prompt MCP server.
+  - Confirm Claude Code shows Repo Prompt tools (e.g., `manage_selection`, `file_search`).
+- Context strategy
+  - Full: files you will edit.
+  - codemaps/slices: large or reference files.
+  - Use Context Builder for discovery across multiple packages.
+- Validation (basic setup and smoke test)
+  - Run a simple `file_search` against a known symbol.
+  - Build a prompt from 2–3 files and get a response.
+  - If the response references the right files, proceed.
+
+Alternatives (if MCP isn’t available):
+1) Compose for planning or Chat for implementation with Pro Edit (copy prompt to Claude, paste XML back).
+2) Chat Mode in Repo Prompt (integrated; use Pro Edit).
+3) rp-cli path (automation or non-MCP agents).
+
+My read: you want the MCP-backed editor path with codemaps/slices for monorepo scale. Correct?
+
+Action: confirm whether you have Repo Prompt Pro and MCP access in Claude Code (yes/no).

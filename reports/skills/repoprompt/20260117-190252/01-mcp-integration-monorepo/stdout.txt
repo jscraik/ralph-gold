@@ -1,0 +1,40 @@
+Objective: Integrate Repo Prompt with Claude Code for a monorepo, with a token‑efficient workflow and a reliable apply path.  
+My read: you want the MCP-backed editor path so Claude Code can pull context from Repo Prompt. Correct?
+
+Plan (3–7 steps)
+1) Confirm Repo Prompt tier and MCP availability (MCP server + Context Builder require Pro).  
+2) Choose the MCP-backed editor path and map the monorepo into a multi-root workspace.  
+3) Apply a codemaps/slices strategy for scale and token efficiency.  
+4) Run a basic setup and smoke test to verify MCP tools and search.  
+5) Define the working loop: Context Builder → plan → implement → apply.  
+6) Capture a minimal runbook so the flow is repeatable.
+
+Next single step to execute  
+Set up Repo Prompt with your monorepo as a multi-root workspace and verify you can open it.
+
+Recommended integration (MCP-backed editor path)
+- Why: Claude Code stays your editor, Repo Prompt becomes the context backend for big monorepos, and you get Context Builder + codemaps/slices.
+
+Setup checklist and validation
+1) Install and open Repo Prompt; grant folder access and open the monorepo workspace.  
+2) Ensure Pro features are active (MCP Server + Context Builder).  
+3) Start/enable the Repo Prompt MCP server.  
+4) In Claude Code, add a custom MCP server pointing to Repo Prompt (local server).  
+5) Create a selection preset: full for files you will edit, codemap_only for dependencies, slices for large files.  
+6) Run a basic setup and smoke test: use file_search and manage_selection from Claude Code via MCP to confirm access.
+
+Context strategy for monorepo (codemaps/slices)
+- Full: active files in the package you’re editing.  
+- Slices: large or shared files where only specific ranges matter.  
+- Codemap: all other packages/modules for signatures only.  
+- Context Builder: use it to discover which packages and files to pull in before planning.
+
+Working loop (quick diagram)
+Repo Prompt (Context Builder) → Claude Code (plan) → Claude Code (implement) → Repo Prompt (apply/review)
+
+Alternatives (if MCP isn’t available)
+1) Compose for planning or Chat for implementation with Pro Edit (manual copy/paste round‑trip).  
+2) rp-cli path for automation or scripts that can’t use MCP directly.  
+3) Chat Mode in Repo Prompt if you want an integrated UI with Pro Edit.
+
+Should I use /interview-me to explore this systematically? (yes/no)

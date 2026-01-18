@@ -1,0 +1,165 @@
+OpenAI Codex v0.87.0-alpha.1 (research preview)
+--------
+workdir: /Users/jamiecraik/dev/agent-skills
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019bcd5a-02f8-7410-9fa8-ca446242da1c
+--------
+user
+$repoprompt
+
+Should I use Compose or Chat mode for a large refactor?
+
+mcp: XcodeBuildMCP starting
+mcp: local-memory starting
+mcp: openaiDeveloperDocs starting
+mcp: RepoPrompt starting
+mcp: pieces starting
+mcp: RepoPrompt ready
+mcp: local-memory ready
+mcp: openaiDeveloperDocs ready
+mcp: XcodeBuildMCP ready
+mcp: pieces ready
+mcp startup: ready: RepoPrompt, local-memory, openaiDeveloperDocs, XcodeBuildMCP, pieces
+
+thinking
+**Planning to read skill documentation**
+exec
+/bin/zsh -lc ls in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+README.md
+SKILL.md
+apple
+backend
+build
+frontend
+github
+product
+scripts
+skills
+utilities
+
+thinking
+**Reading skill file**
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/product/repoprompt/SKILL.md' in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+---
+name: repoprompt
+description: "Plan and guide integration of Repo Prompt (MCP, rp-cli, Compose/Chat/Apply) into AI coding workflows. Use when Codex needs to work with Repo Prompt for: (1) setup/integration, (2) workflow selection, (3) context optimization with codemaps/slices, or (4) comparisons with AI editors."
+metadata:
+  short-description: Integrate Repo Prompt into workflows
+  version: "1.0.0"
+  last_updated: "2026-01-17"
+---
+
+# Repo Prompt Integration
+
+## Compliance
+- Check against GOLD Industry Standards guide in ~/.codex/AGENTS.override.md
+
+## Overview
+Guide the user to the most effective Repo Prompt integration path for their workflow, with minimal setup friction and maximal context efficiency.
+
+## When to Use
+- User asks how to integrate Repo Prompt with Claude Code, Cursor, Codex, or other editors/agents.
+- User asks how to use Compose vs Chat vs Apply/Pro Edit workflows.
+
+thinking
+**Confirming compliance with GOLD guide**
+
+I'll check the GOLD Industry Standards guide as instructed to ensure compliance before providing the recommendation; next, I'll read the guide file.
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/.codex/AGENTS.override.md' in /Users/jamiecraik/dev/agent-skills succeeded in 51ms:
+Standards & Compliance (Gold Industry Standard, baseline 31 Jan 2026)
+
+User profile reference: `/Users/jamiecraik/.codex/USER_PROFILE.md`
+
+Assistant Brief (inline; source USER_PROFILE.md Section 1)
+If sharing this file externally, share only the Assistant Brief section.
+
+1) Collaboration Contract
+
+When assisting Jamie, optimize for:
+- Single-threaded execution (one task at a time)
+- Explicit steps (no implied instructions)
+- Externalized state (write things down; do not rely on memory)
+- Concrete artifacts (checklists, diffs, commands, diagrams, files)
+
+Default interaction format:
+1. Restate the objective in 1-2 lines.
+2. Provide a 3-7 step plan (numbered).
+3. Identify the next single step to execute.
+4. End with either:
+
+
+thinking
+**Recommending Compose vs Chat for large refactor**
+
+For planning a large refactor, Compose is recommended to structure the approach, while Chat with Pro Edit suits detailed implementation. Context strategy should include codemaps or slices for manageable parts, leveraging the MCP-backed editor path for integrated, efficient editing.
+
+Setup checklist for Compose workflow:  
+- Define goals and scope clearly  
+- Break refactor into codemaps or slices  
+- Configure MCP-backed editor environment  
+- Validate plan completeness before implementation  
+
+Default recommendation: use Compose for planning phase, then switch to Chat with Pro Edit for coding.
+
+Alternative approaches:  
+- Start directly in Chat with Pro Edit for smaller or incremental refactors  
+- Use Compose to map out only high-risk areas, then Chat for the rest  
+- Combine Compose and Chat iteratively for continuous feedback  
+
+Next step: Tell me your primary workflow and target tool.
+
+Are you ready to proceed with this workflow? (Yes/No)
+thinking
+**Clarifying large refactor workflow options**
+
+For large refactors, Compose suits planning, Chat with Pro Edit fits implementation, and MCP-backed editor path offers tight editor control. Context strategy should use codemaps or slices for planning and full file edits during implementation.
+
+Setup checklist includes defining scope, choosing context slices, setting up MCP editor if needed, and running a smoke test for validation.
+
+Options:  
+- Compose then external chat  
+- Chat mode with Pro Edit  
+- MCP-backed editor path  
+
+Next step: Tell me your primary workflow (editor-first/chat-first/automation) and target tool.
+codex
+Objective: choose the best Repo Prompt workflow (Compose vs Chat) for a large refactor, and outline the fastest safe path to proceed.
+
+Plan:
+1. Confirm your primary workflow and target tool (editor-first, chat-first, automation).
+2. Choose the recommended path for a large refactor.
+3. Set a context strategy (full vs codemaps/slices).
+4. Run a basic setup and smoke test.
+5. Start planning and then execute edits with the chosen mode.
+
+Next single step: confirm your primary workflow and target tool so I can lock the path.
+
+Recommendation for large refactor:
+- Use Compose for planning or Chat for implementation with Pro Edit. Compose yields a structured refactor plan; Chat/Pro Edit is better for coordinated multi-file changes.
+
+Options (with one recommendation):
+1) MCP-backed editor path (recommended if you live in Cursor/Claude Code/Codex): fast iteration in-editor, Repo Prompt supplies context.  
+2) Compose → External Chat: best for deep reasoning/planning; apply edits via Apply/Pro Edit.  
+3) Chat mode in Repo Prompt: good for integrated context + diffs without leaving the app.
+
+Context strategy:
+- Full: files you will edit.
+- codemaps/slices: large files, dependencies, and reference-only areas.
+
+Setup checklist and validation:
+1. Open Repo Prompt workspace.
+2. Build Context Builder selection with codemaps/slices.
+3. Generate prompt; verify it includes target files.
+4. Run basic setup and smoke test: a small file_search or 2–3 file selection and a quick response.
+5. Start planning in Compose; switch to Chat/Pro Edit for implementation.
+
+Action to take now: tell me your primary workflow (editor-first/chat-first/automation) and target tool.
+tokens used
+28,137

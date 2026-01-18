@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -8,16 +10,66 @@ def _template_dir() -> Path:
     return Path(__file__).resolve().parent / "templates"
 
 
+def _archive_existing_files(
+    project_root: Path, files_to_check: list[tuple[str, str]]
+) -> list[str]:
+    """Archive existing Ralph files before overwriting.
+
+    Args:
+        project_root: Root directory of the project
+        files_to_check: List of (src_name, dst_name) tuples to check
+
+    Returns:
+        List of archived file paths (relative to project_root)
+    """
+    ralph_dir = project_root / ".ralph"
+    archive_dir = ralph_dir / "archive"
+
+    # Check if any files exist that would be overwritten
+    files_to_archive = []
+    for _, dst_name in files_to_check:
+        dst = project_root / dst_name
+        if dst.exists() and dst.is_file():
+            files_to_archive.append(dst)
+
+    if not files_to_archive:
+        return []
+
+    # Create archive directory with timestamp
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    archive_subdir = archive_dir / timestamp
+    archive_subdir.mkdir(parents=True, exist_ok=True)
+
+    archived = []
+    for src_file in files_to_archive:
+        # Preserve directory structure within archive
+        rel_path = src_file.relative_to(project_root)
+        archive_dest = archive_subdir / rel_path
+        archive_dest.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            shutil.copy2(src_file, archive_dest)
+            archived.append(str(rel_path))
+        except Exception:
+            # Best effort - continue even if one file fails
+            pass
+
+    return archived
+
+
 def init_project(
     project_root: Path, force: bool = False, format_type: str | None = None
-) -> None:
+) -> list[str]:
     """
     Write default Ralph files into .ralph/ (durable memory + config).
 
     Args:
         project_root: Root directory of the project
-        force: If True, overwrite existing files
+        force: If True, overwrite existing files (after archiving)
         format_type: Task tracker format ("markdown", "json", "yaml", or None for default)
+
+    Returns:
+        List of archived file paths (empty if nothing was archived)
     """
     tdir = _template_dir()
     if not tdir.exists():
@@ -57,6 +109,11 @@ def init_project(
             ]
         )
 
+    # Archive existing files if force=True
+    archived = []
+    if force:
+        archived = _archive_existing_files(project_root, files)
+
     for src_name, dst_name in files:
         src = tdir / src_name
         dst = project_root / dst_name
@@ -70,6 +127,8 @@ def init_project(
                 dst.chmod(0o755)
             except Exception:
                 pass
+
+    return archived
 
     # Update ralph.toml to use the correct tracker format
     if format_type:

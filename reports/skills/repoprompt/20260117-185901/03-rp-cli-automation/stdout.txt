@@ -1,0 +1,32 @@
+Objective: explain how to use `rp-cli` for automation in your pipeline, using Repo Prompt as a context builder/exporter.
+
+Plan:
+1) Confirm your automation environment (CI vs local script) and how you want to pass prompts to models.
+2) Clarify `rp-cli` install/version and available subcommands.
+3) Outline a minimal automation flow (select context → build prompt → export → send to model).
+4) Provide a smoke-test script stub tailored to your environment.
+5) Add token-efficiency guidance (full vs slices vs codemaps).
+6) Offer next-step options and a recommendation.
+
+Next step to execute: verify `rp-cli` subcommands so I can give exact commands.
+
+How `rp-cli` fits automation (from Repo Prompt notes)
+- `rp-cli` acts as a proxy MCP client via local sockets.
+- It supports exec mode, interactive mode, and scripting.
+- It’s useful for agents or pipelines that can’t use MCP directly.
+
+Recommended automation flow (generic, safe)
+1) Open workspace context (select files / slices / codemaps).
+2) Build prompt (Compose-style).
+3) Export prompt to stdout or file.
+4) Send to model (API/CLI provider).
+5) (Optional) Apply XML edits with Apply/Pro Edit if the model returns them.
+
+Context strategy (token-efficient defaults)
+- Full: only files you will edit.
+- Slices: large files where only ranges matter.
+- Codemaps: dependencies and reference files.
+
+My read: you want a scriptable “build prompt → run model → (optional) apply edits” loop. Correct?
+
+Action: please paste the output of `rp --help` (or `rp-cli --help`) so I can give exact command lines.

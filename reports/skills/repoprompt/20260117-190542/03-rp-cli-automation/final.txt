@@ -1,0 +1,41 @@
+Using repoprompt skill. You asked how to use `rp-cli` in automation; I’ll give a recommended automation flow and a minimal “basic setup and smoke test,” then ask for the one missing detail needed to give exact commands.
+
+Objective: explain the rp-cli path for automation and how to validate it quickly.
+Plan:
+1) Confirm your automation context (CI vs local scripts) and target model provider.
+2) Outline the rp-cli path and how it fits into an automation pipeline.
+3) Provide a setup checklist and validation (smoke test) flow.
+4) Show a minimal, tool-agnostic pipeline skeleton (inputs/outputs).
+5) Ask for the missing detail to produce exact commands.
+
+Next step: confirm where this runs (CI or local) and which model provider you use.
+
+**rp-cli path (automation-focused)**
+- rp-cli acts as a proxy MCP client via local sockets, and supports exec mode, interactive mode, and scripting.
+- It’s best for non-MCP agents or shell pipelines where you want Repo Prompt’s Context Builder, codemaps/slices, and prompt exports as automation inputs.
+
+**Recommended flow (automation)**
+1) Use rp-cli to connect to Repo Prompt.
+2) Run a discovery pass (Context Builder) or direct selection.
+3) Build context using codemaps/slices where possible.
+4) Export the prompt for your model call.
+5) If you use XML edits, apply them via Repo Prompt’s Apply/Pro Edit workflow.
+
+**setup checklist and validation**
+- Confirm Repo Prompt is installed and your workspace opens cleanly.
+- Ensure rp-cli is available in PATH.
+- Run a basic setup and smoke test:
+  - Select 2–3 files, build prompt, and export it.
+  - Verify token count and that the prompt includes the selected files.
+  - If using XML edits, do a tiny change round-trip (one file edit) and apply it.
+
+**Context strategy**
+- Full: files you will edit.
+- Slices: large files where only sections matter.
+- Codemaps: reference files and dependencies.
+
+**Where I need one detail**
+To give exact commands and a copy/paste pipeline, I need:
+- Is this running in CI or local automation, and which model provider do you call (e.g., Claude/ChatGPT/Google AI)?
+
+Action: Reply with “CI” or “local,” plus your model provider, and I’ll give exact rp-cli commands for your pipeline.

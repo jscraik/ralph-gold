@@ -1,0 +1,12 @@
+Objective: Decide between Compose and Chat mode for a large refactor.
+
+Plan:
+1) Define what you need from the model (planning vs. code changes).
+2) Map those needs to Compose vs. Chat capabilities.
+3) Pick a default and a fallback mode.
+
+Next step: Share whether you want help planning the refactor or executing edits first.
+
+Recommendation: Use Compose for large refactors because it lets you curate file context and apply structured changes; switch to Chat for quick questions or when you need fast reasoning without heavy context.
+
+Action: Do you want me to outline a Compose-first workflow for your refactor?

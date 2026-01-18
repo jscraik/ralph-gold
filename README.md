@@ -86,6 +86,8 @@ This creates the recommended default layout:
 
 You can switch trackers by changing `files.prd` in `.ralph/ralph.toml`.
 
+**Re-initializing with `--force`:** If you need to reset your `.ralph` directory, use `ralph init --force`. This automatically archives existing files to `.ralph/archive/<timestamp>/` before creating fresh templates, preventing accidental data loss. See [docs/INIT_ARCHIVING.md](docs/INIT_ARCHIVING.md) for details.
+
 ---
 
 ## Run the loop
@@ -222,6 +224,7 @@ kind = "auto"    # auto|markdown|json|yaml|beads
 `beads` is supported as an optional tracker (requires the `bd` CLI to be installed).
 
 Blocked tasks:
+
 - Markdown tracker: `[-]` marks a blocked task.
 - YAML tracker: set `blocked: true` on a task.
 

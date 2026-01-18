@@ -1,0 +1,13 @@
+Objective: decide whether to use Repo Prompt Compose or Chat mode for a large refactor.
+
+Plan:
+1) Classify your workflow (editor-first vs chat-first).
+2) Choose the mode that minimizes friction for multi-file edits.
+3) Pick a context strategy (full for edited files, slices for large files, codemaps for refs).
+4) Run a small smoke test on 2–3 files.
+
+Next step: confirm your primary workflow style.
+
+Recommendation: For a large refactor, default to Chat mode in Repo Prompt if you want integrated context + Pro Edit diffs in one place. Use Compose → external chat if you need a stronger reasoning model or want a separate planning pass before edits.
+
+Are you editor-first? (yes/no)

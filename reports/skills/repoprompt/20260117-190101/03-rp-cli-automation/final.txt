@@ -1,0 +1,40 @@
+Objective: Explain how to use `rp-cli` in automation (scripts/CI) with a practical, minimal setup path.
+
+Plan:
+1) Confirm the automation context (local script vs CI, shell, repo layout).
+2) Identify whether `rp-cli` is installed and accessible on PATH.
+3) Choose the `rp-cli` mode (exec vs interactive vs scripted) for your flow.
+4) Define a token‑efficient context strategy (full vs slices vs codemaps).
+5) Add a smoke test step that proves prompt generation works.
+6) Provide a hardened script template for your environment.
+
+Next single step to execute: tell me your automation context (local script or CI) so I can choose the right `rp-cli` mode and output a concrete template.
+
+Here’s the automation‑oriented guidance based on the provided Repo Prompt notes:
+
+**What `rp-cli` is good for**
+- It acts as a proxy MCP client via local sockets and is intended for agents or scripts that cannot use MCP directly.
+- It supports exec mode, interactive mode, and scripting (ideal for automation pipelines).
+
+**Recommended automation pattern (high level)**
+1) Ensure Repo Prompt app is installed and can open the workspace.
+2) Use `rp-cli` to build context (full files + slices/codemaps where possible).
+3) Export a prompt to a file or pipe it to your model runner.
+4) Capture model output; if XML edits are used, apply via Repo Prompt Apply/Pro Edit or your XML‑aware patch step.
+5) Run a smoke test (single small file selection) before scaling.
+
+**Context strategy for automation**
+- Full for files you will edit.
+- Slices for large files (only relevant sections).
+- Codemaps for dependencies or reference files.
+- Avoid full‑repo dumps; keep prompt sizes lean to preserve model reasoning.
+
+**Smoke test checklist**
+- Repo Prompt can open the workspace.
+- `rp-cli` can see the workspace.
+- Build a minimal prompt (2–3 files).
+- Confirm prompt output is non‑empty and includes expected file headers.
+
+If you want a concrete command template, I need one detail to pick the right mode and output format.
+
+Action: Reply with your automation context (local script or CI) and your target model runner (e.g., OpenAI API, Claude CLI, or other), and I’ll give you an exact `rp-cli` script template with a smoke test.

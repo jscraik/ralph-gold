@@ -1,0 +1,34 @@
+Using repoprompt skill (you asked about rp-cli).
+
+Objective: explain the rp-cli path for automation and give a setup checklist and validation you can run.
+
+Plan:
+1) Confirm your automation context (local script vs CI) and constraints.
+2) Outline the rp-cli path and where it fits in the discovery → plan → implement flow.
+3) Provide a minimal automation scaffold: context build → prompt export → model call → apply edits.
+4) Add token-efficient context guidance (codemaps/slices) and failure gates.
+5) Define a basic setup and smoke test.
+
+Next step: confirm whether this is for CI or local automation so I can tailor the flow.
+
+Here’s the rp-cli path, high level and safe (no invented flags):
+- rp-cli path: use rp-cli to build token-efficient context, export the prompt payload, then feed it to your model runner; if the model returns XML edits, apply via Repo Prompt Apply/Pro Edit or your own XML-capable patcher.
+- Context Builder: use it when you want discovery to choose files for you; otherwise select files explicitly.
+- codemaps/slices: use codemaps for reference files and slices for large files to keep token usage predictable.
+
+Setup checklist and validation:
+1) Confirm rp-cli is installed and can connect to the Repo Prompt local socket.
+2) Open the target workspace in Repo Prompt (required for local sockets).
+3) Create a tiny selection (2–3 files) and export a prompt once.
+4) Send that prompt to your model and capture the full response.
+5) If XML edits are returned, run them through Apply/Pro Edit and review the diff.
+6) Basic setup and smoke test: repeat with a second small change to confirm end-to-end automation.
+
+Automation flow (conceptual):
+- Step A: rp-cli builds context + prompt export (your script stores prompt to a file).
+- Step B: model runner consumes the prompt and writes response to a file.
+- Step C: apply edits with Repo Prompt Apply/Pro Edit (or manual review) and gate on diff.
+
+If you paste the output of `rp-cli --help` or your current script, I can give exact commands and a concrete pipeline.
+
+Is this automation for CI (yes/no)?

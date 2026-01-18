@@ -1,0 +1,10 @@
+{
+  "name": "compose-vs-chat-refactor",
+  "passed": false,
+  "failures": [
+    "contains failed: 'recommends Compose for planning or Chat for implementation with Pro Edit'",
+    "contains failed: 'includes rationale and context strategy'"
+  ],
+  "dir": "/Users/jamiecraik/dev/ralph-gold/reports/skills/repoprompt/20260117-190101/02-compose-vs-chat-refactor",
+  "used_schema": false
+}

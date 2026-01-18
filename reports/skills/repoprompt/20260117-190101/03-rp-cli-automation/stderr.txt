@@ -1,0 +1,140 @@
+OpenAI Codex v0.87.0-alpha.1 (research preview)
+--------
+workdir: /Users/jamiecraik/dev/agent-skills
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019bcd55-aae3-7290-94fc-3a168b6d507f
+--------
+user
+$repoprompt
+
+How do I use rp-cli in automation?
+
+mcp: RepoPrompt starting
+mcp: local-memory starting
+mcp: openaiDeveloperDocs starting
+mcp: XcodeBuildMCP starting
+mcp: pieces starting
+mcp: RepoPrompt ready
+mcp: local-memory ready
+mcp: openaiDeveloperDocs ready
+mcp: XcodeBuildMCP ready
+mcp: pieces ready
+mcp startup: ready: RepoPrompt, local-memory, openaiDeveloperDocs, XcodeBuildMCP, pieces
+
+thinking
+**Planning skill file read**
+
+I'm deciding to reread the SKILL file using a simple file read command rather than more complex search tools, as the environment allows read-only access.
+exec
+/bin/zsh -lc ls in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+README.md
+SKILL.md
+apple
+backend
+build
+frontend
+github
+product
+scripts
+skills
+utilities
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md' in /Users/jamiecraik/dev/agent-skills succeeded in 51ms:
+---
+name: repoprompt
+description: "Plan and guide integration of Repo Prompt (MCP, rp-cli, Compose/Chat/Apply) into AI coding workflows. Use when Codex needs to work with Repo Prompt for: (1) setup/integration, (2) workflow selection, (3) context optimization with codemaps/slices, or (4) comparisons with AI editors."
+metadata:
+  short-description: Integrate Repo Prompt into workflows
+  version: "1.0.0"
+  last_updated: "2026-01-17"
+---
+
+# Repo Prompt Integration
+
+## Compliance
+- Check against GOLD Industry Standards guide in ~/.codex/AGENTS.override.md
+
+## Overview
+Guide the user to the most effective Repo Prompt integration path for their workflow, with minimal setup friction and maximal context efficiency.
+
+## When to Use
+- User asks how to integrate Repo Prompt with Claude Code, Cursor, Codex, or other editors/agents.
+- User asks how to use Compose vs Chat vs Apply/Pro Edit workflows.
+
+thinking
+**Opening reference file**
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/skills/repoprompt/references/repoprompt_source.md' in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+# Repo Prompt Source Notes (Provided)
+
+Use this as source material for summaries and explanations. Prefer concise paraphrase over long quotes. Avoid inventing pricing or feature availability; use what is here or ask.
+
+## Overview
+
+Repo Prompt helps build token-efficient, context-rich prompts so AI models understand code better. It targets the common problem of too little context (hallucinations) vs too much (token waste). Typical pain points:
+- Manual copy/paste of files
+- Blind agent discovery that burns tokens
+- Paying per-token API costs for discovery
+
+### Solution summary
+1) Token-efficient context building
+- Full content for active files
+- Slices for targeted ranges
+- Codemaps for signatures only
+
+2) Use existing AI subscriptions via CLI providers
+- Claude MAX / ChatGPT Plus or Pro / Google AI
+
+
+thinking
+**Outlining safe rp-cli automation steps**
+
+I’m providing a general automation pattern for rp-cli since direct usage details are unavailable. Steps include confirming rp-cli install and login, preparing commands with placeholders, scripting execution via local socket proxy, and validating with a smoke test. Next, I'll ask for the user's automation context and goals to tailor commands precisely.
+codex
+Objective: Explain how to use `rp-cli` in automation (scripts/CI) with a practical, minimal setup path.
+
+Plan:
+1) Confirm the automation context (local script vs CI, shell, repo layout).
+2) Identify whether `rp-cli` is installed and accessible on PATH.
+3) Choose the `rp-cli` mode (exec vs interactive vs scripted) for your flow.
+4) Define a token‑efficient context strategy (full vs slices vs codemaps).
+5) Add a smoke test step that proves prompt generation works.
+6) Provide a hardened script template for your environment.
+
+Next single step to execute: tell me your automation context (local script or CI) so I can choose the right `rp-cli` mode and output a concrete template.
+
+Here’s the automation‑oriented guidance based on the provided Repo Prompt notes:
+
+**What `rp-cli` is good for**
+- It acts as a proxy MCP client via local sockets and is intended for agents or scripts that cannot use MCP directly.
+- It supports exec mode, interactive mode, and scripting (ideal for automation pipelines).
+
+**Recommended automation pattern (high level)**
+1) Ensure Repo Prompt app is installed and can open the workspace.
+2) Use `rp-cli` to build context (full files + slices/codemaps where possible).
+3) Export a prompt to a file or pipe it to your model runner.
+4) Capture model output; if XML edits are used, apply via Repo Prompt Apply/Pro Edit or your XML‑aware patch step.
+5) Run a smoke test (single small file selection) before scaling.
+
+**Context strategy for automation**
+- Full for files you will edit.
+- Slices for large files (only relevant sections).
+- Codemaps for dependencies or reference files.
+- Avoid full‑repo dumps; keep prompt sizes lean to preserve model reasoning.
+
+**Smoke test checklist**
+- Repo Prompt can open the workspace.
+- `rp-cli` can see the workspace.
+- Build a minimal prompt (2–3 files).
+- Confirm prompt output is non‑empty and includes expected file headers.
+
+If you want a concrete command template, I need one detail to pick the right mode and output format.
+
+Action: Reply with your automation context (local script or CI) and your target model runner (e.g., OpenAI API, Claude CLI, or other), and I’ll give you an exact `rp-cli` script template with a smoke test.
+tokens used
+27,086

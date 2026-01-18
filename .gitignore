@@ -32,6 +32,7 @@ uv.lock
 
 # Ralph runtime state (keep config files, ignore logs)
 .ralph/logs/
+.ralph/archive/
 .ralph/*.state
 .ralph/USER_PROFILE.md
 

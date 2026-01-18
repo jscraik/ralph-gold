@@ -1,0 +1,3 @@
+$repoprompt
+
+How do I use rp-cli in automation?

@@ -1,0 +1,18 @@
+Objective: Decide whether to use Compose or Chat mode in Repo Prompt for a large refactor and pick a safe default.
+
+Plan:
+1) Choose the workflow goal (planning vs implementation) for the refactor.
+2) Select the Repo Prompt path: Compose for planning or Chat for implementation with Pro Edit.
+3) Set a context strategy: full files to edit + codemaps/slices for dependencies.
+4) Run a basic setup and smoke test to validate context and tool access.
+
+Next step to execute: Confirm whether you want to plan first or implement first.
+
+Recommendation: Use Compose for planning or Chat for implementation with Pro Edit. For a large refactor, start in Compose with Context Builder and codemaps/slices, then switch to Chat for applying edits once the plan is locked.
+
+Options:
+- MCP-backed editor path (best if you want in-editor edits and strong context tools).
+- Chat Mode in Repo Prompt (fastest for implementation with Pro Edit).
+- rp-cli path (automation-heavy workflows).
+
+Should I proceed with the recommendation to start in Compose for planning?

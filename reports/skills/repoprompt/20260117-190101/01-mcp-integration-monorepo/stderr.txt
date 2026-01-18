@@ -1,0 +1,109 @@
+OpenAI Codex v0.87.0-alpha.1 (research preview)
+--------
+workdir: /Users/jamiecraik/dev/agent-skills
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019bcd55-0e3a-77f3-8400-0ac7fd90f699
+--------
+user
+$repoprompt
+
+Integrate Repo Prompt with Claude Code for a monorepo.
+
+mcp: RepoPrompt starting
+mcp: XcodeBuildMCP starting
+mcp: local-memory starting
+mcp: openaiDeveloperDocs starting
+mcp: pieces starting
+mcp: RepoPrompt ready
+mcp: local-memory ready
+mcp: openaiDeveloperDocs ready
+mcp: XcodeBuildMCP ready
+mcp: pieces ready
+mcp startup: ready: RepoPrompt, local-memory, openaiDeveloperDocs, XcodeBuildMCP, pieces
+
+thinking
+**Preparing to review skill documentation**
+exec
+/bin/zsh -lc ls in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+README.md
+SKILL.md
+apple
+backend
+build
+frontend
+github
+product
+scripts
+skills
+utilities
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md' in /Users/jamiecraik/dev/agent-skills succeeded in 51ms:
+---
+name: repoprompt
+description: "Plan and guide integration of Repo Prompt (MCP, rp-cli, Compose/Chat/Apply) into AI coding workflows. Use when Codex needs to work with Repo Prompt for: (1) setup/integration, (2) workflow selection, (3) context optimization with codemaps/slices, or (4) comparisons with AI editors."
+metadata:
+  short-description: Integrate Repo Prompt into workflows
+  version: "1.0.0"
+  last_updated: "2026-01-17"
+---
+
+# Repo Prompt Integration
+
+## Compliance
+- Check against GOLD Industry Standards guide in ~/.codex/AGENTS.override.md
+
+## Overview
+Guide the user to the most effective Repo Prompt integration path for their workflow, with minimal setup friction and maximal context efficiency.
+
+## When to Use
+- User asks how to integrate Repo Prompt with Claude Code, Cursor, Codex, or other editors/agents.
+- User asks how to use Compose vs Chat vs Apply/Pro Edit workflows.
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/skills/repoprompt/references/repoprompt_source.md' in /Users/jamiecraik/dev/agent-skills succeeded in 51ms:
+# Repo Prompt Source Notes (Provided)
+
+Use this as source material for summaries and explanations. Prefer concise paraphrase over long quotes. Avoid inventing pricing or feature availability; use what is here or ask.
+
+## Overview
+
+Repo Prompt helps build token-efficient, context-rich prompts so AI models understand code better. It targets the common problem of too little context (hallucinations) vs too much (token waste). Typical pain points:
+- Manual copy/paste of files
+- Blind agent discovery that burns tokens
+- Paying per-token API costs for discovery
+
+### Solution summary
+1) Token-efficient context building
+- Full content for active files
+- Slices for targeted ranges
+- Codemaps for signatures only
+
+2) Use existing AI subscriptions via CLI providers
+- Claude MAX / ChatGPT Plus or Pro / Google AI
+
+
+thinking
+**Preparing binary question about workflow**
+
+I'm focusing on confirming workflow and constraints with a single yes/no question to guide next steps, then planning integration, setup, context handling, and validation accordingly.
+codex
+Using skill: repoprompt (you asked to integrate Repo Prompt with Claude Code for a monorepo).
+
+Objective: integrate Repo Prompt with Claude Code for a monorepo, choosing the right workflow and context strategy.
+
+Plan:
+1) Confirm workflow, repo shape, and constraints (editor-first vs chat-first, monorepo structure, token/cost/security).
+2) Select the best integration path (MCP-backed editor vs Compose/Chat vs rp-cli) with a recommendation.
+3) Provide a short setup checklist tailored to Claude Code + monorepo.
+4) Define a context strategy (full vs slices vs codemaps; multi-root handling).
+5) Run a smoke test checklist to validate the integration.
+
+Next step: decide whether to run a brief requirements interview.
+
+Should I use /interview-me to explore this systematically? (yes/no)
+tokens used
+7,430

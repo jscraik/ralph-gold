@@ -1,0 +1,7 @@
+error: unexpected argument '--disable-mcp' found
+
+  tip: a similar argument exists: '--disable'
+
+Usage: codex exec --skip-git-repo-check --cd <DIR> --sandbox <SANDBOX_MODE> --output-last-message <FILE> --disable <FEATURE> [PROMPT]
+
+For more information, try '--help'.

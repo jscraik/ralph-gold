@@ -1,0 +1,90 @@
+2026-01-17T18:59:36.565663Z ERROR codex_core::codex: failed to load skill /Users/jamiecraik/dev/agent-skills/product/interview-me/SKILL.md: missing YAML frontmatter delimited by ---
+OpenAI Codex v0.87.0-alpha.1 (research preview)
+--------
+workdir: /Users/jamiecraik/dev/agent-skills
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019bcd53-bff9-7813-a514-d1f144e52b88
+--------
+user
+$repoprompt
+
+Should I use Compose or Chat mode for a large refactor?
+
+mcp: RepoPrompt starting
+mcp: XcodeBuildMCP starting
+mcp: openaiDeveloperDocs starting
+mcp: pieces starting
+mcp: local-memory starting
+mcp: RepoPrompt ready
+mcp: local-memory ready
+mcp: openaiDeveloperDocs ready
+mcp: XcodeBuildMCP ready
+mcp: pieces ready
+mcp startup: ready: RepoPrompt, local-memory, openaiDeveloperDocs, XcodeBuildMCP, pieces
+
+thinking
+**Planning to read skill documentation**
+tool RepoPrompt.read_file({"path":"/Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md"})
+RepoPrompt.read_file({"path":"/Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md"}) failed in 397ms:
+{
+  "content": [
+    {
+      "text": "Error: [-32602] Invalid params: Cannot read '/Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md'. The requested path '/Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md' is not inside any loaded folder in this window. Loaded roots: instructions → /Users/jamiecraik/.codex/instructions; sTools → /Users/jamiecraik/dev/sTools; skills → /Users/jamiecraik/.codex/public/skills; .codex → /Users/jamiecraik/.codex. Use the 'manage_workspaces' tool to switch to a workspace containing this path, or add the folder to the current workspace.",
+      "type": "text"
+    }
+  ],
+  "isError": true
+}
+
+thinking
+**Adding folder via workspace management**
+
+I identified the need to add a folder for access and decided to use the manage_workspaces method to add the folder since no approval is required.
+tool RepoPrompt.manage_workspaces({"action":"add_folder","folder_path":"/Users/jamiecraik/dev/agent-skills"})
+RepoPrompt.manage_workspaces({"action":"add_folder","folder_path":"/Users/jamiecraik/dev/agent-skills"}) success in 315ms:
+{
+  "content": [
+    {
+      "text": "## Folder Added ✅\n- **Folder**: `/Users/jamiecraik/dev/agent-skills`",
+      "type": "text"
+    }
+  ],
+  "isError": false
+}
+tool RepoPrompt.read_file({"path":"/Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md"})
+RepoPrompt.read_file({"path":"/Users/jamiecraik/dev/agent-skills/skills/repoprompt/SKILL.md"}) success in 63ms:
+{
+  "content": [
+    {
+      "text": "## File Read ✅\n- **Path**: `agent-skills/skills/repoprompt/SKILL.md`\n- **Lines**: 1–120 of 120\n\n```markdown\n---\nname: repoprompt\ndescription: \"Plan and guide integration of Repo Prompt (MCP, rp-cli, Compose/Chat/Apply) into AI coding workflows. Use when Codex needs to work with Repo Prompt for: (1) setup/integration, (2) workflow selection, (3) context optimization with codemaps/slices, or (4) comparisons with AI editors.\"\nmetadata:\n  short-description: Integrate Repo Prompt into workflows\n  version: \"1.0.0\"\n  last_updated: \"2026-01-17\"\n---\n\n# Repo Prompt Integration\n\n## Compliance\n- Check against GOLD Industry Standards guide in ~/.codex/AGENTS.override.md\n\n## Overview\nGuide the user to the most effective Repo Prompt integration path for their workflow, with minimal setup friction and maximal context efficiency.\n\n## When to Use\n- User asks how to integrate Repo Prompt with Claude Code, Cursor, Codex, or other editors/agents.\n- User asks how to use Compose vs Chat vs Apply/Pro Edit workflows.\n- User asks how to optimize context (codemaps, slices, multi-root workspaces).\n- User asks for a comparison between Repo Prompt and AI editors.\n- User asks about rp-cli usage or MCP server setup.\n\n## Inputs\n- Current workflow (editor-first, chat-first, CLI automation).\n- Target tools (Cursor, Claude Code, Codex, ChatGPT, etc.).\n- Repo scale (single repo vs multi-repo/monorepo).\n- Model access (API keys vs CLI providers).\n- Constraints (token budget, latency, cost, security policies).\n\n## Outputs\n- Recommended integration path (MCP editor, Compose external chat, Chat mode, or rp-cli).\n- Short, ordered setup checklist (3–7 steps).\n- Context strategy (full vs slices vs codemaps).\n- Quick validation/smoke test steps.\n- 2–3 concrete next-step options and a clear recommendation.\n\n## Constraints\n- Redact secrets/sensitive data by default.\n- Avoid adding dependencies or requiring paid features without explicit user approval.\n- Do not claim features beyond the provided source notes.\n- Prefer short, actionable steps over long explanations.\n- When multiple options fit, give one recommendation and explain why.\n\n## Philosophy\n- Context efficiency beats brute-force context dumping.\n- Optimize for lowest friction that still yields reliable results.\n- Use the strongest model only where it adds value (planning/review).\n\n## Empowerment\n- Provide a default recommendation and 2–3 alternatives; ask the user to choose.\n- Offer a fast, low-risk next step before advanced optimization.\n- State explicit tradeoffs so the user can decide confidently.\n- Enable confident choices: unlock the safest path first, then empower exploration if needed.\n\n## Workflow Fit Assessment (ask briefly)\n- Primary workflow: editor-first, chat-first, or automation?\n- Scope: single repo vs multi-root?\n- Model access: API keys vs CLI providers?\n- Task type: quick fix vs multi-file refactor vs planning?\n- Constraints: token budget, cost sensitivity, security?\n\n## Integration Paths (choose best match)\n\n### 1) MCP-Backed Editor (Recommended for agent workflows)\n- Connect Repo Prompt MCP server.\n- Use Context Builder for discovery; codemaps/slices for efficiency.\n- Keep edits in Cursor/Claude Code; Repo Prompt supplies context/tools.\n\n### 2) Compose → External Chat (Best for reasoning models)\n- Build context in Compose.\n- Copy prompt to ChatGPT/Claude.\n- If edits returned as XML, apply via Apply/Pro Edit.\n\n### 3) Chat Mode in Repo Prompt (Integrated + Pro Edit)\n- Use in-app chat with selected context and diffs.\n- Pro Edit for multi-file changes and review.\n\n### 4) rp-cli (Automation / non-MCP agents)\n- Use rp-cli to build context and export prompts.\n- Suitable for shell-based agents or scripts.\n\n## Context Strategy (token-efficient defaults)\n- Full: files you will edit.\n- Slices: large files where only sections matter.\n- Codemaps: reference files and dependencies.\n- Tree mode: Selected/Auto; diffs only when debugging or reviewing.\n\n## Validation\n- Fail fast: stop at the first failed gate, fix, then re-run.\n- Confirm Repo Prompt can open the target workspace.\n- Run a small test: select 2–3 files, build prompt, and get a response.\n- If MCP: verify tools list and a simple file_search.\n\n## Anti-patterns\n- Dumping full repo context when codemaps/slices suffice.\n- Choosing external chat without a clear apply workflow for edits.\n- Running MCP without tab/workspace binding in multi-window setups.\n- Treating Repo Prompt as a replacement for the editor instead of a context backend.\n- Recommending paid features without confirming budget or constraints.\n- DO NOT skip smoke tests; missing validation is a common mistake.\n- Avoid generic or incorrect “one-size-fits-all” workflows; prefer context-specific choices.\n- WARNING: never assume tool availability (MCP, rp-cli) without confirming install/login.\n\n## Variation\n- Vary the recommendation by workflow type (editor-first vs chat-first vs automation).\n- Vary the setup checklist by target tool (Cursor, Claude Code, Codex, ChatGPT web).\n- Vary the context strategy by repo size and token budget.\n- Customize guidance based on constraints (cost, latency, security) and use different examples.\n- Avoid repetition and cookie-cutter templates; prefer context-specific, unique setups.\n\n## Examples\n- “Integrate Repo Prompt with Claude Code and optimize context for a monorepo.”\n- “Should I use Compose or Chat mode for a large refactor?”\n- “How do I use rp-cli in my automation pipeline?”\n\n## References\nRead when needed:\n- references/repoprompt_source.md\n\n```",
+      "type": "text"
+    }
+  ],
+  "isError": false
+}
+
+thinking
+**Recommending workflow choice**
+
+I'm recommending Compose mode followed by external Chat for large refactors needing strong models or structured plans, and Chat mode for integrated diffs and fewer context switches. Next, I'll ask the user a binary question: "Are you editor-first? (yes/no)" to tailor the workflow.
+codex
+Objective: decide whether to use Repo Prompt Compose or Chat mode for a large refactor.
+
+Plan:
+1) Classify your workflow (editor-first vs chat-first).
+2) Choose the mode that minimizes friction for multi-file edits.
+3) Pick a context strategy (full for edited files, slices for large files, codemaps for refs).
+4) Run a small smoke test on 2–3 files.
+
+Next step: confirm your primary workflow style.
+
+Recommendation: For a large refactor, default to Chat mode in Repo Prompt if you want integrated context + Pro Edit diffs in one place. Use Compose → external chat if you need a stronger reasoning model or want a separate planning pass before edits.
+
+Are you editor-first? (yes/no)
+tokens used
+26,677

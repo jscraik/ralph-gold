@@ -1,0 +1,144 @@
+OpenAI Codex v0.87.0-alpha.1 (research preview)
+--------
+workdir: /Users/jamiecraik/dev/agent-skills
+model: gpt-5.2-codex
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: medium
+reasoning summaries: auto
+session id: 019bcd5f-6a0c-70a2-ba07-5a73ad1dc1f5
+--------
+user
+$repoprompt
+
+How do I use rp-cli in automation?
+
+mcp: pieces starting
+mcp: XcodeBuildMCP starting
+mcp: openaiDeveloperDocs starting
+mcp: RepoPrompt starting
+mcp: local-memory starting
+mcp: RepoPrompt ready
+mcp: local-memory ready
+mcp: openaiDeveloperDocs ready
+mcp: XcodeBuildMCP ready
+mcp: pieces ready
+mcp startup: ready: RepoPrompt, local-memory, openaiDeveloperDocs, XcodeBuildMCP, pieces
+
+thinking
+**Preparing to read skill file**
+
+I'm planning to read the skill file using a read-only command to access its contents without needing approval.
+exec
+/bin/zsh -lc ls in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+README.md
+SKILL.md
+apple
+backend
+build
+frontend
+github
+product
+scripts
+skills
+utilities
+
+thinking
+**Confirming skill file path**
+
+The repoprompt skill file was found and read at the expected location.
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/product/repoprompt/SKILL.md' in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+---
+name: repoprompt
+description: "Plan and guide integration of Repo Prompt (MCP, rp-cli, Compose/Chat/Apply) into AI coding workflows. Use when Codex needs to work with Repo Prompt for: (1) setup/integration, (2) workflow selection, (3) context optimization with codemaps/slices, or (4) comparisons with AI editors."
+metadata:
+  short-description: Integrate Repo Prompt into workflows
+  version: "1.0.0"
+  last_updated: "2026-01-17"
+---
+
+# Repo Prompt Integration
+
+## Compliance
+- Check against GOLD Industry Standards guide in ~/.codex/AGENTS.override.md
+
+## Overview
+Guide the user to the most effective Repo Prompt integration path for their workflow, with minimal setup friction and maximal context efficiency.
+
+## When to Use
+- User asks how to integrate Repo Prompt with Claude Code, Cursor, Codex, or other editors/agents.
+- User asks how to use Compose vs Chat vs Apply/Pro Edit workflows.
+
+thinking
+**Identifying need for CLI reference file**
+exec
+/bin/zsh -lc 'cat /Users/jamiecraik/dev/agent-skills/product/repoprompt/references/repoprompt_source.md' in /Users/jamiecraik/dev/agent-skills succeeded in 52ms:
+# Repo Prompt Source Notes (Provided)
+
+Use this as source material for summaries and explanations. Prefer concise paraphrase over long quotes. Avoid inventing pricing or feature availability; use what is here or ask.
+
+## Overview
+
+Repo Prompt helps build token-efficient, context-rich prompts so AI models understand code better. It targets the common problem of too little context (hallucinations) vs too much (token waste). Typical pain points:
+- Manual copy/paste of files
+- Blind agent discovery that burns tokens
+- Paying per-token API costs for discovery
+
+### Solution summary
+1) Token-efficient context building
+- Full content for active files
+- Slices for targeted ranges
+- Codemaps for signatures only
+
+2) Use existing AI subscriptions via CLI providers
+- Claude MAX / ChatGPT Plus or Pro / Google AI
+
+
+
+thinking
+**Outlining rp-cli automation guidance**
+
+I’ll clarify the objective to use rp-cli in automation, then outline a clear plan with 3–7 explicit steps including setup, authentication, context building, prompt exporting, model calling, and applying changes. I’ll provide a generic automation flow with pseudocode placeholders and request the user’s rp-cli help output to tailor commands. I’ll also ask about their environment (CI or local) and finish with a yes/no question to guide next steps.
+thinking
+**Clarifying rp-cli automation details**
+
+I'll include rp-cli path guidance, a setup checklist with validation steps, mention codemaps/slices and the Context Builder if applicable, and request the exact rp-cli capabilities via its help output. I'll end by asking a single binary question: "Is this for CI automation (yes/no)?" to tailor the response accordingly.
+codex
+Using repoprompt skill (you asked about rp-cli).
+
+Objective: explain the rp-cli path for automation and give a setup checklist and validation you can run.
+
+Plan:
+1) Confirm your automation context (local script vs CI) and constraints.
+2) Outline the rp-cli path and where it fits in the discovery → plan → implement flow.
+3) Provide a minimal automation scaffold: context build → prompt export → model call → apply edits.
+4) Add token-efficient context guidance (codemaps/slices) and failure gates.
+5) Define a basic setup and smoke test.
+
+Next step: confirm whether this is for CI or local automation so I can tailor the flow.
+
+Here’s the rp-cli path, high level and safe (no invented flags):
+- rp-cli path: use rp-cli to build token-efficient context, export the prompt payload, then feed it to your model runner; if the model returns XML edits, apply via Repo Prompt Apply/Pro Edit or your own XML-capable patcher.
+- Context Builder: use it when you want discovery to choose files for you; otherwise select files explicitly.
+- codemaps/slices: use codemaps for reference files and slices for large files to keep token usage predictable.
+
+Setup checklist and validation:
+1) Confirm rp-cli is installed and can connect to the Repo Prompt local socket.
+2) Open the target workspace in Repo Prompt (required for local sockets).
+3) Create a tiny selection (2–3 files) and export a prompt once.
+4) Send that prompt to your model and capture the full response.
+5) If XML edits are returned, run them through Apply/Pro Edit and review the diff.
+6) Basic setup and smoke test: repeat with a second small change to confirm end-to-end automation.
+
+Automation flow (conceptual):
+- Step A: rp-cli builds context + prompt export (your script stores prompt to a file).
+- Step B: model runner consumes the prompt and writes response to a file.
+- Step C: apply edits with Repo Prompt Apply/Pro Edit (or manual review) and gate on diff.
+
+If you paste the output of `rp-cli --help` or your current script, I can give exact commands and a concrete pipeline.
+
+Is this automation for CI (yes/no)?
+tokens used
+27,363

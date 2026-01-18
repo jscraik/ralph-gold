@@ -1,0 +1,21 @@
+Objective: recommend whether Compose or Chat mode in Repo Prompt for a large refactor, aligned to your workflow.
+
+Plan:
+1) Confirm your workflow type and tooling (editor-first vs chat-first).
+2) Match the mode to refactor needs (reasoning vs tight edit loop).
+3) Provide a default recommendation plus alternatives.
+4) Give a minimal context strategy and a quick smoke test.
+
+Next step: confirm your primary workflow so I can lock the recommendation.
+
+Recommendation (default): use Compose for a large refactor if you want deeper reasoning and a clean apply step. It’s best when you plan in a reasoning model, then apply multi-file changes via Apply/Pro Edit. Use Chat mode if you want a faster, tighter in-app loop with iterative diffs and less context export overhead.
+
+Quick context strategy:
+- Full: files you’ll change.
+- Slices: large files where only a section is relevant.
+- Codemaps: dependencies you need to reference but won’t edit.
+
+Smoke test:
+- Select 2–3 target files, build prompt, request a small change, and apply.
+
+Binary question: Is your primary workflow chat-first (external model) rather than editor-first?

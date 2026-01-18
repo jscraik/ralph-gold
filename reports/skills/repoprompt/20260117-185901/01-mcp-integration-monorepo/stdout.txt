@@ -1,0 +1,15 @@
+Objective: integrate Repo Prompt with Claude Code for a monorepo, with a low-friction setup and a token‑efficient context strategy.  
+I’ll recommend the MCP‑backed editor path unless you prefer rp‑cli or Compose.
+
+Plan (3–7 steps)
+1) Choose integration path (MCP editor recommended; alternatives: Compose→external chat, rp‑cli).  
+2) Confirm tool availability (Repo Prompt MCP server installed, Claude Code supports MCP).  
+3) Connect Repo Prompt MCP in Claude Code and bind to the monorepo workspace/tab.  
+4) Define context strategy: full files for edits, slices for large files, codemaps for dependencies.  
+5) Run a smoke test: file_search + context_builder on 2–3 files.  
+6) Save a short “context recipe” for the monorepo (what to select by default).
+
+Next single step to execute  
+Pick the integration path (I recommend MCP‑backed editor for Claude Code + monorepo).
+
+My read: MCP‑backed editor is the best fit here. Correct? (yes/no)

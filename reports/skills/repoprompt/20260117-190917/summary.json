@@ -1,0 +1,32 @@
+{
+  "skill": "repoprompt",
+  "skill_path": "/Users/jamiecraik/dev/agent-skills/product/repoprompt",
+  "workspace_root": "/Users/jamiecraik/dev/agent-skills",
+  "run_id": "20260117-190917",
+  "cases": [
+    {
+      "name": "mcp-integration-monorepo",
+      "passed": true,
+      "failures": [],
+      "dir": "/Users/jamiecraik/dev/ralph-gold/reports/skills/repoprompt/20260117-190917/01-mcp-integration-monorepo",
+      "used_schema": false
+    },
+    {
+      "name": "compose-vs-chat-refactor",
+      "passed": false,
+      "failures": [
+        "regex failed: /(?i)(why|because|yields|rationale)/"
+      ],
+      "dir": "/Users/jamiecraik/dev/ralph-gold/reports/skills/repoprompt/20260117-190917/02-compose-vs-chat-refactor",
+      "used_schema": false
+    },
+    {
+      "name": "rp-cli-automation",
+      "passed": true,
+      "failures": [],
+      "dir": "/Users/jamiecraik/dev/ralph-gold/reports/skills/repoprompt/20260117-190917/03-rp-cli-automation",
+      "used_schema": false
+    }
+  ],
+  "passed": false
+}
