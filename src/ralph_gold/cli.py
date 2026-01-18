@@ -148,6 +148,68 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if ok else 2
 
 
+def cmd_resume(args: argparse.Namespace) -> int:
+    """Handle resume command - detect and optionally continue interrupted iteration."""
+    root = _project_root()
+
+    resume_info = detect_interrupted_iteration(root)
+
+    if resume_info is None:
+        print("No interrupted iteration detected.")
+        print("Last iteration completed normally.")
+        return 0
+
+    # Show information about the interruption
+    print(format_resume_prompt(resume_info))
+    print()
+
+    # Check if we should recommend resuming
+    recommended = should_resume(resume_info)
+
+    if args.clear:
+        if clear_interrupted_state(root):
+            print("✓ Cleared interrupted iteration from state.")
+            print("  Run 'ralph step' to start fresh on the same task.")
+        else:
+            print("✗ Failed to clear interrupted state.")
+            return 1
+        return 0
+
+    if args.auto or recommended:
+        if not args.auto:
+            # Interactive mode - ask user
+            try:
+                response = input("\nResume this iteration? [Y/n]: ").strip().lower()
+                if response and response not in {"y", "yes"}:
+                    print("Skipped. Use 'ralph resume --clear' to remove this entry.")
+                    return 0
+            except (KeyboardInterrupt, EOFError):
+                print("\nCancelled.")
+                return 0
+
+        # Resume by running another iteration
+        print(f"\nResuming with agent '{resume_info.agent}'...")
+        cfg = load_config(root)
+        iter_n = next_iteration_number(root)
+
+        res = run_iteration(root, agent=resume_info.agent, cfg=cfg, iteration=iter_n)
+
+        print(
+            f"Iteration {res.iteration} agent={resume_info.agent} story_id={res.story_id} "
+            f"rc={res.return_code} exit={res.exit_signal} gates={res.gates_ok}"
+        )
+        print(f"Log: {res.log_path}")
+
+        return 0 if res.return_code == 0 else 2
+
+    # Not recommended to resume
+    print("\n⚠ Resume not recommended (gates may have failed).")
+    print("Options:")
+    print("  - ralph resume --clear    # Clear and start fresh")
+    print("  - ralph resume --auto     # Force resume anyway")
+    return 0
+
+
 # -------------------------
 # loop
 # -------------------------
@@ -688,6 +750,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Check GitHub authentication (gh CLI or token)",
     )
     p_doc.set_defaults(func=cmd_doctor)
+
+    p_resume = sub.add_parser(
+        "resume",
+        help="Detect and resume interrupted iterations",
+    )
+    p_resume.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clear the interrupted iteration without resuming",
+    )
+    p_resume.add_argument(
+        "--auto",
+        action="store_true",
+        help="Resume automatically without prompting",
+    )
+    p_resume.set_defaults(func=cmd_resume)
 
     p_step = sub.add_parser("step", help="Run exactly one iteration")
     p_step.add_argument(
