@@ -59,7 +59,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Implement `format_stats_report()` function
   - Extend `loop.py` to track `duration_seconds` in history
 
-- [ ] 2.2 Write unit tests for stats
+- [x] 2.2 Write unit tests for stats
   - Create `tests/test_stats.py`
   - Test stats calculation with various history data
   - Test CSV export and parsing
@@ -73,7 +73,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Property 7: CSV export round-trip
   - Use `hypothesis` with numeric strategies
 
-- [ ] 2.4 Integrate stats CLI command
+- [x] 2.4 Integrate stats CLI command
   - Add `cmd_stats()` to `cli.py`
   - Add `--by-task` flag
   - Add `--export <file>` flag
@@ -82,14 +82,14 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 3: Dry-Run Mode
 
-- [ ] 3.1 Implement dry-run functionality
+- [x] 3.1 Implement dry-run functionality
   - Modify `loop.py` to accept `dry_run` parameter
   - Implement `dry_run_loop()` function
   - Implement `DryRunResult` dataclass
   - Skip agent execution when dry_run=True
   - Validate configuration and show execution plan
 
-- [ ] 3.2 Write unit tests for dry-run
+- [x] 3.2 Write unit tests for dry-run
   - Create `tests/test_dry_run.py`
   - Test that no agents are executed
   - Test that no files are modified
@@ -97,12 +97,12 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test execution plan generation
   - Test duration estimation
 
-- [ ] 3.3 Write property-based tests for dry-run
+- [x] 3.3 Write property-based tests for dry-run
   - Property 8: Dry-run safety
   - Property 9: Dry-run prediction accuracy
   - Use process monitoring to verify no agent spawns
 
-- [ ] 3.4 Integrate dry-run CLI flag
+- [x] 3.4 Integrate dry-run CLI flag
   - Add `--dry-run` flag to `ralph run` command
   - Add `--dry-run` flag to `ralph step` command
   - Update output formatting for dry-run mode
@@ -115,14 +115,14 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 4: Interactive Task Selection
 
-- [ ] 4.1 Implement interactive selection module
+- [x] 4.1 Implement interactive selection module
   - Create `src/ralph_gold/interactive.py`
   - Implement `TaskChoice` dataclass
   - Implement `select_task_interactive()` function
   - Implement `format_task_list()` function
   - Add search/filter functionality
 
-- [ ] 4.2 Write unit tests for interactive selection
+- [x] 4.2 Write unit tests for interactive selection
   - Create `tests/test_interactive.py`
   - Test task list formatting
   - Test blocked task filtering
@@ -130,12 +130,12 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test single task fallback
   - Test user input handling
 
-- [ ] 4.3 Write property-based tests for interactive selection
+- [x] 4.3 Write property-based tests for interactive selection
   - Property 10: Task filtering correctness
   - Property 11: Search filter accuracy
   - Use `hypothesis` with list and string strategies
 
-- [ ] 4.4 Integrate interactive CLI flag
+- [x] 4.4 Integrate interactive CLI flag
   - Add `--interactive` flag to `ralph step` command
   - Modify `loop.py` to call interactive selector
   - Update README with interactive mode usage
@@ -143,7 +143,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 5: Task Dependencies
 
-- [ ] 5.1 Implement dependencies core module
+- [x] 5.1 Implement dependencies core module
   - Create `src/ralph_gold/dependencies.py`
   - Implement `DependencyGraph` and `TaskNode` dataclasses
   - Implement `build_dependency_graph()` function
@@ -151,14 +151,14 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Implement `get_ready_tasks()` function
   - Implement `format_dependency_graph()` function (ASCII art)
 
-- [ ] 5.2 Extend trackers for dependency support
+- [x] 5.2 Extend trackers for dependency support
   - Modify `trackers.py` to parse `depends_on` field
   - Update JSON tracker schema
   - Update Markdown tracker parsing
   - Update YAML tracker parsing
   - Ensure backward compatibility (no depends_on = no deps)
 
-- [ ] 5.3 Write unit tests for dependencies
+- [x] 5.3 Write unit tests for dependencies
   - Create `tests/test_dependencies.py`
   - Test graph building
   - Test circular dependency detection
@@ -166,14 +166,14 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test topological sort
   - Test all tracker formats
 
-- [ ] 5.4 Write property-based tests for dependencies
+- [x] 5.4 Write property-based tests for dependencies
   - Property 12: Dependency satisfaction
   - Property 13: Circular dependency detection
   - Property 14: Dependency format consistency
   - Property 15: Backward compatibility
   - Use `hypothesis` with graph generation strategies
 
-- [ ] 5.5 Integrate dependencies into loop and CLI
+- [x] 5.5 Integrate dependencies into loop and CLI
   - Modify `loop.py` task selection to respect dependencies
   - Add `ralph status --graph` command to visualize
   - Add circular dependency check to diagnostics
@@ -182,33 +182,33 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 6: Quiet Mode
 
-- [ ] 6.1 Implement output control module
+- [x] 6.1 Implement output control module
   - Create output configuration system
   - Implement `OutputConfig` dataclass
   - Implement `get_output_config()` function
   - Implement `print_output()` function with level checking
   - Implement `format_json_output()` function
 
-- [ ] 6.2 Update all output statements
+- [x] 6.2 Update all output statements
   - Modify `loop.py` to respect verbosity
   - Modify all CLI commands to check verbosity
   - Ensure errors always print
   - Add JSON formatters for all commands
 
-- [ ] 6.3 Write unit tests for quiet mode
+- [x] 6.3 Write unit tests for quiet mode
   - Create `tests/test_output.py`
   - Test quiet mode suppression
   - Test verbose mode output
   - Test JSON output validity
   - Test error preservation
 
-- [ ] 6.4 Write property-based tests for quiet mode
+- [x] 6.4 Write property-based tests for quiet mode
   - Property 31: Quiet mode output suppression
   - Property 32: JSON output validity
   - Property 33: Error preservation
   - Use `hypothesis` with output capture
 
-- [ ] 6.5 Integrate quiet mode CLI flags
+- [x] 6.5 Integrate quiet mode CLI flags
   - Add `--quiet` global flag
   - Add `--verbose` global flag
   - Add `--format json` global flag
@@ -322,19 +322,19 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 10: Environment Variable Expansion
 
-- [ ] 10.1 Implement envvars core module
+- [x] 10.1 Implement envvars core module
   - Create `src/ralph_gold/envvars.py`
   - Implement `expand_env_vars()` function
   - Implement `validate_required_vars()` function
   - Implement `expand_config()` function
   - Add security validation (no shell execution)
 
-- [ ] 10.2 Integrate into config loading
+- [x] 10.2 Integrate into config loading
   - Modify `config.load_config()` to expand variables
   - Add validation to diagnostics
   - Handle missing variables gracefully
 
-- [ ] 10.3 Write unit tests for envvars
+- [x] 10.3 Write unit tests for envvars
   - Create `tests/test_envvars.py`
   - Test variable expansion
   - Test default values
@@ -342,14 +342,14 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test security (no shell injection)
   - Test nested expansion
 
-- [ ] 10.4 Write property-based tests for envvars
+- [x] 10.4 Write property-based tests for envvars
   - Property 24: Environment variable expansion
   - Property 25: Default value substitution
   - Property 26: Required variable validation
   - Property 27: Shell injection prevention
   - Use `hypothesis` with string strategies
 
-- [ ] 10.5 Document envvars feature
+- [x] 10.5 Document envvars feature
   - Update README with environment variable usage
   - Add examples to documentation
   - Add security notes

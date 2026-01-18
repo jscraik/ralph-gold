@@ -110,6 +110,20 @@ Run a single iteration:
 ralph step --agent claude
 ```
 
+Run a single iteration with interactive task selection:
+
+```bash
+ralph step --interactive
+```
+
+In interactive mode, you'll see a list of available tasks and can:
+
+- Select a task by number
+- Search/filter tasks with `s <keyword>`
+- View task details with `d <number>`
+- Clear search filter with `c`
+- Quit without selecting with `q`
+
 Show status:
 
 ```bash
@@ -283,6 +297,143 @@ ralph convert .ralph/prd.json tasks.yaml --infer-groups
 - Machine-editable format
 
 See [docs/YAML_TRACKER.md](docs/YAML_TRACKER.md) for complete documentation.
+
+---
+
+## Task Dependencies
+
+Ralph supports task dependencies to enforce execution order. Tasks with unmet dependencies are automatically skipped until their dependencies are completed.
+
+### Defining Dependencies
+
+**Markdown tracker (`PRD.md`):**
+
+Add a `Depends on:` line in the task's acceptance criteria with task numbers:
+
+```markdown
+## Tasks
+
+- [ ] 1. Setup database schema
+  - Create users table
+  - Create posts table
+
+- [ ] 2. Implement user authentication
+  - Depends on: 1
+  - User can register
+  - User can login
+
+- [ ] 3. Create post API
+  - Depends on: 1, 2
+  - User can create posts
+  - User can view their posts
+```
+
+**JSON tracker (`prd.json`):**
+
+Add a `depends_on` array with task IDs:
+
+```json
+{
+  "stories": [
+    {
+      "id": "1",
+      "title": "Setup database schema",
+      "acceptance": ["Create users table", "Create posts table"]
+    },
+    {
+      "id": "2",
+      "title": "Implement user authentication",
+      "depends_on": ["1"],
+      "acceptance": ["User can register", "User can login"]
+    },
+    {
+      "id": "3",
+      "title": "Create post API",
+      "depends_on": ["1", "2"],
+      "acceptance": ["User can create posts"]
+    }
+  ]
+}
+```
+
+**YAML tracker (`tasks.yaml`):**
+
+Add a `depends_on` list with task IDs:
+
+```yaml
+tasks:
+  - id: 1
+    title: Setup database schema
+    completed: false
+    
+  - id: 2
+    title: Implement user authentication
+    depends_on: [1]
+    completed: false
+    
+  - id: 3
+    title: Create post API
+    depends_on: [1, 2]
+    completed: false
+```
+
+### Visualizing Dependencies
+
+View the dependency graph:
+
+```bash
+ralph status --graph
+```
+
+Example output:
+
+```
+============================================================
+Task Dependency Graph
+============================================================
+
+Level 0:
+  ○ 1
+      
+Level 1:
+  ○ 2
+      depends on: 1
+
+Level 2:
+  ○ 3
+      depends on: 1, 2
+
+============================================================
+Total tasks: 3
+Total dependencies: 3
+============================================================
+```
+
+### Circular Dependency Detection
+
+Ralph automatically detects circular dependencies during diagnostics:
+
+```bash
+ralph diagnose
+```
+
+If circular dependencies are found, you'll see:
+
+```
+ERRORS:
+  ✗ Found 1 circular dependency cycle(s)
+    → Remove circular dependencies to allow tasks to execute
+    → Circular dependencies detected:
+    → Cycle 1: task-2 → task-3 → task-2
+    → Break the cycle by removing one or more 'depends_on' relationships
+```
+
+### How It Works
+
+- Tasks are only selected when all their dependencies are marked complete
+- The loop automatically skips tasks with unmet dependencies
+- Dependencies are checked on every iteration
+- Circular dependencies prevent the loop from making progress and must be fixed
 
 ---
 

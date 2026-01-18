@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
-
 PrdKind = Literal["json", "md", "beads"]
 
 
@@ -84,7 +83,7 @@ def _parse_md_depends(acceptance: List[str]) -> List[str]:
         if not m:
             continue
         tail = m.group(1)
-        nums = re.findall(r"\\d+", tail)
+        nums = re.findall(r"\d+", tail)
         for n in nums:
             if n not in deps:
                 deps.append(n)
@@ -538,10 +537,67 @@ def get_prd_branch_name(prd_path: Path) -> Optional[str]:
             return None
 
         prd = _load_json_prd(prd_path)
-        for k in ["branchName", "branch", "gitBranch", "branch_name", "branchNameOverride"]:
+        for k in [
+            "branchName",
+            "branch",
+            "gitBranch",
+            "branch_name",
+            "branchNameOverride",
+        ]:
             v = prd.get(k)
             if isinstance(v, str) and v.strip():
                 return v.strip()
         return None
     except Exception:
         return None
+
+
+def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
+    """Get all tasks from PRD file for dependency graph building.
+
+    Returns:
+        List of task dictionaries with 'id', 'title', 'status', and 'depends_on' fields
+    """
+    tasks: List[Dict[str, Any]] = []
+
+    try:
+        if is_markdown_prd(prd_path):
+            prd = _load_md_prd(prd_path)
+            for t in prd.tasks:
+                tasks.append(
+                    {
+                        "id": t.id,
+                        "title": t.title,
+                        "status": t.status,
+                        "depends_on": list(t.depends_on),
+                    }
+                )
+        else:
+            prd = _load_json_prd(prd_path)
+            stories = prd.get("stories", [])
+            if isinstance(stories, list):
+                for s in stories:
+                    if not isinstance(s, dict):
+                        continue
+                    sid = s.get("id", s.get("story_id", s.get("key")))
+                    if sid is None:
+                        continue
+                    title = str(s.get("title", "")).strip() or f"Story {sid}"
+                    status = (
+                        "done"
+                        if _story_done(s)
+                        else ("blocked" if _story_blocked(s) else "open")
+                    )
+                    depends = _story_depends(s)
+                    tasks.append(
+                        {
+                            "id": str(sid),
+                            "title": title,
+                            "status": status,
+                            "depends_on": depends,
+                        }
+                    )
+    except Exception:
+        pass
+
+    return tasks

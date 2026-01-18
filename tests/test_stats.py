@@ -567,3 +567,44 @@ def test_csv_export_task_sorting(tmp_path: Path):
     assert task_rows[0][0] == "slow-task"  # 300.0
     assert task_rows[1][0] == "medium-task"  # 200.0
     assert task_rows[2][0] == "fast-task"  # 100.0
+
+
+def test_calculate_stats_malformed_history_entries():
+    """Test that non-dict entries in history are skipped gracefully.
+
+    Note: The total_iterations count includes all entries (even malformed ones),
+    but only valid dict entries are processed for success/failure counting.
+    This means malformed entries are effectively counted as neither success nor failure.
+    """
+    state = {
+        "history": [
+            {
+                "iteration": 1,
+                "duration_seconds": 100.0,
+                "gates_ok": True,
+                "blocked": False,
+                "story_id": "task-1",
+            },
+            "invalid-string-entry",  # Should be skipped
+            None,  # Should be skipped
+            123,  # Should be skipped
+            {
+                "iteration": 2,
+                "duration_seconds": 150.0,
+                "gates_ok": True,
+                "blocked": False,
+                "story_id": "task-2",
+            },
+        ]
+    }
+    stats = calculate_stats(state)
+
+    # Total includes all entries (5), but only 2 are processed
+    assert stats.total_iterations == 5
+    assert stats.successful_iterations == 2
+    assert stats.failed_iterations == 0
+    # Success rate is 2/5 = 0.4 (2 successes out of 5 total entries)
+    assert stats.success_rate == 0.4
+    # Duration stats only include valid entries
+    assert stats.avg_duration_seconds == 125.0  # (100 + 150) / 2
+    assert len(stats.task_stats) == 2

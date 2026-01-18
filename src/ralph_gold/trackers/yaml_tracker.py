@@ -105,12 +105,19 @@ class YamlTracker:
             acceptance = []
         acceptance = [str(item) for item in acceptance]
 
+        # Extract dependencies (backward compatible - defaults to empty list)
+        depends_on = task_data.get("depends_on", [])
+        if not isinstance(depends_on, list):
+            depends_on = []
+        depends_on = [str(dep) for dep in depends_on]
+
         group = str(task_data.get("group", "default"))
         return SelectedTask(
             id=task_id,
             title=title,
             kind="yaml",
             acceptance=acceptance,
+            depends_on=depends_on,
             group=group,
         )
 
@@ -119,16 +126,41 @@ class YamlTracker:
     ) -> Optional[SelectedTask]:
         """Return the next available task without claiming it.
 
+        Respects task dependencies - only returns tasks whose dependencies
+        are all completed.
+
         Returns:
-            Next uncompleted task, or None if all tasks are done
+            Next uncompleted task with satisfied dependencies, or None if no tasks are ready
         """
         exclude = exclude_ids or set()
+
+        # First pass: collect completed task IDs
+        completed_ids: Set[str] = set()
+        for task_data in self.data["tasks"]:
+            if task_data.get("completed", False) or task_data.get("blocked", False):
+                completed_ids.add(str(task_data.get("id")))
+
+        # Second pass: find first task with satisfied dependencies
         for task_data in self.data["tasks"]:
             task_id = str(task_data.get("id"))
             if task_id in exclude:
                 continue
             if task_data.get("completed", False) or task_data.get("blocked", False):
                 continue
+
+            # Check dependencies (backward compatible - no depends_on means no dependencies)
+            depends_on = task_data.get("depends_on", [])
+            if not isinstance(depends_on, list):
+                depends_on = []
+
+            # Check if all dependencies are satisfied
+            if depends_on:
+                all_deps_satisfied = all(
+                    str(dep) in completed_ids for dep in depends_on
+                )
+                if not all_deps_satisfied:
+                    continue
+
             return self._task_from_data(task_data)
         return None
 
@@ -171,8 +203,7 @@ class YamlTracker:
         if not tasks:
             return True
         return all(
-            task.get("completed", False) or task.get("blocked", False)
-            for task in tasks
+            task.get("completed", False) or task.get("blocked", False) for task in tasks
         )
 
     def is_task_done(self, task_id: TaskId) -> bool:

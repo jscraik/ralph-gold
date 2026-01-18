@@ -448,6 +448,122 @@ def check_gates(project_root: Path, cfg: Config) -> List[DiagnosticResult]:
     return results
 
 
+def check_dependencies(project_root: Path, cfg: Config) -> List[DiagnosticResult]:
+    """Check for circular dependencies in task dependencies.
+
+    Args:
+        project_root: Path to the project root directory
+        cfg: Loaded configuration
+
+    Returns:
+        List of diagnostic results for dependency checking
+    """
+    results: List[DiagnosticResult] = []
+
+    try:
+        from .dependencies import build_dependency_graph, detect_circular_dependencies
+        from .prd import get_all_tasks
+
+        # Get PRD path from config
+        prd_path = project_root / cfg.files.prd
+
+        if not prd_path.exists():
+            results.append(
+                DiagnosticResult(
+                    check_name="dependencies_check",
+                    passed=True,
+                    message="PRD file not found, skipping dependency check",
+                    suggestions=[],
+                    severity="info",
+                )
+            )
+            return results
+
+        # Load all tasks
+        tasks = get_all_tasks(prd_path)
+
+        if not tasks:
+            results.append(
+                DiagnosticResult(
+                    check_name="dependencies_check",
+                    passed=True,
+                    message="No tasks found, skipping dependency check",
+                    suggestions=[],
+                    severity="info",
+                )
+            )
+            return results
+
+        # Check if any tasks have dependencies
+        has_dependencies = any(task.get("depends_on") for task in tasks)
+
+        if not has_dependencies:
+            results.append(
+                DiagnosticResult(
+                    check_name="dependencies_check",
+                    passed=True,
+                    message="No task dependencies defined",
+                    suggestions=[],
+                    severity="info",
+                )
+            )
+            return results
+
+        # Build dependency graph
+        graph = build_dependency_graph(tasks)
+
+        # Detect circular dependencies
+        cycles = detect_circular_dependencies(graph)
+
+        if not cycles:
+            results.append(
+                DiagnosticResult(
+                    check_name="circular_dependencies",
+                    passed=True,
+                    message=f"No circular dependencies found ({len(graph.nodes)} tasks checked)",
+                    suggestions=[],
+                    severity="info",
+                )
+            )
+        else:
+            # Format cycle information
+            cycle_descriptions = []
+            for i, cycle in enumerate(cycles, 1):
+                cycle_str = " → ".join(cycle)
+                cycle_descriptions.append(f"Cycle {i}: {cycle_str}")
+
+            results.append(
+                DiagnosticResult(
+                    check_name="circular_dependencies",
+                    passed=False,
+                    message=f"Found {len(cycles)} circular dependency cycle(s)",
+                    suggestions=[
+                        "Remove circular dependencies to allow tasks to execute",
+                        "Circular dependencies detected:",
+                        *cycle_descriptions,
+                        "Break the cycle by removing one or more 'depends_on' relationships",
+                    ],
+                    severity="error",
+                )
+            )
+
+    except Exception as e:
+        results.append(
+            DiagnosticResult(
+                check_name="dependencies_check",
+                passed=False,
+                message=f"Error checking dependencies: {e}",
+                suggestions=[
+                    "Verify task dependency format",
+                    "Check that all referenced task IDs exist",
+                ],
+                severity="warning",
+            )
+        )
+
+    return results
+
+
 def run_diagnostics(
     project_root: Path, test_gates_flag: bool = False
 ) -> Tuple[List[DiagnosticResult], int]:
@@ -485,6 +601,10 @@ def run_diagnostics(
             # Validate PRD
             prd_results = validate_prd(project_root, cfg)
             all_results.extend(prd_results)
+
+            # Check for circular dependencies
+            dependency_results = check_dependencies(project_root, cfg)
+            all_results.extend(dependency_results)
 
             # Test gates if requested
             if test_gates_flag:

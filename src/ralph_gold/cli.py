@@ -21,6 +21,7 @@ from .loop import (
     run_iteration,
     run_loop,
 )
+from .output import print_output
 from .scaffold import init_project
 from .specs import check_specs, format_specs_check
 from .stats import calculate_stats, export_stats_csv, format_stats_report
@@ -41,17 +42,20 @@ def cmd_init(args: argparse.Namespace) -> int:
     format_type = getattr(args, "format", None)
     archived = init_project(root, force=bool(args.force), format_type=format_type)
 
-    print(f"Initialized Ralph files in: {root / '.ralph'}")
+    print_output(f"Initialized Ralph files in: {root / '.ralph'}", level="quiet")
 
     if archived:
-        print(f"\n✓ Archived {len(archived)} existing file(s) to .ralph/archive/")
+        print_output(
+            f"\n✓ Archived {len(archived)} existing file(s) to .ralph/archive/",
+            level="quiet",
+        )
         for path in archived[:5]:  # Show first 5
-            print(f"  - {path}")
+            print_output(f"  - {path}", level="quiet")
         if len(archived) > 5:
-            print(f"  ... and {len(archived) - 5} more")
+            print_output(f"  ... and {len(archived) - 5} more", level="quiet")
 
     if format_type == "yaml":
-        print("Created tasks.yaml template (YAML tracker)")
+        print_output("Created tasks.yaml template (YAML tracker)", level="quiet")
     return 0
 
 
@@ -62,24 +66,24 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if args.setup_checks:
         result = setup_checks(root, dry_run=args.dry_run)
 
-        print(f"Project type: {result['project_type']}")
-        print(f"Check script: {result['script_name']}")
-        print("\nSuggested gate commands:")
+        print_output(f"Project type: {result['project_type']}", level="normal")
+        print_output(f"Check script: {result['script_name']}", level="normal")
+        print_output("\nSuggested gate commands:", level="normal")
         for cmd in result["commands"]:
-            print(f"  - {cmd}")
+            print_output(f"  - {cmd}", level="normal")
 
         if result["actions_taken"]:
-            print("\n✓ Actions taken:")
+            print_output("\n✓ Actions taken:", level="normal")
             for action in result["actions_taken"]:
-                print(f"  - {action}")
+                print_output(f"  - {action}", level="normal")
 
         if result["suggestions"]:
-            print("\n→ Suggestions:")
+            print_output("\n→ Suggestions:", level="normal")
             for suggestion in result["suggestions"]:
-                print(f"  - {suggestion}")
+                print_output(f"  - {suggestion}", level="normal")
 
         if args.dry_run:
-            print("\n(Dry run - no changes made)")
+            print_output("\n(Dry run - no changes made)", level="normal")
 
         return 0
 
@@ -87,54 +91,71 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if args.check_github:
         from .github_auth import GhCliAuth, GitHubAuthError, TokenAuth
 
-        print("Checking GitHub authentication...\n")
+        print_output("Checking GitHub authentication...\n", level="normal")
 
         # Try gh CLI first
-        print("[1/2] Checking gh CLI authentication...")
+        print_output("[1/2] Checking gh CLI authentication...", level="normal")
         try:
             gh_auth = GhCliAuth()
             if gh_auth.validate():
-                print("[OK]   gh CLI: authenticated")
+                print_output("[OK]   gh CLI: authenticated", level="normal")
 
                 # Get user info to show who's authenticated
                 try:
                     user_data = gh_auth.api_call("GET", "/user")
-                    print(f"       User: {user_data.get('login', 'unknown')}")
+                    print_output(
+                        f"       User: {user_data.get('login', 'unknown')}",
+                        level="normal",
+                    )
                 except Exception:
                     pass
 
                 return 0
             else:
-                print("[WARN] gh CLI: installed but not authenticated")
-                print("       Run 'gh auth login' to authenticate")
+                print_output(
+                    "[WARN] gh CLI: installed but not authenticated", level="normal"
+                )
+                print_output(
+                    "       Run 'gh auth login' to authenticate", level="normal"
+                )
         except GitHubAuthError as e:
-            print(f"[MISS] gh CLI: {e}")
+            print_output(f"[MISS] gh CLI: {e}", level="normal")
 
         # Try token auth
-        print("\n[2/2] Checking token authentication...")
+        print_output("\n[2/2] Checking token authentication...", level="normal")
         try:
             token_auth = TokenAuth()
             if token_auth.validate():
-                print("[OK]   Token: authenticated (GITHUB_TOKEN)")
+                print_output(
+                    "[OK]   Token: authenticated (GITHUB_TOKEN)", level="normal"
+                )
 
                 # Get user info to show who's authenticated
                 try:
                     user_data = token_auth.api_call("GET", "/user")
-                    print(f"       User: {user_data.get('login', 'unknown')}")
+                    print_output(
+                        f"       User: {user_data.get('login', 'unknown')}",
+                        level="normal",
+                    )
                 except Exception:
                     pass
 
                 return 0
             else:
-                print("[WARN] Token: invalid or expired")
+                print_output("[WARN] Token: invalid or expired", level="normal")
         except GitHubAuthError as e:
-            print(f"[MISS] Token: {e}")
+            print_output(f"[MISS] Token: {e}", level="normal")
 
-        print("\n✗ No valid GitHub authentication found")
-        print("\nTo authenticate:")
-        print("  Option 1 (recommended): gh auth login")
-        print("  Option 2: Set GITHUB_TOKEN environment variable")
-        print("            Get a token from https://github.com/settings/tokens")
+        print_output("\n✗ No valid GitHub authentication found", level="error")
+        print_output("\nTo authenticate:", level="normal")
+        print_output("  Option 1 (recommended): gh auth login", level="normal")
+        print_output(
+            "  Option 2: Set GITHUB_TOKEN environment variable", level="normal"
+        )
+        print_output(
+            "            Get a token from https://github.com/settings/tokens",
+            level="normal",
+        )
 
         return 2
 
@@ -144,10 +165,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     ok = True
     for st in statuses:
         if st.found:
-            print(f"[OK]   {st.name}: {st.version or st.path or 'found'}")
+            print_output(
+                f"[OK]   {st.name}: {st.version or st.path or 'found'}", level="normal"
+            )
         else:
             ok = False
-            print(f"[MISS] {st.name}: {st.hint or 'not found'}")
+            print_output(f"[MISS] {st.name}: {st.hint or 'not found'}", level="normal")
     return 0 if ok else 2
 
 
@@ -161,9 +184,9 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
     results, exit_code = run_diagnostics(root, test_gates_flag=test_gates)
 
     # Format and display results
-    print("Ralph Diagnostics Report")
-    print("=" * 60)
-    print()
+    print_output("Ralph Diagnostics Report", level="quiet")
+    print_output("=" * 60, level="quiet")
+    print_output("", level="quiet")
 
     # Group results by severity
     errors = [r for r in results if r.severity == "error" and not r.passed]
@@ -172,46 +195,52 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
 
     # Display errors
     if errors:
-        print("ERRORS:")
+        print_output("ERRORS:", level="error")
         for result in errors:
-            print(f"  ✗ {result.message}")
+            print_output(f"  ✗ {result.message}", level="error")
             if result.suggestions:
                 for suggestion in result.suggestions:
-                    print(f"    → {suggestion}")
-            print()
+                    print_output(f"    → {suggestion}", level="error")
+            print_output("", level="error")
 
     # Display warnings
     if warnings:
-        print("WARNINGS:")
+        print_output("WARNINGS:", level="normal")
         for result in warnings:
-            print(f"  ⚠ {result.message}")
+            print_output(f"  ⚠ {result.message}", level="normal")
             if result.suggestions:
                 for suggestion in result.suggestions:
-                    print(f"    → {suggestion}")
-            print()
+                    print_output(f"    → {suggestion}", level="normal")
+            print_output("", level="normal")
 
     # Display info/passed checks
+    # If test_gates was requested, show gate results at normal level
+    # Otherwise show all passed checks at verbose level
     if info:
-        print("PASSED:")
+        # Determine output level based on whether this is gate testing
+        info_level = "normal" if test_gates else "verbose"
+        print_output("PASSED:", level=info_level)
         for result in info:
-            print(f"  ✓ {result.message}")
-        print()
+            print_output(f"  ✓ {result.message}", level=info_level)
+        print_output("", level=info_level)
 
     # Summary
     total_checks = len(results)
     passed_checks = len([r for r in results if r.passed])
     failed_checks = len([r for r in results if not r.passed])
 
-    print("=" * 60)
-    print(f"Summary: {passed_checks}/{total_checks} checks passed")
+    print_output("=" * 60, level="quiet")
+    print_output(
+        f"Summary: {passed_checks}/{total_checks} checks passed", level="quiet"
+    )
 
     if failed_checks > 0:
-        print(f"         {failed_checks} issue(s) found")
+        print_output(f"         {failed_checks} issue(s) found", level="quiet")
 
     if exit_code == 0:
-        print("\n✓ All diagnostics passed!")
+        print_output("\n✓ All diagnostics passed!", level="quiet")
     else:
-        print("\n✗ Diagnostics found issues that need attention.")
+        print_output("\n✗ Diagnostics found issues that need attention.", level="error")
 
     return exit_code
 
@@ -223,21 +252,21 @@ def cmd_stats(args: argparse.Namespace) -> int:
 
     # Check if state file exists
     if not state_path.exists():
-        print("No state.json found. Run some iterations first.")
+        print_output("No state.json found. Run some iterations first.", level="normal")
         return 0
 
     # Load state
     try:
         state = json.loads(state_path.read_text(encoding="utf-8"))
     except Exception as e:
-        print(f"Error loading state.json: {e}")
+        print_output(f"Error loading state.json: {e}", level="error")
         return 1
 
     # Calculate statistics
     try:
         stats = calculate_stats(state)
     except Exception as e:
-        print(f"Error calculating statistics: {e}")
+        print_output(f"Error calculating statistics: {e}", level="error")
         return 1
 
     # Handle export flag
@@ -245,16 +274,16 @@ def cmd_stats(args: argparse.Namespace) -> int:
         export_path = Path(args.export).resolve()
         try:
             export_stats_csv(stats, export_path)
-            print(f"✓ Statistics exported to: {export_path}")
+            print_output(f"✓ Statistics exported to: {export_path}", level="quiet")
             return 0
         except Exception as e:
-            print(f"Error exporting statistics: {e}")
+            print_output(f"Error exporting statistics: {e}", level="error")
             return 1
 
     # Display formatted report
     by_task = args.by_task
     report = format_stats_report(stats, by_task=by_task)
-    print(report)
+    print_output(report, level="normal")
 
     return 0
 
@@ -263,26 +292,35 @@ def cmd_resume(args: argparse.Namespace) -> int:
     """Handle resume command - detect and optionally continue interrupted iteration."""
     root = _project_root()
 
+    from .resume import (
+        clear_interrupted_state,
+        detect_interrupted_iteration,
+        format_resume_prompt,
+        should_resume,
+    )
+
     resume_info = detect_interrupted_iteration(root)
 
     if resume_info is None:
-        print("No interrupted iteration detected.")
-        print("Last iteration completed normally.")
+        print_output("No interrupted iteration detected.", level="normal")
+        print_output("Last iteration completed normally.", level="normal")
         return 0
 
     # Show information about the interruption
-    print(format_resume_prompt(resume_info))
-    print()
+    print_output(format_resume_prompt(resume_info), level="normal")
+    print_output("", level="normal")
 
     # Check if we should recommend resuming
     recommended = should_resume(resume_info)
 
     if args.clear:
         if clear_interrupted_state(root):
-            print("✓ Cleared interrupted iteration from state.")
-            print("  Run 'ralph step' to start fresh on the same task.")
+            print_output("✓ Cleared interrupted iteration from state.", level="quiet")
+            print_output(
+                "  Run 'ralph step' to start fresh on the same task.", level="quiet"
+            )
         else:
-            print("✗ Failed to clear interrupted state.")
+            print_output("✗ Failed to clear interrupted state.", level="error")
             return 1
         return 0
 
@@ -292,38 +330,44 @@ def cmd_resume(args: argparse.Namespace) -> int:
             try:
                 response = input("\nResume this iteration? [Y/n]: ").strip().lower()
                 if response and response not in {"y", "yes"}:
-                    print("Skipped. Use 'ralph resume --clear' to remove this entry.")
+                    print_output(
+                        "Skipped. Use 'ralph resume --clear' to remove this entry.",
+                        level="normal",
+                    )
                     return 0
             except (KeyboardInterrupt, EOFError):
-                print("\nCancelled.")
+                print_output("\nCancelled.", level="normal")
                 return 0
 
         # Resume by running another iteration
-        print(f"\nResuming with agent '{resume_info.agent}'...")
+        print_output(f"\nResuming with agent '{resume_info.agent}'...", level="normal")
         cfg = load_config(root)
         iter_n = next_iteration_number(root)
 
         res = run_iteration(root, agent=resume_info.agent, cfg=cfg, iteration=iter_n)
 
-        print(
+        print_output(
             f"Iteration {res.iteration} agent={resume_info.agent} story_id={res.story_id} "
-            f"rc={res.return_code} exit={res.exit_signal} gates={res.gates_ok}"
+            f"rc={res.return_code} exit={res.exit_signal} gates={res.gates_ok}",
+            level="quiet",
         )
-        print(f"Log: {res.log_path}")
+        print_output(f"Log: {res.log_path}", level="quiet")
 
         return 0 if res.return_code == 0 else 2
 
     # Not recommended to resume
-    print("\n⚠ Resume not recommended (gates may have failed).")
-    print("Options:")
-    print("  - ralph resume --clear    # Clear and start fresh")
-    print("  - ralph resume --auto     # Force resume anyway")
+    print_output("\n⚠ Resume not recommended (gates may have failed).", level="normal")
+    print_output("Options:", level="normal")
+    print_output("  - ralph resume --clear    # Clear and start fresh", level="normal")
+    print_output("  - ralph resume --auto     # Force resume anyway", level="normal")
     return 0
 
 
 def cmd_clean(args: argparse.Namespace) -> int:
     """Clean old Ralph workspace artifacts."""
     root = _project_root()
+
+    from .clean import clean_all, format_bytes
 
     logs_days = args.logs_days
     archives_days = args.archives_days
@@ -332,7 +376,7 @@ def cmd_clean(args: argparse.Namespace) -> int:
     dry_run = args.dry_run
 
     if dry_run:
-        print("DRY RUN - No files will be deleted\n")
+        print_output("DRY RUN - No files will be deleted\n", level="normal")
 
     logs_result, archives_result, receipts_result, context_result = clean_all(
         root,
@@ -364,31 +408,39 @@ def cmd_clean(args: argparse.Namespace) -> int:
 
     # Show results
     if logs_result.files_removed > 0:
-        print(
-            f"Logs:     {logs_result.files_removed} files ({format_bytes(logs_result.bytes_freed)})"
+        print_output(
+            f"Logs:     {logs_result.files_removed} files ({format_bytes(logs_result.bytes_freed)})",
+            level="quiet",
         )
     if archives_result.files_removed > 0 or archives_result.directories_removed > 0:
-        print(
+        print_output(
             f"Archives: {archives_result.directories_removed} dirs, "
-            f"{archives_result.files_removed} files ({format_bytes(archives_result.bytes_freed)})"
+            f"{archives_result.files_removed} files ({format_bytes(archives_result.bytes_freed)})",
+            level="quiet",
         )
     if receipts_result.files_removed > 0:
-        print(
-            f"Receipts: {receipts_result.files_removed} files ({format_bytes(receipts_result.bytes_freed)})"
+        print_output(
+            f"Receipts: {receipts_result.files_removed} files ({format_bytes(receipts_result.bytes_freed)})",
+            level="quiet",
         )
     if context_result.files_removed > 0:
-        print(
-            f"Context:  {context_result.files_removed} files ({format_bytes(context_result.bytes_freed)})"
+        print_output(
+            f"Context:  {context_result.files_removed} files ({format_bytes(context_result.bytes_freed)})",
+            level="quiet",
         )
 
     if total_files == 0 and total_dirs == 0:
-        print("Nothing to clean (no old files found)")
+        print_output("Nothing to clean (no old files found)", level="normal")
     else:
-        print(f"\nTotal: {total_files} files, {total_dirs} directories")
-        print(f"Freed: {format_bytes(total_bytes)}")
+        print_output(
+            f"\nTotal: {total_files} files, {total_dirs} directories", level="quiet"
+        )
+        print_output(f"Freed: {format_bytes(total_bytes)}", level="quiet")
 
         if dry_run:
-            print("\n(Dry run - run without --dry-run to actually delete)")
+            print_output(
+                "\n(Dry run - run without --dry-run to actually delete)", level="normal"
+            )
 
     # Show errors if any
     all_errors = (
@@ -398,9 +450,9 @@ def cmd_clean(args: argparse.Namespace) -> int:
         + context_result.errors
     )
     if all_errors:
-        print("\nErrors:")
+        print_output("\nErrors:", level="error")
         for error in all_errors:
-            print(f"  - {error}")
+            print_output(f"  - {error}", level="error")
         return 1
 
     return 0
@@ -428,52 +480,152 @@ def cmd_step(args: argparse.Namespace) -> int:
     if dry_run:
         result = dry_run_loop(root, agent, 1, cfg)
 
-        print("=" * 60)
-        print("DRY-RUN MODE - No agents will be executed")
-        print("=" * 60)
-        print()
-        print(f"Configuration: {'VALID' if result.config_valid else 'INVALID'}")
-        print(f"Total tasks: {result.total_tasks}")
-        print(f"Completed tasks: {result.completed_tasks}")
-        print()
+        print_output("=" * 60, level="quiet")
+        print_output("DRY-RUN MODE - No agents will be executed", level="quiet")
+        print_output("=" * 60, level="quiet")
+        print_output("", level="quiet")
+        print_output(
+            f"Configuration: {'VALID' if result.config_valid else 'INVALID'}",
+            level="quiet",
+        )
+        print_output(f"Total tasks: {result.total_tasks}", level="quiet")
+        print_output(f"Completed tasks: {result.completed_tasks}", level="quiet")
+        print_output("", level="quiet")
 
         if result.issues:
-            print("Issues found:")
+            print_output("Issues found:", level="quiet")
             for issue in result.issues:
-                print(f"  ❌ {issue}")
-            print()
+                print_output(f"  ❌ {issue}", level="error")
+            print_output("", level="quiet")
 
         if result.tasks_to_execute:
-            print("Next task that would be executed:")
-            print(f"  • {result.tasks_to_execute[0]}")
-            print()
+            print_output("Next task that would be executed:", level="quiet")
+            print_output(f"  • {result.tasks_to_execute[0]}", level="quiet")
+            print_output("", level="quiet")
         else:
-            print("No tasks would be executed.")
-            print()
+            print_output("No tasks would be executed.", level="quiet")
+            print_output("", level="quiet")
 
         if result.gates_to_run:
-            print("Gates that would run:")
+            print_output("Gates that would run:", level="quiet")
             for gate in result.gates_to_run:
-                print(f"  • {gate}")
-            print()
+                print_output(f"  • {gate}", level="quiet")
+            print_output("", level="quiet")
 
-        print("=" * 60)
-        print("Dry-run complete. No changes were made.")
-        print("=" * 60)
+        print_output("=" * 60, level="quiet")
+        print_output("Dry-run complete. No changes were made.", level="quiet")
+        print_output("=" * 60, level="quiet")
         return 0
 
-    iter_n = next_iteration_number(root)
-    res = run_iteration(root, agent=agent, cfg=cfg, iteration=iter_n)
+    # Handle interactive mode
+    interactive = getattr(args, "interactive", False)
+    task_override = None
 
-    print(
-        f"Iteration {res.iteration} agent={agent} story_id={res.story_id} rc={res.return_code} "
-        f"exit={res.exit_signal} gates={res.gates_ok} judge={res.judge_ok} review={res.review_ok}"
+    if interactive:
+        from .interactive import (
+            convert_selected_task_to_choice,
+            select_task_interactive,
+        )
+        from .prd import SelectedTask
+
+        # Get available tasks from tracker
+        tracker = make_tracker(root, cfg)
+
+        # Load state to get blocked tasks
+        state_path = root / ".ralph" / "state.json"
+        from .loop import load_state
+
+        state = load_state(state_path)
+
+        blocked_ids = set()
+        if cfg.loop.skip_blocked_tasks:
+            blocked_raw = state.get("blocked_tasks", {}) or {}
+            if isinstance(blocked_raw, dict):
+                blocked_ids = set(str(k) for k in blocked_raw.keys())
+
+        # Get all available tasks
+        available_tasks = []
+        try:
+            # Try to get all tasks for interactive selection
+            if hasattr(tracker, "list_tasks"):
+                # Some trackers may have a list_tasks method
+                all_tasks = tracker.list_tasks()
+                for task in all_tasks:
+                    if isinstance(task, SelectedTask):
+                        is_blocked = task.id in blocked_ids
+                        task_choice = convert_selected_task_to_choice(
+                            task,
+                            priority=getattr(task, "priority", "medium"),
+                            status="ready" if not is_blocked else "blocked",
+                            blocked=is_blocked,
+                        )
+                        available_tasks.append(task_choice)
+            else:
+                # Fallback: try to select tasks one by one
+                # This is a workaround for trackers without list_tasks
+                temp_excluded = set(blocked_ids)
+                for _ in range(20):  # Limit to 20 tasks to avoid infinite loop
+                    try:
+                        if hasattr(tracker, "select_next_task"):
+                            task = tracker.select_next_task(exclude_ids=temp_excluded)  # type: ignore[arg-type]
+                        else:
+                            break
+
+                        if task is None:
+                            break
+
+                        is_blocked = task.id in blocked_ids
+                        task_choice = convert_selected_task_to_choice(
+                            task,
+                            priority=getattr(task, "priority", "medium"),
+                            status="ready" if not is_blocked else "blocked",
+                            blocked=is_blocked,
+                        )
+                        available_tasks.append(task_choice)
+                        temp_excluded.add(task.id)
+                    except Exception:
+                        break
+        except Exception as e:
+            print_output(
+                f"Error loading tasks for interactive selection: {e}", level="error"
+            )
+            return 1
+
+        if not available_tasks:
+            print_output("No tasks available for selection.", level="normal")
+            return 0
+
+        # Let user select a task
+        selected_choice = select_task_interactive(available_tasks, show_blocked=False)
+
+        if selected_choice is None:
+            print_output("No task selected. Exiting.", level="normal")
+            return 0
+
+        # Convert back to SelectedTask for run_iteration
+        task_override = SelectedTask(
+            id=selected_choice.task_id,
+            title=selected_choice.title,
+            kind="markdown",  # Default to markdown kind
+            acceptance=selected_choice.acceptance_criteria,
+        )
+
+    iter_n = next_iteration_number(root)
+    res = run_iteration(
+        root, agent=agent, cfg=cfg, iteration=iter_n, task_override=task_override
     )
-    print(f"Log: {res.log_path}")
+
+    print_output(
+        f"Iteration {res.iteration} agent={agent} story_id={res.story_id} rc={res.return_code} "
+        f"exit={res.exit_signal} gates={res.gates_ok} judge={res.judge_ok} review={res.review_ok}",
+        level="quiet",
+    )
+    print_output(f"Log: {res.log_path}", level="quiet")
 
     if res.no_progress_streak >= cfg.loop.no_progress_limit:
-        print(
-            f"Stopped: no progress streak reached ({res.no_progress_streak}/{cfg.loop.no_progress_limit})."
+        print_output(
+            f"Stopped: no progress streak reached ({res.no_progress_streak}/{cfg.loop.no_progress_limit}).",
+            level="normal",
         )
         return 3
     return 0
@@ -509,9 +661,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 0
 
     for r in results:
-        print(
+        print_output(
             f"iter={r.iteration} story_id={r.story_id} rc={r.return_code} exit={r.exit_signal} "
-            f"gates={r.gates_ok} judge={r.judge_ok} log={r.log_path.name}"
+            f"gates={r.gates_ok} judge={r.judge_ok} log={r.log_path.name}",
+            level="quiet",
         )
 
     last = results[-1] if results else None
@@ -531,6 +684,31 @@ def cmd_status(args: argparse.Namespace) -> int:
     cfg = load_config(root)
     tracker = make_tracker(root, cfg)
 
+    # Handle --graph flag for dependency visualization
+    if getattr(args, "graph", False):
+        from .dependencies import build_dependency_graph, format_dependency_graph
+        from .prd import get_all_tasks
+
+        # Get PRD path from config
+        prd_path = root / cfg.files.prd
+
+        try:
+            # Load all tasks and build dependency graph
+            tasks = get_all_tasks(prd_path)
+
+            if not tasks:
+                print_output("No tasks found in PRD file.", level="normal")
+                return 0
+
+            # Build and display dependency graph
+            graph = build_dependency_graph(tasks)
+            print_output(format_dependency_graph(graph), level="normal")
+            return 0
+
+        except Exception as e:
+            print_output(f"Error building dependency graph: {e}", level="error")
+            return 1
+
     try:
         done, total = tracker.counts()
     except Exception:
@@ -541,12 +719,12 @@ def cmd_status(args: argparse.Namespace) -> int:
     except Exception:
         next_task = None
 
-    print(f"PRD: {cfg.files.prd}")
-    print(f"Progress: {done}/{total} tasks done")
+    print_output(f"PRD: {cfg.files.prd}", level="normal")
+    print_output(f"Progress: {done}/{total} tasks done", level="normal")
     if next_task is not None:
-        print(f"Next: id={next_task.id} title={next_task.title}")
+        print_output(f"Next: id={next_task.id} title={next_task.title}", level="normal")
     else:
-        print("Next: (none)")
+        print_output("Next: (none)", level="normal")
 
     # Show last iteration summary (from .ralph/state.json)
     state_path = root / ".ralph" / "state.json"
@@ -557,7 +735,7 @@ def cmd_status(args: argparse.Namespace) -> int:
             if isinstance(history, list) and history:
                 last = history[-1]
                 if isinstance(last, dict):
-                    print("\nLast iteration:")
+                    print_output("\nLast iteration:", level="normal")
                     for k in [
                         "ts",
                         "iteration",
@@ -572,7 +750,7 @@ def cmd_status(args: argparse.Namespace) -> int:
                         "log",
                     ]:
                         if k in last:
-                            print(f"  {k}: {last[k]}")
+                            print_output(f"  {k}: {last[k]}", level="normal")
         except Exception:
             pass
     return 0
@@ -587,7 +765,7 @@ def cmd_specs_check(args: argparse.Namespace) -> int:
     root = _project_root()
     cfg = load_config(root)
     res = check_specs(root, specs_dir=str(args.specs_dir or cfg.files.specs_dir))
-    print(format_specs_check(res), end="")
+    print_output(format_specs_check(res), end="", level="normal")
     if not res.ok:
         return 2
     if args.strict and res.warnings:
@@ -720,8 +898,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
         desc = sys.stdin.read() or ""
 
     if not desc.strip():
-        print(
-            "No description provided. Use --desc, --desc-file, or pipe text into stdin."
+        print_output(
+            "No description provided. Use --desc, --desc-file, or pipe text into stdin.",
+            level="error",
         )
         return 2
 
@@ -737,7 +916,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
     runner = cfg.runners.get(agent)
     if runner is None:
         available = ", ".join(sorted(cfg.runners.keys()))
-        print(f"Unknown agent '{agent}'. Available: {available}")
+        print_output(f"Unknown agent '{agent}'. Available: {available}", level="error")
         return 2
 
     argv, stdin_text = build_runner_invocation(agent, runner.argv, prompt_text)
@@ -782,7 +961,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
 
-    print(f"Plan run complete (rc={cp.returncode}). Log: {log_path}")
+    print_output(
+        f"Plan run complete (rc={cp.returncode}). Log: {log_path}", level="quiet"
+    )
     return int(cp.returncode)
 
 
@@ -813,7 +994,7 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
     runner = cfg.runners.get(agent)
     if runner is None:
         available = ", ".join(sorted(cfg.runners.keys()))
-        print(f"Unknown agent '{agent}'. Available: {available}")
+        print_output(f"Unknown agent '{agent}'. Available: {available}", level="error")
         return 2
 
     argv, stdin_text = build_runner_invocation(agent, runner.argv, prompt_text)
@@ -858,7 +1039,10 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
         encoding="utf-8",
     )
 
-    print(f"Regenerate plan run complete (rc={cp.returncode}). Log: {log_path}")
+    print_output(
+        f"Regenerate plan run complete (rc={cp.returncode}). Log: {log_path}",
+        level="quiet",
+    )
     return int(cp.returncode)
 
 
@@ -910,10 +1094,10 @@ def cmd_convert(args: argparse.Namespace) -> int:
             infer_groups=bool(args.infer_groups),
         )
 
-        print(f"✓ Converted {input_path.name} to {output_path}")
+        print_output(f"✓ Converted {input_path.name} to {output_path}", level="quiet")
 
         if args.infer_groups:
-            print("  Groups inferred from task titles")
+            print_output("  Groups inferred from task titles", level="quiet")
 
         # Show summary
         import yaml
@@ -925,7 +1109,7 @@ def cmd_convert(args: argparse.Namespace) -> int:
         total = len(tasks)
         completed = sum(1 for t in tasks if t.get("completed", False))
 
-        print(f"  Tasks: {total} total, {completed} completed")
+        print_output(f"  Tasks: {total} total, {completed} completed", level="quiet")
 
         if args.infer_groups:
             groups = {}
@@ -934,20 +1118,21 @@ def cmd_convert(args: argparse.Namespace) -> int:
                 groups[group] = groups.get(group, 0) + 1
 
             if len(groups) > 1:
-                print(
-                    f"  Groups: {', '.join(f'{g} ({c})' for g, c in sorted(groups.items()))}"
+                print_output(
+                    f"  Groups: {', '.join(f'{g} ({c})' for g, c in sorted(groups.items()))}",
+                    level="quiet",
                 )
 
         return 0
 
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        print_output(f"Error: {e}", level="error")
         return 2
     except ValueError as e:
-        print(f"Error: {e}")
+        print_output(f"Error: {e}", level="error")
         return 2
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print_output(f"Unexpected error: {e}", level="error")
         return 2
 
 
@@ -1093,6 +1278,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Simulate execution without running agents (validate config and show execution plan)",
     )
+    p_step.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Interactively select which task to work on from available tasks",
+    )
     p_step.set_defaults(func=cmd_step)
 
     p_run = sub.add_parser(
@@ -1133,6 +1323,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser(
         "status", help="Show PRD progress + last iteration summary"
+    )
+    p_status.add_argument(
+        "--graph",
+        action="store_true",
+        help="Display task dependency graph visualization",
     )
     p_status.set_defaults(func=cmd_status)
 

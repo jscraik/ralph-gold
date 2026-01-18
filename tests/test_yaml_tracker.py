@@ -714,3 +714,313 @@ tasks:
         assert tracker.branch_name() is None
     finally:
         yaml_path.unlink()
+
+
+# Dependency support tests
+
+
+def test_yaml_tracker_depends_on_field():
+    """Test that depends_on field is extracted correctly."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+    depends_on: []
+  - id: 2
+    title: Second task
+    completed: false
+    depends_on: ["1"]
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # First task should have no dependencies
+        task1 = tracker.peek_next_task()
+        assert task1 is not None
+        assert task1.id == "1"
+        assert task1.depends_on == []
+
+        # Mark first task complete and check second task
+        tracker.data["tasks"][0]["completed"] = True
+        task2 = tracker.peek_next_task()
+        assert task2 is not None
+        assert task2.id == "2"
+        assert task2.depends_on == ["1"]
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_backward_compatible():
+    """Test that tasks without depends_on field work correctly (backward compatible)."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+  - id: 2
+    title: Second task
+    completed: false
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Both tasks should be available (no dependencies)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.depends_on == []
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_blocks_task():
+    """Test that tasks with unsatisfied dependencies are not selected."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+  - id: 2
+    title: Second task (depends on 1)
+    completed: false
+    depends_on: ["1"]
+  - id: 3
+    title: Third task (depends on 2)
+    completed: false
+    depends_on: ["2"]
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Only task 1 should be available
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "1"
+
+        # Mark task 1 complete
+        tracker.data["tasks"][0]["completed"] = True
+
+        # Now task 2 should be available
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "2"
+
+        # Mark task 2 complete
+        tracker.data["tasks"][1]["completed"] = True
+
+        # Now task 3 should be available
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "3"
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_multiple_dependencies():
+    """Test that tasks with multiple dependencies wait for all to complete."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+  - id: 2
+    title: Second task
+    completed: false
+  - id: 3
+    title: Third task (depends on 1 and 2)
+    completed: false
+    depends_on: ["1", "2"]
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Task 1 or 2 should be available (both have no dependencies)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id in ["1", "2"]
+
+        # Mark task 1 complete
+        tracker.data["tasks"][0]["completed"] = True
+
+        # Task 2 should be available, but not task 3 (still waiting for task 2)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "2"
+
+        # Mark task 2 complete
+        tracker.data["tasks"][1]["completed"] = True
+
+        # Now task 3 should be available
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "3"
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_invalid_type():
+    """Test that invalid depends_on type is handled gracefully."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+    depends_on: "not-a-list"
+  - id: 2
+    title: Second task
+    completed: false
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Task 1 should be available (invalid depends_on treated as empty)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "1"
+        assert task.depends_on == []
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_with_exclude():
+    """Test that exclude_ids works correctly with dependencies."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+  - id: 2
+    title: Second task
+    completed: false
+  - id: 3
+    title: Third task (depends on 1)
+    completed: false
+    depends_on: ["1"]
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Exclude task 1, should get task 2
+        task = tracker.select_next_task(exclude_ids={"1"})
+        assert task is not None
+        assert task.id == "2"
+
+        # Exclude both 1 and 2, should get None (task 3 depends on 1 which is not complete)
+        task = tracker.select_next_task(exclude_ids={"1", "2"})
+        assert task is None
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_nonexistent_dependency():
+    """Test that tasks depending on nonexistent tasks are blocked."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+  - id: 2
+    title: Second task (depends on nonexistent task)
+    completed: false
+    depends_on: ["999"]
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Only task 1 should be available (task 2 depends on nonexistent task)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "1"
+
+        # Mark task 1 complete
+        tracker.data["tasks"][0]["completed"] = True
+
+        # Task 2 should still not be available (dependency never satisfied)
+        task = tracker.peek_next_task()
+        assert task is None
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_blocked_task():
+    """Test that blocked tasks count as completed for dependency purposes."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: false
+    blocked: true
+  - id: 2
+    title: Second task (depends on 1)
+    completed: false
+    depends_on: ["1"]
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Task 2 should be available (task 1 is blocked, which counts as "done")
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "2"
+    finally:
+        yaml_path.unlink()
+
+
+def test_yaml_tracker_depends_on_numeric_ids():
+    """Test that numeric dependency IDs are handled correctly."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: true
+  - id: 2
+    title: Second task
+    completed: false
+    depends_on: [1]
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+
+        # Task 2 should be available (dependency satisfied)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "2"
+        assert task.depends_on == ["1"]
+    finally:
+        yaml_path.unlink()

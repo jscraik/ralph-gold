@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/trackers/yaml_tracker.py
+# hypothesis_version: 6.150.2
+
+['acceptance', 'blocked', 'blocked_reason', 'branch', 'completed', 'default', 'depends_on', 'group', 'id', 'metadata', 'r', 'tasks', 'title', 'version', 'w', 'yaml']

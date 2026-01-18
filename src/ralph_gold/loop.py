@@ -2050,46 +2050,60 @@ def run_loop(
         result = dry_run_loop(project_root, agent, limit, cfg)
 
         # Print dry-run results
-        print("=" * 60)
-        print("DRY-RUN MODE - No agents will be executed")
-        print("=" * 60)
-        print()
-        print(f"Configuration: {'VALID' if result.config_valid else 'INVALID'}")
-        print(f"Total tasks: {result.total_tasks}")
-        print(f"Completed tasks: {result.completed_tasks}")
-        print(f"Remaining tasks: {result.total_tasks - result.completed_tasks}")
-        print()
+        from .output import print_output
+
+        print_output("=" * 60, level="quiet")
+        print_output("DRY-RUN MODE - No agents will be executed", level="quiet")
+        print_output("=" * 60, level="quiet")
+        print_output("", level="quiet")
+        print_output(
+            f"Configuration: {'VALID' if result.config_valid else 'INVALID'}",
+            level="quiet",
+        )
+        print_output(f"Total tasks: {result.total_tasks}", level="quiet")
+        print_output(f"Completed tasks: {result.completed_tasks}", level="quiet")
+        print_output(
+            f"Remaining tasks: {result.total_tasks - result.completed_tasks}",
+            level="quiet",
+        )
+        print_output("", level="quiet")
 
         if result.issues:
-            print("Issues found:")
+            print_output("Issues found:", level="quiet")
             for issue in result.issues:
-                print(f"  ❌ {issue}")
-            print()
+                print_output(f"  ❌ {issue}", level="error")
+            print_output("", level="quiet")
 
         if result.tasks_to_execute:
-            print(f"Tasks that would be executed (up to {limit} iterations):")
+            print_output(
+                f"Tasks that would be executed (up to {limit} iterations):",
+                level="quiet",
+            )
             for i, task in enumerate(result.tasks_to_execute, 1):
-                print(f"  {i}. {task}")
-            print()
+                print_output(f"  {i}. {task}", level="quiet")
+            print_output("", level="quiet")
         else:
-            print("No tasks would be executed.")
-            print()
+            print_output("No tasks would be executed.", level="quiet")
+            print_output("", level="quiet")
 
         if result.gates_to_run:
-            print("Gates that would run:")
+            print_output("Gates that would run:", level="quiet")
             for gate in result.gates_to_run:
-                print(f"  • {gate}")
-            print()
+                print_output(f"  • {gate}", level="quiet")
+            print_output("", level="quiet")
         else:
-            print("No gates configured.")
-            print()
+            print_output("No gates configured.", level="quiet")
+            print_output("", level="quiet")
 
-        print(f"Estimated duration: {result.estimated_duration_seconds:.1f} seconds")
-        print(f"Estimated cost: ${result.estimated_cost:.2f}")
-        print()
-        print("=" * 60)
-        print("Dry-run complete. No changes were made.")
-        print("=" * 60)
+        print_output(
+            f"Estimated duration: {result.estimated_duration_seconds:.1f} seconds",
+            level="quiet",
+        )
+        print_output(f"Estimated cost: ${result.estimated_cost:.2f}", level="quiet")
+        print_output("", level="quiet")
+        print_output("=" * 60, level="quiet")
+        print_output("Dry-run complete. No changes were made.", level="quiet")
+        print_output("=" * 60, level="quiet")
 
         # Return empty list for dry-run
         return []
@@ -2150,8 +2164,11 @@ def run_loop(
 
         except ImportError:
             # ParallelExecutor not yet implemented, fall back to sequential
-            print(
-                "Warning: Parallel mode requested but ParallelExecutor not available. Running sequentially."
+            from .output import print_output
+
+            print_output(
+                "Warning: Parallel mode requested but ParallelExecutor not available. Running sequentially.",
+                level="normal",
             )
             # Fall through to sequential mode below
             parallel_enabled = False
