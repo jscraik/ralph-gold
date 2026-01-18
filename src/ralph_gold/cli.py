@@ -210,6 +210,91 @@ def cmd_resume(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_clean(args: argparse.Namespace) -> int:
+    """Clean old Ralph workspace artifacts."""
+    root = _project_root()
+
+    logs_days = args.logs_days
+    archives_days = args.archives_days
+    receipts_days = args.receipts_days
+    context_days = args.context_days
+    dry_run = args.dry_run
+
+    if dry_run:
+        print("DRY RUN - No files will be deleted\n")
+
+    logs_result, archives_result, receipts_result, context_result = clean_all(
+        root,
+        logs_days=logs_days,
+        archives_days=archives_days,
+        receipts_days=receipts_days,
+        context_days=context_days,
+        dry_run=dry_run,
+    )
+
+    total_files = (
+        logs_result.files_removed
+        + archives_result.files_removed
+        + receipts_result.files_removed
+        + context_result.files_removed
+    )
+    total_bytes = (
+        logs_result.bytes_freed
+        + archives_result.bytes_freed
+        + receipts_result.bytes_freed
+        + context_result.bytes_freed
+    )
+    total_dirs = (
+        logs_result.directories_removed
+        + archives_result.directories_removed
+        + receipts_result.directories_removed
+        + context_result.directories_removed
+    )
+
+    # Show results
+    if logs_result.files_removed > 0:
+        print(
+            f"Logs:     {logs_result.files_removed} files ({format_bytes(logs_result.bytes_freed)})"
+        )
+    if archives_result.files_removed > 0 or archives_result.directories_removed > 0:
+        print(
+            f"Archives: {archives_result.directories_removed} dirs, "
+            f"{archives_result.files_removed} files ({format_bytes(archives_result.bytes_freed)})"
+        )
+    if receipts_result.files_removed > 0:
+        print(
+            f"Receipts: {receipts_result.files_removed} files ({format_bytes(receipts_result.bytes_freed)})"
+        )
+    if context_result.files_removed > 0:
+        print(
+            f"Context:  {context_result.files_removed} files ({format_bytes(context_result.bytes_freed)})"
+        )
+
+    if total_files == 0 and total_dirs == 0:
+        print("Nothing to clean (no old files found)")
+    else:
+        print(f"\nTotal: {total_files} files, {total_dirs} directories")
+        print(f"Freed: {format_bytes(total_bytes)}")
+
+        if dry_run:
+            print("\n(Dry run - run without --dry-run to actually delete)")
+
+    # Show errors if any
+    all_errors = (
+        logs_result.errors
+        + archives_result.errors
+        + receipts_result.errors
+        + context_result.errors
+    )
+    if all_errors:
+        print("\nErrors:")
+        for error in all_errors:
+            print(f"  - {error}")
+        return 1
+
+    return 0
+
+
 # -------------------------
 # loop
 # -------------------------
@@ -766,6 +851,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resume automatically without prompting",
     )
     p_resume.set_defaults(func=cmd_resume)
+
+    p_clean = sub.add_parser(
+        "clean",
+        help="Clean old logs, archives, and other workspace artifacts",
+    )
+    p_clean.add_argument(
+        "--logs-days",
+        type=int,
+        default=30,
+        help="Remove logs older than N days (default: 30)",
+    )
+    p_clean.add_argument(
+        "--archives-days",
+        type=int,
+        default=90,
+        help="Remove archives older than N days (default: 90)",
+    )
+    p_clean.add_argument(
+        "--receipts-days",
+        type=int,
+        default=60,
+        help="Remove receipts older than N days (default: 60)",
+    )
+    p_clean.add_argument(
+        "--context-days",
+        type=int,
+        default=60,
+        help="Remove context files older than N days (default: 60)",
+    )
+    p_clean.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview what would be deleted without actually deleting",
+    )
+    p_clean.set_defaults(func=cmd_clean)
 
     p_step = sub.add_parser("step", help="Run exactly one iteration")
     p_step.add_argument(
