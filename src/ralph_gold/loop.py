@@ -76,6 +76,20 @@ class IterationResult:
     task_title: Optional[str] = None
 
 
+@dataclass
+class DryRunResult:
+    """Result of a dry-run simulation."""
+
+    tasks_to_execute: List[str]
+    gates_to_run: List[str]
+    estimated_duration_seconds: float
+    estimated_cost: float
+    config_valid: bool
+    issues: List[str]
+    total_tasks: int
+    completed_tasks: int
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -374,7 +388,9 @@ def build_prompt(
     parts.append("")
     parts.append("Hard iteration constraints:")
     parts.append("- One task per iteration (one commit per iteration).")
-    parts.append("- Apply backpressure: run the commands in AGENTS.md and fix until they pass.")
+    parts.append(
+        "- Apply backpressure: run the commands in AGENTS.md and fix until they pass."
+    )
     parts.append("")
 
     if task is not None:
@@ -678,6 +694,159 @@ def run_gates(
                 break
 
     return ok, results
+
+
+def dry_run_loop(
+    project_root: Path,
+    agent: str,
+    max_iterations: int,
+    cfg: Optional[Config] = None,
+) -> DryRunResult:
+    """Simulate loop execution without running agents.
+
+    This function validates configuration, shows what tasks would be selected,
+    lists gates that would run, and estimates duration based on historical data.
+    No agents are executed and no files are modified.
+
+    Args:
+        project_root: Project root directory
+        agent: Agent/runner to use (for validation)
+        max_iterations: Maximum iterations to simulate
+        cfg: Configuration (loaded if not provided)
+
+    Returns:
+        DryRunResult with simulation details
+    """
+    cfg = cfg or load_config(project_root)
+    issues: List[str] = []
+
+    # Validate git repository
+    try:
+        ensure_git_repo(project_root)
+    except RuntimeError as e:
+        issues.append(f"Git repository error: {e}")
+
+    # Validate agent/runner configuration
+    try:
+        _get_runner(cfg, agent)
+    except RuntimeError as e:
+        issues.append(f"Agent configuration error: {e}")
+
+    # Load tracker and get task information
+    tasks_to_execute: List[str] = []
+    total_tasks = 0
+    completed_tasks = 0
+
+    try:
+        tracker = make_tracker(project_root, cfg)
+
+        # Get task counts
+        try:
+            completed_tasks, total_tasks = tracker.counts()
+        except Exception as e:
+            issues.append(f"Failed to get task counts: {e}")
+
+        # Simulate task selection for max_iterations
+        state_path = project_root / ".ralph" / "state.json"
+        state = load_state(state_path)
+
+        blocked_ids = set()
+        if cfg.loop.skip_blocked_tasks:
+            blocked_raw = state.get("blocked_tasks", {}) or {}
+            if isinstance(blocked_raw, dict):
+                blocked_ids = set(str(k) for k in blocked_raw.keys())
+
+        # Try to select tasks that would be executed
+        for i in range(min(max_iterations, total_tasks - completed_tasks)):
+            try:
+                if hasattr(tracker, "select_next_task"):
+                    task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
+                elif hasattr(tracker, "claim_next_task"):
+                    # For dry-run, we don't actually claim, just peek
+                    task = tracker.claim_next_task()
+                else:
+                    break
+
+                if task is not None:
+                    task_label = f"{task.id}: {task.title}" if task.title else task.id
+                    tasks_to_execute.append(task_label)
+                    # Simulate blocking this task for next iteration
+                    blocked_ids.add(task.id)
+                else:
+                    break
+            except Exception as e:
+                issues.append(f"Task selection error (iteration {i + 1}): {e}")
+                break
+
+    except Exception as e:
+        issues.append(f"Tracker initialization error: {e}")
+
+    # Collect gates that would run
+    gates_to_run: List[str] = []
+
+    if cfg.gates.commands:
+        gates_to_run.extend(cfg.gates.commands)
+
+    # Check for pre-commit hook
+    if cfg.gates.precommit_hook:
+        hook_path = _discover_precommit_hook(project_root)
+        if hook_path:
+            gates_to_run.insert(0, f"[pre-commit hook] {hook_path}")
+
+    # Check for prek
+    if cfg.gates.prek.enabled:
+        if (project_root / ".pre-commit-config.yaml").exists() or (
+            project_root / ".pre-commit-config.yml"
+        ).exists():
+            if cfg.gates.prek.argv:
+                prek_cmd = " ".join([str(x) for x in cfg.gates.prek.argv])
+                gates_to_run.insert(0, f"[prek] {prek_cmd}")
+
+    # Estimate duration based on historical data
+    estimated_duration = 0.0
+    try:
+        state_path = project_root / ".ralph" / "state.json"
+        state = load_state(state_path)
+        history = state.get("history", [])
+
+        if isinstance(history, list) and history:
+            # Calculate average duration from recent history
+            durations = []
+            for entry in history[-20:]:  # Use last 20 iterations
+                if isinstance(entry, dict):
+                    duration = entry.get("duration_seconds", 0)
+                    if isinstance(duration, (int, float)) and duration > 0:
+                        durations.append(float(duration))
+
+            if durations:
+                avg_duration = sum(durations) / len(durations)
+                estimated_duration = avg_duration * len(tasks_to_execute)
+            else:
+                # No historical data, use rough estimate
+                estimated_duration = 60.0 * len(tasks_to_execute)  # 60 seconds per task
+        else:
+            # No history, use rough estimate
+            estimated_duration = 60.0 * len(tasks_to_execute)
+    except Exception as e:
+        issues.append(f"Failed to estimate duration: {e}")
+        estimated_duration = 60.0 * len(tasks_to_execute)
+
+    # Validate configuration files exist
+    if not (project_root / cfg.files.prd).exists():
+        issues.append(f"PRD file not found: {cfg.files.prd}")
+
+    config_valid = len(issues) == 0
+
+    return DryRunResult(
+        tasks_to_execute=tasks_to_execute,
+        gates_to_run=gates_to_run,
+        estimated_duration_seconds=estimated_duration,
+        estimated_cost=0.0,  # Future: implement cost estimation
+        config_valid=config_valid,
+        issues=issues,
+        total_tasks=total_tasks,
+        completed_tasks=completed_tasks,
+    )
 
 
 def _truncate_output(text: str, max_lines: int) -> str:
@@ -1064,7 +1233,11 @@ def run_iteration(
                     ended_at=iso_utc(),
                     duration_seconds=rp_run.duration_seconds,
                     stdout_path=str(out_path.relative_to(project_root)),
-                    stderr_path=str((receipts_dir / "repoprompt_context.stderr.txt").relative_to(project_root))
+                    stderr_path=str(
+                        (receipts_dir / "repoprompt_context.stderr.txt").relative_to(
+                            project_root
+                        )
+                    )
                     if rp_run.stderr
                     else None,
                     notes={
@@ -1090,7 +1263,11 @@ def run_iteration(
                     started_at=iso_utc(),
                     ended_at=iso_utc(),
                     duration_seconds=0.0,
-                    stderr_path=str((receipts_dir / "repoprompt_context.error.txt").relative_to(project_root)),
+                    stderr_path=str(
+                        (receipts_dir / "repoprompt_context.error.txt").relative_to(
+                            project_root
+                        )
+                    ),
                     notes={"error": str(e)},
                 ),
             )
@@ -1193,9 +1370,7 @@ def run_iteration(
             ),
         )
 
-        gate_summaries.append(
-            f"[{'OK' if gr.return_code == 0 else 'FAIL'}] {gr.cmd}"
-        )
+        gate_summaries.append(f"[{'OK' if gr.return_code == 0 else 'FAIL'}] {gr.cmd}")
 
     # Safety valve: if gates fail, force the task open again.
     if gates_ok is False and story_id is not None:
@@ -1620,7 +1795,9 @@ def run_iteration(
     head_after = git_head(project_root)
     repo_clean = git_is_clean(project_root)
     done_delta = (done_after > done_before) and (total_after >= done_before)
-    progress_made = done_delta or (head_after != head_before) or (not repo_clean) or blocked_now
+    progress_made = (
+        done_delta or (head_after != head_before) or (not repo_clean) or blocked_now
+    )
 
     stdout_text = _coerce_text(cp.stdout)
     stderr_text = _coerce_text(cp.stderr)
@@ -1847,6 +2024,7 @@ def run_loop(
     cfg: Optional[Config] = None,
     parallel: bool = False,
     max_workers: Optional[int] = None,
+    dry_run: bool = False,
 ) -> List[IterationResult]:
     """Run the Ralph loop in sequential or parallel mode.
 
@@ -1857,11 +2035,65 @@ def run_loop(
         cfg: Configuration (loaded if not provided)
         parallel: Enable parallel execution (overrides config)
         max_workers: Number of parallel workers (overrides config)
+        dry_run: If True, simulate execution without running agents
 
     Returns:
         List of iteration results
     """
     cfg = cfg or load_config(project_root)
+
+    # Handle dry-run mode
+    if dry_run:
+        limit = (
+            max_iterations if max_iterations is not None else cfg.loop.max_iterations
+        )
+        result = dry_run_loop(project_root, agent, limit, cfg)
+
+        # Print dry-run results
+        print("=" * 60)
+        print("DRY-RUN MODE - No agents will be executed")
+        print("=" * 60)
+        print()
+        print(f"Configuration: {'VALID' if result.config_valid else 'INVALID'}")
+        print(f"Total tasks: {result.total_tasks}")
+        print(f"Completed tasks: {result.completed_tasks}")
+        print(f"Remaining tasks: {result.total_tasks - result.completed_tasks}")
+        print()
+
+        if result.issues:
+            print("Issues found:")
+            for issue in result.issues:
+                print(f"  ❌ {issue}")
+            print()
+
+        if result.tasks_to_execute:
+            print(f"Tasks that would be executed (up to {limit} iterations):")
+            for i, task in enumerate(result.tasks_to_execute, 1):
+                print(f"  {i}. {task}")
+            print()
+        else:
+            print("No tasks would be executed.")
+            print()
+
+        if result.gates_to_run:
+            print("Gates that would run:")
+            for gate in result.gates_to_run:
+                print(f"  • {gate}")
+            print()
+        else:
+            print("No gates configured.")
+            print()
+
+        print(f"Estimated duration: {result.estimated_duration_seconds:.1f} seconds")
+        print(f"Estimated cost: ${result.estimated_cost:.2f}")
+        print()
+        print("=" * 60)
+        print("Dry-run complete. No changes were made.")
+        print("=" * 60)
+
+        # Return empty list for dry-run
+        return []
+
     ensure_git_repo(project_root)
 
     # Determine if parallel mode should be used

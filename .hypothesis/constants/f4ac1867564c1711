@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/repoprompt.py
+# hypothesis_version: 6.150.2
+
+[' && ', ' | ', '"', "'", '-e', '-t', '-w', 'clarify']

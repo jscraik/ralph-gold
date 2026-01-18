@@ -26,6 +26,7 @@ include = ["src/ralph_gold/templates/**"]
 
 [dependency-groups]
 dev = [
+  "hypothesis>=6.150.2",
   "pytest>=7.4.0",
 ]
 

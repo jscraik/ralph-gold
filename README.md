@@ -312,6 +312,122 @@ Uses `files.specs_dir` from config by default.
 
 ## Troubleshooting
 
+### Diagnostics Command
+
+Run diagnostic checks to validate your Ralph configuration:
+
+```bash
+ralph diagnose
+```
+
+This command checks:
+
+- Configuration file existence and syntax (`.ralph/ralph.toml`)
+- TOML syntax validation
+- Configuration schema validation
+- Runner configuration
+- PRD file existence and format
+- PRD structure validation
+
+**Test gate commands:**
+
+```bash
+ralph diagnose --test-gates
+```
+
+This runs each configured gate command individually to verify they work correctly. Useful for debugging gate failures before running the loop.
+
+**Exit codes:**
+
+- `0`: All diagnostics passed
+- `2`: Issues found (errors or warnings)
+
+**Example output:**
+
+```
+Ralph Diagnostics Report
+============================================================
+
+PASSED:
+  ✓ Configuration file found
+  ✓ Configuration file ralph.toml has valid TOML syntax
+  ✓ Configuration schema is valid
+  ✓ Found 2 configured runner(s)
+  ✓ PRD file found: PRD.md
+  ✓ PRD file has valid markdown format
+  ✓ PRD structure is valid (3/10 tasks complete)
+
+============================================================
+Summary: 7/7 checks passed
+
+✓ All diagnostics passed!
+```
+
+### Statistics Command
+
+View iteration statistics to understand loop performance:
+
+```bash
+ralph stats
+```
+
+This command displays:
+
+- Total iterations (successful and failed)
+- Success rate
+- Duration statistics (average, min, max)
+
+**Show per-task breakdown:**
+
+```bash
+ralph stats --by-task
+```
+
+This shows detailed statistics for each task, including:
+
+- Number of attempts per task
+- Success/failure counts
+- Average and total duration per task
+- Tasks sorted by total duration (slowest first)
+
+**Export to CSV:**
+
+```bash
+ralph stats --export stats.csv
+```
+
+Exports statistics to a CSV file for analysis in spreadsheet tools or custom scripts. The CSV includes both overall statistics and per-task breakdowns.
+
+**Example output:**
+
+```
+============================================================
+Ralph Gold - Iteration Statistics
+============================================================
+
+Overall Statistics:
+  Total Iterations:      15
+  Successful:            12
+  Failed:                3
+  Success Rate:          80.0%
+
+Duration Statistics:
+  Average:               245.50s
+  Minimum:               120.30s
+  Maximum:               450.75s
+
+============================================================
+```
+
+**Use cases:**
+
+- Identify slow tasks that need optimization
+- Track success rates over time
+- Estimate time for remaining work
+- Export data for trend analysis
+
+### Common Issues
+
 - `git` errors: ensure you are inside a git repository and have at least one commit.
 - `Unknown agent`: check `runners.*` in `.ralph/ralph.toml` or install the CLI.
 - `No prompt provided` from Codex: ensure runner argv includes `-` so stdin is used.

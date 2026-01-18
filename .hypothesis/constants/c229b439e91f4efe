@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/converters.py
+# hypothesis_version: 6.150.2
+
+['#', '.json', '\\d+', '^api[:\\s]', '^backend[:\\s]', '^database[:\\s]', '^db[:\\s]', '^doc[:\\s]', '^documentation[:\\s]', '^frontend[:\\s]', '^test[:\\s]', '^ui[:\\s]', 'acceptance', 'api', 'auth', 'authentication', 'author', 'backend', 'blocked', 'branch', 'branchName', 'branchname', 'completed', 'created', 'database', 'default', 'description', 'docs', 'done', 'endpoint', 'frontend', 'group', 'id', 'interface', 'metadata', 'name', 'open', 'passes', 'priority', 'project', 'schema', 'status', 'stories', 'tasks', 'test', 'testing', 'title', 'ui', 'version', 'w']

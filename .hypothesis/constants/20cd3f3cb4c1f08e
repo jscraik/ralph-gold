@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/receipts.py
+# hypothesis_version: 6.150.2
+
+[2000, '_schema', 'replace', 'utf-8']

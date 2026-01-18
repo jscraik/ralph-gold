@@ -12,15 +12,18 @@ from pathlib import Path
 
 from . import __version__
 from .config import load_config
+from .diagnostics import run_diagnostics
 from .doctor import check_tools, setup_checks
 from .loop import (
     build_runner_invocation,
+    dry_run_loop,
     next_iteration_number,
     run_iteration,
     run_loop,
 )
 from .scaffold import init_project
 from .specs import check_specs, format_specs_check
+from .stats import calculate_stats, export_stats_csv, format_stats_report
 from .trackers import make_tracker
 
 
@@ -146,6 +149,114 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             ok = False
             print(f"[MISS] {st.name}: {st.hint or 'not found'}")
     return 0 if ok else 2
+
+
+def cmd_diagnose(args: argparse.Namespace) -> int:
+    """Run diagnostic checks on Ralph configuration and PRD."""
+    root = _project_root()
+
+    test_gates = args.test_gates
+
+    # Run diagnostics
+    results, exit_code = run_diagnostics(root, test_gates_flag=test_gates)
+
+    # Format and display results
+    print("Ralph Diagnostics Report")
+    print("=" * 60)
+    print()
+
+    # Group results by severity
+    errors = [r for r in results if r.severity == "error" and not r.passed]
+    warnings = [r for r in results if r.severity == "warning" and not r.passed]
+    info = [r for r in results if r.passed or r.severity == "info"]
+
+    # Display errors
+    if errors:
+        print("ERRORS:")
+        for result in errors:
+            print(f"  ✗ {result.message}")
+            if result.suggestions:
+                for suggestion in result.suggestions:
+                    print(f"    → {suggestion}")
+            print()
+
+    # Display warnings
+    if warnings:
+        print("WARNINGS:")
+        for result in warnings:
+            print(f"  ⚠ {result.message}")
+            if result.suggestions:
+                for suggestion in result.suggestions:
+                    print(f"    → {suggestion}")
+            print()
+
+    # Display info/passed checks
+    if info:
+        print("PASSED:")
+        for result in info:
+            print(f"  ✓ {result.message}")
+        print()
+
+    # Summary
+    total_checks = len(results)
+    passed_checks = len([r for r in results if r.passed])
+    failed_checks = len([r for r in results if not r.passed])
+
+    print("=" * 60)
+    print(f"Summary: {passed_checks}/{total_checks} checks passed")
+
+    if failed_checks > 0:
+        print(f"         {failed_checks} issue(s) found")
+
+    if exit_code == 0:
+        print("\n✓ All diagnostics passed!")
+    else:
+        print("\n✗ Diagnostics found issues that need attention.")
+
+    return exit_code
+
+
+def cmd_stats(args: argparse.Namespace) -> int:
+    """Display iteration statistics from Ralph history."""
+    root = _project_root()
+    state_path = root / ".ralph" / "state.json"
+
+    # Check if state file exists
+    if not state_path.exists():
+        print("No state.json found. Run some iterations first.")
+        return 0
+
+    # Load state
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"Error loading state.json: {e}")
+        return 1
+
+    # Calculate statistics
+    try:
+        stats = calculate_stats(state)
+    except Exception as e:
+        print(f"Error calculating statistics: {e}")
+        return 1
+
+    # Handle export flag
+    if args.export:
+        export_path = Path(args.export).resolve()
+        try:
+            export_stats_csv(stats, export_path)
+            print(f"✓ Statistics exported to: {export_path}")
+            return 0
+        except Exception as e:
+            print(f"Error exporting statistics: {e}")
+            return 1
+
+    # Display formatted report
+    by_task = args.by_task
+    report = format_stats_report(stats, by_task=by_task)
+    print(report)
+
+    return 0
 
 
 def cmd_resume(args: argparse.Namespace) -> int:
@@ -311,6 +422,46 @@ def cmd_step(args: argparse.Namespace) -> int:
         cfg = replace(cfg, files=replace(cfg.files, prd=str(args.prd_file)))
 
     agent = args.agent
+
+    # Handle dry-run mode
+    dry_run = getattr(args, "dry_run", False)
+    if dry_run:
+        result = dry_run_loop(root, agent, 1, cfg)
+
+        print("=" * 60)
+        print("DRY-RUN MODE - No agents will be executed")
+        print("=" * 60)
+        print()
+        print(f"Configuration: {'VALID' if result.config_valid else 'INVALID'}")
+        print(f"Total tasks: {result.total_tasks}")
+        print(f"Completed tasks: {result.completed_tasks}")
+        print()
+
+        if result.issues:
+            print("Issues found:")
+            for issue in result.issues:
+                print(f"  ❌ {issue}")
+            print()
+
+        if result.tasks_to_execute:
+            print("Next task that would be executed:")
+            print(f"  • {result.tasks_to_execute[0]}")
+            print()
+        else:
+            print("No tasks would be executed.")
+            print()
+
+        if result.gates_to_run:
+            print("Gates that would run:")
+            for gate in result.gates_to_run:
+                print(f"  • {gate}")
+            print()
+
+        print("=" * 60)
+        print("Dry-run complete. No changes were made.")
+        print("=" * 60)
+        return 0
+
     iter_n = next_iteration_number(root)
     res = run_iteration(root, agent=agent, cfg=cfg, iteration=iter_n)
 
@@ -341,6 +492,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Get parallel and max_workers from args
     parallel = getattr(args, "parallel", False)
     max_workers = getattr(args, "max_workers", None)
+    dry_run = getattr(args, "dry_run", False)
 
     results = run_loop(
         root,
@@ -349,7 +501,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         cfg=cfg,
         parallel=parallel,
         max_workers=max_workers,
+        dry_run=dry_run,
     )
+
+    # Dry-run mode prints its own output and returns early
+    if dry_run:
+        return 0
 
     for r in results:
         print(
@@ -836,6 +993,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_doc.set_defaults(func=cmd_doctor)
 
+    p_diagnose = sub.add_parser(
+        "diagnose",
+        help="Run diagnostic checks on configuration and PRD",
+    )
+    p_diagnose.add_argument(
+        "--test-gates",
+        action="store_true",
+        help="Test each gate command individually",
+    )
+    p_diagnose.set_defaults(func=cmd_diagnose)
+
+    p_stats = sub.add_parser(
+        "stats",
+        help="Display iteration statistics from Ralph history",
+    )
+    p_stats.add_argument(
+        "--by-task",
+        action="store_true",
+        help="Show detailed per-task breakdown",
+    )
+    p_stats.add_argument(
+        "--export",
+        metavar="FILE",
+        default=None,
+        help="Export statistics to CSV file",
+    )
+    p_stats.set_defaults(func=cmd_stats)
+
     p_resume = sub.add_parser(
         "resume",
         help="Detect and resume interrupted iterations",
@@ -903,6 +1088,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override files.prd for this run (e.g. IMPLEMENTATION_PLAN.md)",
     )
+    p_step.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate execution without running agents (validate config and show execution plan)",
+    )
     p_step.set_defaults(func=cmd_step)
 
     p_run = sub.add_parser(
@@ -933,6 +1123,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="Number of parallel workers (requires --parallel, overrides config)",
+    )
+    p_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate execution without running agents (validate config and show execution plan)",
     )
     p_run.set_defaults(func=cmd_run)
 

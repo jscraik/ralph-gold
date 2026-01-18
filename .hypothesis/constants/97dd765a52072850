@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/prd.py
+# hypothesis_version: 6.150.2
+
+[10000, '!', '-', '.markdown', '.md', '[ ]', '[-]', '\\[[^\\]]\\]', '\\\\d+', '^\\s*##\\s+tasks\\b', '^\\s*#{1,6}\\s+\\S', '^\\s*```', 'acceptance', 'beads', 'blocked', 'blocked_reason', 'branch', 'branchName', 'branchNameOverride', 'branch_name', 'completedAt', 'default', 'depends_on', 'done', 'gitBranch', 'id', 'in_progress', 'json', 'key', 'md', 'open', 'passes', 'priority', 'status', 'stories', 'story_id', 'stuck', 'title', 'utf-8', 'x', '~']

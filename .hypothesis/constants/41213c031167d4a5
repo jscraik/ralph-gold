@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/resume.py
+# hypothesis_version: 6.150.2
+
+['  Gates: (not run)', '  Gates: ✓ PASSED', '  Gates: ✗ FAILED', '.ralph', 'agent', 'exit_signal', 'gates_ok', 'history', 'iteration', 'log_path', 'noProgressStreak', 'return_code', 'state.json', 'story_id', 'task_title', 'ts', 'unknown', 'utf-8']

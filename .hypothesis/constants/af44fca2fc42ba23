@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/parallel.py
+# hypothesis_version: 6.150.2
+
+['auto_merge', 'failed', 'queue', 'running', 'success']
