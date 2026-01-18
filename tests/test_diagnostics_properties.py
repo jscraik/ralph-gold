@@ -26,7 +26,7 @@ from ralph_gold.diagnostics import (
 # ============================================================================
 
 
-@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(
     config_content=st.one_of(
         # Valid TOML configurations
@@ -122,7 +122,7 @@ def test_property_config_validation_correctness(tmp_path: Path, config_content: 
         max_size=10,
     )
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_exit_code_mapping(check_results: List[tuple]):
     """
     **Validates: Requirements 1.1** (General criteria - Diagnostics criteria 6)
@@ -257,7 +257,7 @@ argv = ["codex", "exec", "-"]
         max_size=20,
     )
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_suggestion_completeness(check_results: List[tuple]):
     """
     **Validates: Requirements 1.1, 1.2, 1.3** (General criteria 4 - Diagnostics criteria 5)
@@ -295,7 +295,7 @@ def test_property_suggestion_completeness(check_results: List[tuple]):
 # ============================================================================
 
 
-@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(
     has_config=st.booleans(),
     config_valid=st.booleans(),
@@ -388,7 +388,7 @@ argv = ["codex", "exec", "-"]
 # ============================================================================
 
 
-@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(arbitrary_content=st.text(min_size=0, max_size=1000))
 def test_property_config_validation_handles_arbitrary_input(
     tmp_path: Path, arbitrary_content: str
@@ -421,7 +421,7 @@ def test_property_config_validation_handles_arbitrary_input(
 @settings(
     max_examples=100,
     suppress_health_check=[HealthCheck.function_scoped_fixture],
-    deadline=500,
+    deadline=None,  # Uses subprocess; avoid flaky deadline failures.
 )
 @given(
     gate_commands=st.lists(

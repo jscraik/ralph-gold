@@ -1,3 +1,5 @@
+yes
+
 # Ralph Gold Phase 2 Enhancements - Implementation Tasks
 
 **Feature:** ralph-enhancement-phase2  
@@ -221,7 +223,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 7: Snapshot & Rollback
 
-- [ ] 7.1 Implement snapshots core module
+- [x] 7.1 Implement snapshots core module
   - Create `src/ralph_gold/snapshots.py`
   - Implement `Snapshot` dataclass
   - Implement `create_snapshot()` function (git stash)
@@ -229,12 +231,12 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Implement `rollback_snapshot()` function
   - Implement `cleanup_old_snapshots()` function
 
-- [ ] 7.2 Extend state.json schema
+- [x] 7.2 Extend state.json schema
   - Add `snapshots` array to state schema
   - Implement state backup/restore logic
   - Add snapshot metadata tracking
 
-- [ ] 7.3 Write unit tests for snapshots
+- [x] 7.3 Write unit tests for snapshots
   - Create `tests/test_snapshots.py`
   - Test snapshot creation with git
   - Test snapshot listing
@@ -242,13 +244,13 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test dirty tree protection
   - Test cleanup logic
 
-- [ ] 7.4 Write property-based tests for snapshots
+- [x] 7.4 Write property-based tests for snapshots
   - Property 16: Snapshot round-trip
   - Property 17: Dirty tree protection
   - Property 18: Snapshot retention
   - Use `hypothesis` with git repository fixtures
 
-- [ ] 7.5 Integrate snapshots CLI commands
+- [x] 7.5 Integrate snapshots CLI commands
   - Add `ralph snapshot <name>` command
   - Add `ralph snapshot --list` command
   - Add `ralph rollback <name>` command

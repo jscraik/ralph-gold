@@ -577,6 +577,75 @@ Duration Statistics:
 - Estimate time for remaining work
 - Export data for trend analysis
 
+### Snapshot and Rollback Commands
+
+Create git-based snapshots before risky changes and rollback if needed:
+
+**Create a snapshot:**
+
+```bash
+ralph snapshot my-snapshot-name
+```
+
+Optionally add a description:
+
+```bash
+ralph snapshot before-refactor --description "Snapshot before major refactoring"
+```
+
+**List all snapshots:**
+
+```bash
+ralph snapshot --list
+```
+
+**Rollback to a snapshot:**
+
+```bash
+ralph rollback my-snapshot-name
+```
+
+The rollback command will ask for confirmation before proceeding. To skip confirmation:
+
+```bash
+ralph rollback my-snapshot-name --force
+```
+
+**How it works:**
+
+- Snapshots use `git stash` to save your working tree state
+- Ralph state (`.ralph/state.json`) is backed up separately
+- Rollback restores both git state and Ralph state
+- Snapshots are stored in `.ralph/snapshots/` with metadata in `state.json`
+
+**Example workflow:**
+
+```bash
+# Before making risky changes
+ralph snapshot before-experiment -d "Before trying new approach"
+
+# Make changes, run iterations
+ralph step --agent codex
+
+# If something goes wrong, rollback
+ralph rollback before-experiment
+
+# Or if everything works, continue and the snapshot remains available
+```
+
+**Use cases:**
+
+- Create checkpoints before major refactoring
+- Save state before experimenting with new approaches
+- Quick recovery from failed iterations
+- Safe exploration of different solutions
+
+**Notes:**
+
+- Rollback requires a clean working tree (or use `--force`)
+- Snapshot names must use only letters, numbers, hyphens, and underscores
+- Old snapshots can be cleaned up manually from `.ralph/snapshots/`
+
 ### Common Issues
 
 - `git` errors: ensure you are inside a git repository and have at least one commit.

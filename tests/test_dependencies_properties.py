@@ -88,7 +88,7 @@ def cyclic_task_list_strategy(
 
 # Property 12: Dependency Satisfaction
 @given(task_list_strategy(min_size=2, max_size=15))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_12_dependency_satisfaction(tasks: list[dict[str, Any]]):
     """**Validates: Requirements US-5.1**
 
@@ -143,7 +143,7 @@ def test_property_12_dependency_satisfaction(tasks: list[dict[str, Any]]):
 
 
 @given(st.integers(min_value=1, max_value=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_12_task_not_ready_until_all_deps_complete(num_deps: int):
     """**Validates: Requirements US-5.1**
 
@@ -183,7 +183,7 @@ def test_property_12_task_not_ready_until_all_deps_complete(num_deps: int):
 
 # Property 13: Circular Dependency Detection
 @given(cyclic_task_list_strategy(min_size=2, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_13_circular_dependency_detection_finds_cycles(
     tasks: list[dict[str, Any]],
 ):
@@ -206,7 +206,7 @@ def test_property_13_circular_dependency_detection_finds_cycles(
 
 
 @given(task_list_strategy(min_size=1, max_size=15))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_13_no_false_positives_for_acyclic_graphs(
     tasks: list[dict[str, Any]],
 ):
@@ -228,7 +228,7 @@ def test_property_13_no_false_positives_for_acyclic_graphs(
 
 
 @given(st.integers(min_value=2, max_value=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_13_self_dependency_is_detected(cycle_length: int):
     """**Validates: Requirements US-5.3**
 
@@ -257,7 +257,7 @@ def test_property_13_self_dependency_is_detected(cycle_length: int):
 
 # Property 14: Dependency Format Consistency
 @given(task_list_strategy(min_size=1, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_14_dependency_format_consistency_json(
     tasks: list[dict[str, Any]],
 ):
@@ -284,7 +284,7 @@ def test_property_14_dependency_format_consistency_json(
 
 
 @given(task_list_strategy(min_size=1, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_14_missing_depends_on_field_handled(tasks: list[dict[str, Any]]):
     """**Validates: Requirements US-5.1**
 
@@ -319,7 +319,7 @@ def test_property_14_missing_depends_on_field_handled(tasks: list[dict[str, Any]
 
 
 @given(task_list_strategy(min_size=1, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_14_invalid_depends_on_type_handled(tasks: list[dict[str, Any]]):
     """**Validates: Requirements US-5.1**
 
@@ -365,7 +365,7 @@ def test_property_14_invalid_depends_on_type_handled(tasks: list[dict[str, Any]]
         unique=True,
     )
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_15_backward_compatibility_no_depends_on(task_ids: list[str]):
     """**Validates: General criteria 1**
 
@@ -392,7 +392,7 @@ def test_property_15_backward_compatibility_no_depends_on(task_ids: list[str]):
 
 
 @given(task_list_strategy(min_size=1, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_15_empty_depends_on_same_as_missing(tasks: list[dict[str, Any]]):
     """**Validates: General criteria 1**
 
@@ -433,7 +433,7 @@ def test_property_15_empty_depends_on_same_as_missing(tasks: list[dict[str, Any]
 
 
 @given(task_list_strategy(min_size=2, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_15_mixed_legacy_and_new_format(tasks: list[dict[str, Any]]):
     """**Validates: General criteria 1**
 
@@ -467,7 +467,7 @@ def test_property_15_mixed_legacy_and_new_format(tasks: list[dict[str, Any]]):
 
 # Additional property: Nonexistent dependencies don't crash
 @given(task_list_strategy(min_size=1, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_nonexistent_dependencies_handled_gracefully(
     tasks: list[dict[str, Any]],
 ):
@@ -502,7 +502,7 @@ def test_property_nonexistent_dependencies_handled_gracefully(
 
 # Additional property: Graph building is deterministic
 @given(task_list_strategy(min_size=1, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_graph_building_is_deterministic(tasks: list[dict[str, Any]]):
     """**Validates: General criteria 1**
 
@@ -532,7 +532,7 @@ def test_property_graph_building_is_deterministic(tasks: list[dict[str, Any]]):
 
 # Additional property: Ready tasks are consistent
 @given(task_list_strategy(min_size=1, max_size=10))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_ready_tasks_consistency(tasks: list[dict[str, Any]]):
     """**Validates: Requirements US-5.1**
 

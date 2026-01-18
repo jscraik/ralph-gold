@@ -31,15 +31,5 @@
       "gate_results": [],
       "log": "20260115T234513Z-iter0001-codex.log"
     }
-  ],
-  "snapshots": [
-    {
-      "name": "before-cli-integration",
-      "timestamp": "2026-01-18T20:16:36.601659+00:00",
-      "git_stash_ref": "stash@{0}",
-      "state_backup_path": ".ralph/snapshots/before-cli-integration_state.json",
-      "description": "Snapshot before integrating CLI commands",
-      "git_commit": "8911f9a46a67308c8998a1990b54b0e6a7590689"
-    }
   ]
 }

@@ -176,7 +176,7 @@ def test_convert_missing_file_cli(tmp_path: Path):
     )
 
     assert result.returncode == 2
-    assert "Error" in result.stdout
+    assert "Error" in (result.stdout + result.stderr)
 
 
 def test_convert_shows_summary_cli(sample_json_prd: Path, tmp_path: Path):

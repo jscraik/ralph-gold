@@ -83,7 +83,7 @@ def set_output_config(config: OutputConfig) -> None:
     _output_config = config
 
 
-def print_output(message: str, level: str = "normal", file: Any = None) -> None:
+def print_output(message: str, level: str = "normal", file: Any = None, end: str = "\n") -> None:
     """Print output respecting the current verbosity level.
 
     Messages are only printed if the current verbosity level is appropriate:
@@ -96,6 +96,7 @@ def print_output(message: str, level: str = "normal", file: Any = None) -> None:
         message: The message to print
         level: Message level - "error", "quiet", "normal", or "verbose"
         file: File object to write to (default: stdout for normal, stderr for error)
+        end: String to append after message (default: newline)
     """
     config = get_output_config()
 
@@ -127,7 +128,7 @@ def print_output(message: str, level: str = "normal", file: Any = None) -> None:
     if should_print:
         if file is None:
             file = sys.stdout
-        print(message, file=file)
+        print(message, file=file, end=end)
 
 
 def format_json_output(data: Dict[str, Any]) -> str:

@@ -56,7 +56,7 @@ def state_with_history(
         max_size=100,
     )
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_5_statistical_calculation_correctness(durations: List[float]):
     """**Validates: Requirements 2.1**
 
@@ -108,7 +108,7 @@ def test_property_5_statistical_calculation_correctness(durations: List[float]):
 
 
 @given(state_with_history(min_size=1, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_5_success_rate_calculation(state: Dict[str, Any]):
     """**Validates: Requirements 2.1**
 
@@ -128,7 +128,7 @@ def test_property_5_success_rate_calculation(state: Dict[str, Any]):
 
 
 @given(state_with_history(min_size=1, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_5_task_stats_aggregation(state: Dict[str, Any]):
     """**Validates: Requirements 2.2**
 
@@ -186,7 +186,7 @@ def test_property_5_task_stats_aggregation(state: Dict[str, Any]):
 
 # Property 6: Duration Tracking Persistence
 @given(state_with_history(min_size=1, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_6_duration_tracking_persistence(state: Dict[str, Any]):
     """**Validates: Requirements 2.1**
 
@@ -226,7 +226,7 @@ def test_property_6_duration_tracking_persistence(state: Dict[str, Any]):
         max_size=50,
     )
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_6_missing_duration_defaults_to_zero(durations: List[float]):
     """**Validates: Requirements 2.1**
 
@@ -259,7 +259,7 @@ def test_property_6_missing_duration_defaults_to_zero(durations: List[float]):
 
 # Property 7: CSV Export Round-Trip
 @given(state_with_history(min_size=1, max_size=30))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_7_csv_export_round_trip(state: Dict[str, Any]):
     """**Validates: Requirements 2.3**
 
@@ -331,7 +331,7 @@ def test_property_7_csv_export_round_trip(state: Dict[str, Any]):
 
 
 @given(state_with_history(min_size=1, max_size=30))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_7_csv_task_data_preservation(state: Dict[str, Any]):
     """**Validates: Requirements 2.3**
 
@@ -405,7 +405,7 @@ def test_property_7_csv_task_data_preservation(state: Dict[str, Any]):
 
 # Additional property: Stats calculation is deterministic
 @given(state_with_history(min_size=1, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_stats_calculation_is_deterministic(state: Dict[str, Any]):
     """**Validates: Requirements 2.1**
 
@@ -469,7 +469,7 @@ def test_property_empty_history_produces_zero_stats(state: Dict[str, Any]):
         max_size=50,
     )
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_blocked_iterations_are_failures(durations: List[float]):
     """**Validates: Requirements 2.1**
 

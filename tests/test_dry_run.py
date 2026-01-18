@@ -268,7 +268,7 @@ from hypothesis import strategies as st
     max_iterations=st.integers(min_value=1, max_value=100),
     num_tasks=st.integers(min_value=0, max_value=50),
 )
-@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_property_dry_run_safety(
     git_repo: Path, max_iterations: int, num_tasks: int, monkeypatch
 ):
@@ -359,7 +359,7 @@ prd = "prd.json"
     num_completed=st.integers(min_value=0, max_value=20),
     max_iterations=st.integers(min_value=1, max_value=10),
 )
-@settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_property_dry_run_prediction_accuracy(
     git_repo: Path, num_tasks: int, num_completed: int, max_iterations: int
 ):

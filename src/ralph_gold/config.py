@@ -159,6 +159,60 @@ class ParallelConfig:
 
 
 @dataclass(frozen=True)
+class DiagnosticsConfig:
+    """Configuration for diagnostics features."""
+
+    enabled: bool = True
+    check_gates: bool = True
+    validate_prd: bool = True
+
+
+@dataclass(frozen=True)
+class StatsConfig:
+    """Configuration for statistics tracking."""
+
+    track_duration: bool = True
+    track_cost: bool = False  # Future: API cost tracking
+
+
+@dataclass(frozen=True)
+class WatchConfig:
+    """Configuration for watch mode."""
+
+    enabled: bool = False
+    patterns: List[str] = field(default_factory=lambda: ["**/*.py", "**/*.md"])
+    debounce_ms: int = 500
+    auto_commit: bool = False
+
+
+@dataclass(frozen=True)
+class ProgressConfig:
+    """Configuration for progress visualization."""
+
+    show_velocity: bool = True
+    show_burndown: bool = True
+    chart_width: int = 60
+
+
+@dataclass(frozen=True)
+class TemplatesConfig:
+    """Configuration for task templates."""
+
+    builtin: List[str] = field(
+        default_factory=lambda: ["bug-fix", "feature", "refactor"]
+    )
+    custom_dir: str = ".ralph/templates"
+
+
+@dataclass(frozen=True)
+class OutputControlConfig:
+    """Configuration for output control (verbosity and format)."""
+
+    verbosity: str = "normal"  # quiet|normal|verbose
+    format: str = "text"  # text|json
+
+
+@dataclass(frozen=True)
 class Config:
     loop: LoopConfig
     files: FilesConfig
@@ -168,6 +222,12 @@ class Config:
     tracker: TrackerConfig
     parallel: ParallelConfig
     repoprompt: RepoPromptConfig = field(default_factory=RepoPromptConfig)
+    diagnostics: DiagnosticsConfig = field(default_factory=DiagnosticsConfig)
+    stats: StatsConfig = field(default_factory=StatsConfig)
+    watch: WatchConfig = field(default_factory=WatchConfig)
+    progress: ProgressConfig = field(default_factory=ProgressConfig)
+    templates: TemplatesConfig = field(default_factory=TemplatesConfig)
+    output: OutputControlConfig = field(default_factory=OutputControlConfig)
 
 
 # -------------------------
@@ -379,7 +439,9 @@ def load_config(project_root: Path) -> Config:
     default_runners: Dict[str, RunnerConfig] = {
         "codex": RunnerConfig(argv=["codex", "exec", "--full-auto", "-"]),
         "claude": RunnerConfig(argv=["claude", "--output-format", "stream-json", "-p"]),
-        "copilot": RunnerConfig(argv=["gh", "copilot", "suggest", "--type", "shell", "--prompt"]),
+        "copilot": RunnerConfig(
+            argv=["gh", "copilot", "suggest", "--type", "shell", "--prompt"]
+        ),
     }
 
     runners: Dict[str, RunnerConfig] = {}
@@ -603,6 +665,94 @@ def load_config(project_root: Path) -> Config:
         merge_policy=merge_policy,
     )
 
+    # Parse diagnostics configuration
+    diagnostics_raw = data.get("diagnostics", {}) or {}
+    if not isinstance(diagnostics_raw, dict):
+        diagnostics_raw = {}
+
+    diagnostics = DiagnosticsConfig(
+        enabled=_coerce_bool(diagnostics_raw.get("enabled"), True),
+        check_gates=_coerce_bool(diagnostics_raw.get("check_gates"), True),
+        validate_prd=_coerce_bool(diagnostics_raw.get("validate_prd"), True),
+    )
+
+    # Parse stats configuration
+    stats_raw = data.get("stats", {}) or {}
+    if not isinstance(stats_raw, dict):
+        stats_raw = {}
+
+    stats = StatsConfig(
+        track_duration=_coerce_bool(stats_raw.get("track_duration"), True),
+        track_cost=_coerce_bool(stats_raw.get("track_cost"), False),
+    )
+
+    # Parse watch configuration
+    watch_raw = data.get("watch", {}) or {}
+    if not isinstance(watch_raw, dict):
+        watch_raw = {}
+
+    # Parse watch patterns
+    patterns_raw = watch_raw.get("patterns", ["**/*.py", "**/*.md"])
+    if isinstance(patterns_raw, list):
+        watch_patterns = [str(x) for x in patterns_raw]
+    else:
+        watch_patterns = ["**/*.py", "**/*.md"]
+
+    watch = WatchConfig(
+        enabled=_coerce_bool(watch_raw.get("enabled"), False),
+        patterns=watch_patterns,
+        debounce_ms=_coerce_int(watch_raw.get("debounce_ms"), 500),
+        auto_commit=_coerce_bool(watch_raw.get("auto_commit"), False),
+    )
+
+    # Parse progress configuration
+    progress_raw = data.get("progress", {}) or {}
+    if not isinstance(progress_raw, dict):
+        progress_raw = {}
+
+    progress = ProgressConfig(
+        show_velocity=_coerce_bool(progress_raw.get("show_velocity"), True),
+        show_burndown=_coerce_bool(progress_raw.get("show_burndown"), True),
+        chart_width=_coerce_int(progress_raw.get("chart_width"), 60),
+    )
+
+    # Parse templates configuration
+    templates_raw = data.get("templates", {}) or {}
+    if not isinstance(templates_raw, dict):
+        templates_raw = {}
+
+    # Parse builtin templates list
+    builtin_raw = templates_raw.get("builtin", ["bug-fix", "feature", "refactor"])
+    if isinstance(builtin_raw, list):
+        builtin_templates = [str(x) for x in builtin_raw]
+    else:
+        builtin_templates = ["bug-fix", "feature", "refactor"]
+
+    templates = TemplatesConfig(
+        builtin=builtin_templates,
+        custom_dir=str(templates_raw.get("custom_dir", ".ralph/templates")),
+    )
+
+    # Parse output configuration
+    output_raw = data.get("output", {}) or {}
+    if not isinstance(output_raw, dict):
+        output_raw = {}
+
+    # Validate verbosity
+    verbosity = str(output_raw.get("verbosity", "normal")).strip().lower()
+    if verbosity not in {"quiet", "normal", "verbose"}:
+        verbosity = "normal"
+
+    # Validate format
+    output_format = str(output_raw.get("format", "text")).strip().lower()
+    if output_format not in {"text", "json"}:
+        output_format = "text"
+
+    output = OutputControlConfig(
+        verbosity=verbosity,
+        format=output_format,
+    )
+
     return Config(
         loop=loop,
         files=files,
@@ -612,4 +762,10 @@ def load_config(project_root: Path) -> Config:
         tracker=tracker,
         parallel=parallel,
         repoprompt=repoprompt,
+        diagnostics=diagnostics,
+        stats=stats,
+        watch=watch,
+        progress=progress,
+        templates=templates,
+        output=output,
     )

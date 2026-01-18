@@ -504,6 +504,7 @@ def load_state(state_path: Path) -> Dict[str, Any]:
             "task_attempts": {},
             "blocked_tasks": {},
             "session_id": "",
+            "snapshots": [],
         }
     try:
         state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -515,6 +516,7 @@ def load_state(state_path: Path) -> Dict[str, Any]:
         state.setdefault("task_attempts", {})
         state.setdefault("blocked_tasks", {})
         state.setdefault("session_id", "")
+        state.setdefault("snapshots", [])
         return state
     except Exception:
         return {
@@ -525,6 +527,7 @@ def load_state(state_path: Path) -> Dict[str, Any]:
             "task_attempts": {},
             "blocked_tasks": {},
             "session_id": "",
+            "snapshots": [],
         }
 
 
@@ -1161,21 +1164,52 @@ def run_iteration(
 
     # Select task
     task: Optional[SelectedTask]
+    task_err = ""
     try:
         if task_override is not None:
             task = task_override
-        elif hasattr(tracker, "claim_next_task") and not blocked_ids:
-            task = tracker.claim_next_task()
-        elif hasattr(tracker, "select_next_task"):
-            task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
         else:
-            task = tracker.claim_next_task()
+            # Try to claim a task, looping around blocked ones
+            max_attempts = 10  # Prevent infinite loops
+            for attempt in range(max_attempts):
+                try:
+                    if hasattr(tracker, 'claim_next_task'):
+                        task = tracker.claim_next_task()
+                    elif hasattr(tracker, 'select_next_task'):
+                        task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
+                    else:
+                        task = tracker.claim_next_task()
+
+                    # If no task or task is not blocked, we're done
+                    if task is None:
+                        break
+
+                    # Check if task is blocked
+                    if task.id not in blocked_ids:
+                        break
+
+                    # Task is blocked - force it open and retry
+                    try:
+                        tracker.force_task_open(task.id)
+                        # Remove from blocked set
+                        blocked_ids.discard(task.id)
+                        # Try to claim again in next iteration
+                        task = None
+                        continue
+                    except Exception:
+                        # Force failed, skip this task
+                        task = None
+                        blocked_ids.discard(task.id)
+                        continue
+
+                except Exception as e:
+                    task = None
+                    task_err = str(e)
+                    break
     except Exception as e:
         # Tracker failure (missing PRD, malformed JSON, etc.) should still produce a log + state entry.
         task = None
         task_err = str(e)
-    else:
-        task_err = ""
 
     story_id: Optional[str] = task.id if task is not None else None
     task_title = task.title if task is not None else "No remaining tasks"
@@ -2126,41 +2160,125 @@ def run_loop(
                     cfg, parallel=replace(cfg.parallel, max_workers=max_workers)
                 )
 
-            # Create parallel executor and run
-            executor = ParallelExecutor(project_root, cfg)
-
-            # Set up parallel logging
-            state_dir = project_root / ".ralph"
-            logs_dir = state_dir / "logs"
-            logs_dir.mkdir(parents=True, exist_ok=True)
-
-            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            parallel_log = logs_dir / f"parallel-{ts}.log"
-
-            # Log parallel execution start
-            with open(parallel_log, "w", encoding="utf-8") as f:
-                f.write("# Ralph Parallel Execution Log\n")
-                f.write(f"timestamp_utc: {ts}\n")
-                f.write(f"agent: {agent}\n")
-                f.write(f"max_workers: {cfg.parallel.max_workers}\n")
-                f.write(f"strategy: {cfg.parallel.strategy}\n")
-                f.write(f"merge_policy: {cfg.parallel.merge_policy}\n")
-                f.write("\n--- Parallel execution started ---\n\n")
-
-            # Run parallel execution
+            # Create tracker early to check parallel support
             tracker = make_tracker(project_root, cfg)
-            results = executor.run_parallel(agent, tracker)
 
-            # Log parallel execution completion
-            with open(parallel_log, "a", encoding="utf-8") as f:
-                f.write("\n--- Parallel execution completed ---\n")
-                f.write(f"total_workers: {len(results)}\n")
-                f.write(
-                    f"successful: {sum(1 for r in results if r.gates_ok is not False)}\n"
+            # Check if tracker supports parallel execution
+            if not hasattr(tracker, 'get_parallel_groups'):
+                from .output import print_output
+
+                print_output(
+                    f"Tracker '{tracker.kind}' does not support parallel execution. "
+                    f"Falling back to sequential mode.",
+                    level="normal"
                 )
-                f.write(f"failed: {sum(1 for r in results if r.gates_ok is False)}\n")
+                # Fall through to sequential mode below by setting flag
+                parallel_enabled = False
+            else:
+                # Compute effective cap considering max_iterations and rate limit
+                state_path = project_root / ".ralph" / "state.json"
+                state = load_state(state_path)
 
-            return results
+                # Rate limit check
+                rate_limit_ok, wait_seconds = _rate_limit_ok(
+                    state, cfg.loop.rate_limit_per_hour
+                )
+                if not rate_limit_ok:
+                    from .output import print_output
+
+                    print_output(
+                        f"Rate limit reached. Wait ~{wait_seconds}s",
+                        level="error"
+                    )
+                    return []
+
+                # Compute max tasks we can run this invocation
+                limit = max_iterations if max_iterations is not None else cfg.loop.max_iterations
+
+                # Compute remaining slots from rate limit
+                # Define invocations once before the rate-limit branch
+                invocations = state.get("invocations", [])
+                if not isinstance(invocations, list):
+                    invocations = []
+
+                remaining_slots = limit
+                if cfg.loop.rate_limit_per_hour > 0:
+                    per_hour = cfg.loop.rate_limit_per_hour
+                    remaining_slots = min(limit, per_hour - len(invocations))
+                else:
+                    remaining_slots = limit
+
+                # Get remaining tasks from tracker to avoid over-provisioning
+                try:
+                    done, total = tracker.counts()
+                    remaining_tasks = max(0, total - done)
+                    effective_cap = min(remaining_slots, remaining_tasks)
+                except Exception:
+                    effective_cap = remaining_slots
+
+                if effective_cap <= 0:
+                    from .output import print_output
+
+                    print_output(
+                        "No tasks remaining or rate limit reached.",
+                        level="normal"
+                    )
+                    return []
+
+                # Set up parallel logging BEFORE execution
+                state_dir = project_root / ".ralph"
+                logs_dir = state_dir / "logs"
+                logs_dir.mkdir(parents=True, exist_ok=True)
+
+                ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                parallel_log = logs_dir / f"parallel-{ts}.log"
+
+                # Log parallel execution start
+                with open(parallel_log, "w", encoding="utf-8") as f:
+                    f.write("# Ralph Parallel Execution Log\n")
+                    f.write(f"timestamp_utc: {ts}\n")
+                    f.write(f"agent: {agent}\n")
+                    f.write(f"max_workers: {cfg.parallel.max_workers}\n")
+                    f.write(f"strategy: {cfg.parallel.strategy}\n")
+                    f.write(f"merge_policy: {cfg.parallel.merge_policy}\n")
+                    f.write(f"effective_cap: {effective_cap}\n")
+                    f.write("\n--- Parallel execution started ---\n\n")
+
+                # Create and run parallel executor (do NOT reserve slots yet)
+                executor = ParallelExecutor(project_root, cfg, max_tasks=effective_cap)
+                results = executor.run_parallel(agent, tracker)
+
+                # Reserve invocation slots AFTER we know we got results
+                if results:
+                    invocations = state.get("invocations", [])
+                    if not isinstance(invocations, list):
+                        invocations = []
+
+                    now = time.time()
+                    # Reserve one slot per actual result
+                    for _ in results:
+                        invocations.append(now)
+
+                    state["invocations"] = invocations
+                    save_state(state_path, state)
+
+                # Log parallel execution completion (only runs if parallel succeeded)
+                with open(parallel_log, "a", encoding="utf-8") as f:
+                    f.write("\n--- Parallel execution completed ---\n")
+                    f.write(f"total_workers: {len(results)}\n")
+                    f.write(
+                        f"successful: {sum(1 for r in results if r.gates_ok is not False)}\n"
+                    )
+                    f.write(f"failed: {sum(1 for r in results if r.gates_ok is False)}\n")
+
+                # Log completion and return results
+                from .output import print_output
+
+                print_output(
+                    f"Parallel run complete: {len(results)} iteration(s)",
+                    level="normal",
+                )
+                return results
 
         except ImportError:
             # ParallelExecutor not yet implemented, fall back to sequential

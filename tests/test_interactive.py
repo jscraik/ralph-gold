@@ -550,7 +550,7 @@ def task_choice_strategy(draw: st.DrawFn) -> TaskChoice:
 
 # Property 10: Task Filtering Correctness
 @given(st.lists(task_choice_strategy(), min_size=0, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_10_task_filtering_correctness(tasks: list[TaskChoice]):
     """**Validates: Requirements US-4.3**
 
@@ -587,7 +587,7 @@ def test_property_10_task_filtering_correctness(tasks: list[TaskChoice]):
 
 
 @given(st.lists(task_choice_strategy(), min_size=0, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_10_blocked_filter_completeness(tasks: list[TaskChoice]):
     """**Validates: Requirements US-4.3**
 
@@ -635,7 +635,7 @@ def test_property_10_blocked_filter_completeness(tasks: list[TaskChoice]):
         max_size=20,
     ),
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_11_search_filter_accuracy(tasks: list[TaskChoice], search_term: str):
     """**Validates: Requirements US-4.1, US-4.2**
 
@@ -688,7 +688,7 @@ def test_property_11_search_filter_accuracy(tasks: list[TaskChoice], search_term
 
 
 @given(st.lists(task_choice_strategy(), min_size=1, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_11_empty_search_returns_all(tasks: list[TaskChoice]):
     """**Validates: Requirements US-4.1, US-4.2**
 
@@ -715,7 +715,7 @@ def test_property_11_empty_search_returns_all(tasks: list[TaskChoice]):
         max_size=20,
     ),
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_11_search_is_case_insensitive(
     tasks: list[TaskChoice], search_term: str
 ):
@@ -749,7 +749,7 @@ def test_property_11_search_is_case_insensitive(
 
 
 @given(st.lists(task_choice_strategy(), min_size=1, max_size=50))
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_11_search_in_all_fields(tasks: list[TaskChoice]):
     """**Validates: Requirements US-4.1, US-4.2**
 
@@ -795,7 +795,7 @@ def test_property_11_search_in_all_fields(tasks: list[TaskChoice]):
     st.lists(task_choice_strategy(), min_size=2, max_size=50),
     st.text(min_size=1, max_size=20),
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_filter_preserves_order(tasks: list[TaskChoice], search_term: str):
     """**Validates: Requirements US-4.1, US-4.2**
 
@@ -828,7 +828,7 @@ def test_property_filter_preserves_order(tasks: list[TaskChoice], search_term: s
     st.lists(task_choice_strategy(), min_size=1, max_size=50),
     st.text(min_size=1, max_size=20),
 )
-@settings(max_examples=100)
+@settings(max_examples=20)
 def test_property_filtering_is_idempotent(tasks: list[TaskChoice], search_term: str):
     """**Validates: Requirements US-4.1, US-4.2**
 

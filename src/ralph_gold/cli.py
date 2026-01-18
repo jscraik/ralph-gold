@@ -21,8 +21,13 @@ from .loop import (
     run_iteration,
     run_loop,
 )
-from .output import print_output
+from .output import print_output, set_output_config, OutputConfig, get_output_config, print_json_output
 from .scaffold import init_project
+from .snapshots import (
+    create_snapshot,
+    list_snapshots,
+    rollback_snapshot,
+)
 from .specs import check_specs, format_specs_check
 from .stats import calculate_stats, export_stats_csv, format_stats_report
 from .trackers import make_tracker
@@ -66,6 +71,23 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     if args.setup_checks:
         result = setup_checks(root, dry_run=args.dry_run)
 
+        # JSON output for setup_checks mode
+        if get_output_config().format == "json":
+            payload = {
+                "cmd": "doctor",
+                "mode": "setup_checks",
+                "exit_code": 0,
+                "result": {
+                    "project_type": result['project_type'],
+                    "script_name": result['script_name'],
+                    "actions_taken": result['actions_taken'],
+                    "suggestions": result['suggestions'],
+                    "commands": result['commands'],
+                },
+            }
+            print_json_output(payload)
+            return 0
+
         print_output(f"Project type: {result['project_type']}", level="normal")
         print_output(f"Check script: {result['script_name']}", level="normal")
         print_output("\nSuggested gate commands:", level="normal")
@@ -90,6 +112,56 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     # GitHub authentication check mode
     if args.check_github:
         from .github_auth import GhCliAuth, GitHubAuthError, TokenAuth
+
+        # JSON output for check_github mode - build results without printing
+        if get_output_config().format == "json":
+            gh_cli_result = {"ok": False, "user": None, "error": None}
+            token_result = {"ok": False, "user": None, "error": None}
+
+            # Try gh CLI
+            try:
+                gh_auth = GhCliAuth()
+                if gh_auth.validate():
+                    gh_cli_result["ok"] = True
+                    try:
+                        user_data = gh_auth.api_call("GET", "/user")
+                        gh_cli_result["user"] = user_data.get('login')
+                    except Exception:
+                        pass
+                else:
+                    gh_cli_result["error"] = "installed but not authenticated"
+            except GitHubAuthError as e:
+                gh_cli_result["error"] = str(e)
+
+            # Try token auth
+            try:
+                token_auth = TokenAuth()
+                if token_auth.validate():
+                    token_result["ok"] = True
+                    try:
+                        user_data = token_auth.api_call("GET", "/user")
+                        token_result["user"] = user_data.get('login')
+                    except Exception:
+                        pass
+                else:
+                    token_result["error"] = "invalid or expired"
+            except GitHubAuthError as e:
+                token_result["error"] = str(e)
+
+            # Exit code 0 if either auth method is ok
+            exit_code = 0 if (gh_cli_result["ok"] or token_result["ok"]) else 2
+
+            payload = {
+                "cmd": "doctor",
+                "mode": "check_github",
+                "exit_code": exit_code,
+                "auth": {
+                    "gh_cli": gh_cli_result,
+                    "token": token_result,
+                },
+            }
+            print_json_output(payload)
+            return exit_code
 
         print_output("Checking GitHub authentication...\n", level="normal")
 
@@ -162,6 +234,30 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     # Standard doctor checks
     cfg = load_config(root)
     statuses = check_tools(cfg)
+
+    # JSON output for tools mode
+    if get_output_config().format == "json":
+        ok = all(st.found for st in statuses)
+        exit_code = 0 if ok else 2
+        statuses_payload = [
+            {
+                "name": st.name,
+                "found": st.found,
+                "version": st.version,
+                "path": st.path,
+                "hint": st.hint,
+            }
+            for st in statuses
+        ]
+        payload = {
+            "cmd": "doctor",
+            "mode": "tools",
+            "exit_code": exit_code,
+            "statuses": statuses_payload,
+        }
+        print_json_output(payload)
+        return exit_code
+
     ok = True
     for st in statuses:
         if st.found:
@@ -182,6 +278,34 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
 
     # Run diagnostics
     results, exit_code = run_diagnostics(root, test_gates_flag=test_gates)
+
+    # JSON output for cmd_diagnose
+    if get_output_config().format == "json":
+        results_payload = [
+            {
+                "name": r.name,
+                "passed": r.passed,
+                "severity": r.severity,
+                "message": r.message,
+                "suggestions": r.suggestions or [],
+            }
+            for r in results
+        ]
+        total = len(results)
+        passed = len([r for r in results if r.passed])
+        failed = total - passed
+        payload = {
+            "cmd": "diagnose",
+            "exit_code": exit_code,
+            "summary": {
+                "total": total,
+                "passed": passed,
+                "failed": failed,
+            },
+            "results": results_payload,
+        }
+        print_json_output(payload)
+        return exit_code
 
     # Format and display results
     print_output("Ralph Diagnostics Report", level="quiet")
@@ -270,15 +394,31 @@ def cmd_stats(args: argparse.Namespace) -> int:
         return 1
 
     # Handle export flag
+    export_path = None
+    exported = False
     if args.export:
         export_path = Path(args.export).resolve()
         try:
             export_stats_csv(stats, export_path)
-            print_output(f"✓ Statistics exported to: {export_path}", level="quiet")
-            return 0
+            exported = True
         except Exception as e:
             print_output(f"Error exporting statistics: {e}", level="error")
             return 1
+
+    if args.export and get_output_config().format != "json":
+        print_output(f"✓ Statistics exported to: {export_path}", level="quiet")
+        return 0
+
+    # JSON output for cmd_stats
+    if get_output_config().format == "json":
+        payload = {
+            "cmd": "stats",
+            "exported": exported,
+            "export_path": str(export_path) if export_path else None,
+            "stats": stats,
+        }
+        print_json_output(payload)
+        return 0
 
     # Display formatted report
     by_task = args.by_task
@@ -344,7 +484,12 @@ def cmd_resume(args: argparse.Namespace) -> int:
         cfg = load_config(root)
         iter_n = next_iteration_number(root)
 
-        res = run_iteration(root, agent=resume_info.agent, cfg=cfg, iteration=iter_n)
+        try:
+            res = run_iteration(root, agent=resume_info.agent, cfg=cfg, iteration=iter_n)
+        except RuntimeError as e:
+            # Handle rate-limit and other runtime errors
+            print_output(f"Error: {e}", level="error")
+            return 2
 
         print_output(
             f"Iteration {res.iteration} agent={resume_info.agent} story_id={res.story_id} "
@@ -611,9 +756,36 @@ def cmd_step(args: argparse.Namespace) -> int:
         )
 
     iter_n = next_iteration_number(root)
-    res = run_iteration(
-        root, agent=agent, cfg=cfg, iteration=iter_n, task_override=task_override
-    )
+    try:
+        res = run_iteration(
+            root, agent=agent, cfg=cfg, iteration=iter_n, task_override=task_override
+        )
+    except RuntimeError as e:
+        # Handle rate-limit and other runtime errors
+        print_output(f"Error: {e}", level="error")
+        return 2
+
+    # JSON output for cmd_step
+    if get_output_config().format == "json":
+        exit_code = 0 if res.return_code == 0 else 2
+        if res.no_progress_streak >= cfg.loop.no_progress_limit:
+            exit_code = 3
+        payload = {
+            "cmd": "step",
+            "iteration": res.iteration,
+            "agent": agent,
+            "story_id": res.story_id,
+            "exit_signal": res.exit_signal,
+            "return_code": res.return_code,
+            "gates_ok": res.gates_ok,
+            "judge_ok": res.judge_ok,
+            "review_ok": res.review_ok,
+            "log_path": str(res.log_path),
+            "no_progress_streak": res.no_progress_streak,
+            "no_progress_limit": cfg.loop.no_progress_limit,
+        }
+        print_json_output(payload)
+        return exit_code
 
     print_output(
         f"Iteration {res.iteration} agent={agent} story_id={res.story_id} rc={res.return_code} "
@@ -646,19 +818,61 @@ def cmd_run(args: argparse.Namespace) -> int:
     max_workers = getattr(args, "max_workers", None)
     dry_run = getattr(args, "dry_run", False)
 
-    results = run_loop(
-        root,
-        agent=agent,
-        max_iterations=args.max_iterations,
-        cfg=cfg,
-        parallel=parallel,
-        max_workers=max_workers,
-        dry_run=dry_run,
-    )
+    try:
+        results = run_loop(
+            root,
+            agent=agent,
+            max_iterations=args.max_iterations,
+            cfg=cfg,
+            parallel=parallel,
+            max_workers=max_workers,
+            dry_run=dry_run,
+        )
+    except RuntimeError as e:
+        # Handle rate-limit and other runtime errors
+        print_output(f"Error: {e}", level="error")
+        return 2
 
     # Dry-run mode prints its own output and returns early
     if dry_run:
         return 0
+
+    # JSON output for cmd_run
+    if get_output_config().format == "json":
+        results_payload = [
+            {
+                "iteration": r.iteration,
+                "story_id": r.story_id,
+                "return_code": r.return_code,
+                "exit_signal": r.exit_signal,
+                "gates_ok": r.gates_ok,
+                "judge_ok": r.judge_ok,
+                "review_ok": r.review_ok,
+                "log_path": str(r.log_path),
+            }
+            for r in results
+        ]
+        last = results[-1] if results else None
+        any_failed = any(
+            (r.return_code != 0) or (r.gates_ok is False) or (r.judge_ok is False)
+            for r in results
+        )
+        if any_failed:
+            exit_code = 2
+        elif last and last.exit_signal is True:
+            exit_code = 0
+        else:
+            exit_code = 1
+        payload = {
+            "cmd": "run",
+            "iterations": len(results),
+            "agent": agent,
+            "results": results_payload,
+            "any_failed": any_failed,
+            "exit_code": exit_code,
+        }
+        print_json_output(payload)
+        return exit_code
 
     for r in results:
         print_output(
@@ -719,6 +933,38 @@ def cmd_status(args: argparse.Namespace) -> int:
     except Exception:
         next_task = None
 
+    # Load last iteration from state
+    state_path = root / ".ralph" / "state.json"
+    last_iteration = None
+    if state_path.exists():
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            history = state.get("history", [])
+            if isinstance(history, list) and history:
+                last = history[-1]
+                if isinstance(last, dict):
+                    last_iteration = last
+        except Exception:
+            pass
+
+    # JSON output for cmd_status
+    if get_output_config().format == "json":
+        payload = {
+            "cmd": "status",
+            "prd": cfg.files.prd,
+            "progress": {
+                "done": done,
+                "total": total,
+            },
+            "next": {
+                "id": next_task.id,
+                "title": next_task.title,
+            } if next_task else None,
+            "last_iteration": last_iteration,
+        }
+        print_json_output(payload)
+        return 0
+
     print_output(f"PRD: {cfg.files.prd}", level="normal")
     print_output(f"Progress: {done}/{total} tasks done", level="normal")
     if next_task is not None:
@@ -727,32 +973,23 @@ def cmd_status(args: argparse.Namespace) -> int:
         print_output("Next: (none)", level="normal")
 
     # Show last iteration summary (from .ralph/state.json)
-    state_path = root / ".ralph" / "state.json"
-    if state_path.exists():
-        try:
-            state = json.loads(state_path.read_text(encoding="utf-8"))
-            history = state.get("history", [])
-            if isinstance(history, list) and history:
-                last = history[-1]
-                if isinstance(last, dict):
-                    print_output("\nLast iteration:", level="normal")
-                    for k in [
-                        "ts",
-                        "iteration",
-                        "agent",
-                        "story_id",
-                        "duration_seconds",
-                        "return_code",
-                        "repo_clean",
-                        "gates_ok",
-                        "judge_ok",
-                        "exit_signal_effective",
-                        "log",
-                    ]:
-                        if k in last:
-                            print_output(f"  {k}: {last[k]}", level="normal")
-        except Exception:
-            pass
+    if last_iteration is not None:
+        print_output("\nLast iteration:", level="normal")
+        for k in [
+            "ts",
+            "iteration",
+            "agent",
+            "story_id",
+            "duration_seconds",
+            "return_code",
+            "repo_clean",
+            "gates_ok",
+            "judge_ok",
+            "exit_signal_effective",
+            "log",
+        ]:
+            if k in last_iteration:
+                print_output(f"  {k}: {last_iteration[k]}", level="normal")
     return 0
 
 
@@ -1044,6 +1281,158 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
         level="quiet",
     )
     return int(cp.returncode)
+
+
+# -------------------------
+# snapshots
+# -------------------------
+
+
+def cmd_snapshot(args: argparse.Namespace) -> int:
+    """Create or list snapshots."""
+    root = _project_root()
+
+    # Handle list mode
+    if args.list:
+        snapshots = list_snapshots(root)
+
+        # JSON output for list mode
+        if get_output_config().format == "json":
+            snapshots_payload = [
+                {
+                    "name": s.name,
+                    "timestamp": s.timestamp,
+                    "description": s.description,
+                    "git_commit": s.git_commit,
+                    "git_stash_ref": s.git_stash_ref,
+                }
+                for s in snapshots
+            ]
+            payload = {
+                "cmd": "snapshot",
+                "mode": "list",
+                "snapshots": snapshots_payload,
+            }
+            print_json_output(payload)
+            return 0
+
+        if not snapshots:
+            print_output("No snapshots found.", level="normal")
+            return 0
+
+        print_output("Available snapshots:", level="normal")
+        print_output("", level="normal")
+
+        # Sort by timestamp (newest first)
+        snapshots.sort(key=lambda s: s.timestamp, reverse=True)
+
+        for snapshot in snapshots:
+            print_output(f"  {snapshot.name}", level="normal")
+            print_output(f"    Created: {snapshot.timestamp}", level="normal")
+            if snapshot.description:
+                print_output(f"    Description: {snapshot.description}", level="normal")
+            print_output(f"    Git commit: {snapshot.git_commit[:8]}", level="normal")
+            print_output(f"    Stash ref: {snapshot.git_stash_ref}", level="normal")
+            print_output("", level="normal")
+
+        print_output(f"Total: {len(snapshots)} snapshot(s)", level="quiet")
+        return 0
+
+    # Create snapshot mode
+    name = args.name
+    description = args.description or ""
+
+    if not name:
+        print_output(
+            "Error: snapshot name is required (use --list to list snapshots)",
+            level="error",
+        )
+        return 2
+
+    try:
+        snapshot = create_snapshot(root, name, description)
+
+        # JSON output for create mode
+        if get_output_config().format == "json":
+            payload = {
+                "cmd": "snapshot",
+                "mode": "create",
+                "snapshot": {
+                    "name": snapshot.name,
+                    "timestamp": snapshot.timestamp,
+                    "description": snapshot.description,
+                    "git_commit": snapshot.git_commit,
+                    "git_stash_ref": snapshot.git_stash_ref,
+                    "state_backup_path": str(snapshot.state_backup_path),
+                },
+            }
+            print_json_output(payload)
+            return 0
+
+        print_output(f"✓ Created snapshot '{snapshot.name}'", level="quiet")
+        print_output(f"  Timestamp: {snapshot.timestamp}", level="normal")
+        print_output(f"  Git stash: {snapshot.git_stash_ref}", level="normal")
+        print_output(f"  State backup: {snapshot.state_backup_path}", level="normal")
+
+        if description:
+            print_output(f"  Description: {description}", level="normal")
+
+        return 0
+
+    except ValueError as e:
+        print_output(f"Error: {e}", level="error")
+        return 2
+    except RuntimeError as e:
+        print_output(f"Error: {e}", level="error")
+        return 2
+
+
+def cmd_rollback(args: argparse.Namespace) -> int:
+    """Rollback to a previous snapshot."""
+    root = _project_root()
+    name = args.name
+    force = args.force
+
+    if not name:
+        print_output("Error: snapshot name is required", level="error")
+        print_output(
+            "Use 'ralph snapshot --list' to see available snapshots", level="normal"
+        )
+        return 2
+
+    try:
+        # Show warning if not forcing
+        if not force:
+            print_output(f"Rolling back to snapshot '{name}'...", level="normal")
+            print_output("This will restore git state and Ralph state.", level="normal")
+            print_output("", level="normal")
+
+            # Ask for confirmation in interactive mode
+            try:
+                response = input("Continue? [y/N]: ").strip().lower()
+                if response not in {"y", "yes"}:
+                    print_output("Rollback cancelled.", level="normal")
+                    return 0
+            except (KeyboardInterrupt, EOFError):
+                print_output("\nRollback cancelled.", level="normal")
+                return 0
+
+        success = rollback_snapshot(root, name, force=force)
+
+        if success:
+            print_output(f"✓ Rolled back to snapshot '{name}'", level="quiet")
+            print_output("  Git state and Ralph state restored", level="normal")
+            return 0
+        else:
+            print_output(f"✗ Failed to rollback to snapshot '{name}'", level="error")
+            return 2
+
+    except ValueError as e:
+        print_output(f"Error: {e}", level="error")
+        return 2
+    except RuntimeError as e:
+        print_output(f"Error: {e}", level="error")
+        return 2
 
 
 # -------------------------
@@ -1399,6 +1788,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_regen.set_defaults(func=cmd_regen_plan)
 
+    # Snapshots
+    p_snapshot = sub.add_parser(
+        "snapshot",
+        help="Create or list git-based snapshots for safe rollback",
+    )
+    p_snapshot.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="Name for the snapshot (use only letters, numbers, hyphens, underscores)",
+    )
+    p_snapshot.add_argument(
+        "--list",
+        action="store_true",
+        help="List all available snapshots",
+    )
+    p_snapshot.add_argument(
+        "--description",
+        "-d",
+        default=None,
+        help="Optional description for the snapshot",
+    )
+    p_snapshot.set_defaults(func=cmd_snapshot)
+
+    p_rollback = sub.add_parser(
+        "rollback",
+        help="Rollback to a previous snapshot",
+    )
+    p_rollback.add_argument(
+        "name",
+        help="Name of the snapshot to rollback to",
+    )
+    p_rollback.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force rollback even with uncommitted changes",
+    )
+    p_rollback.set_defaults(func=cmd_rollback)
+
     p_bridge = sub.add_parser(
         "bridge", help="Start a JSON-RPC bridge over stdio (for VS Code)"
     )
@@ -1424,6 +1853,21 @@ def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    # Apply output config from TOML before dispatching to command
+    try:
+        root = Path(os.getcwd()).resolve()
+        cfg = load_config(root)
+        output_cfg = OutputConfig(
+            verbosity=cfg.output.verbosity,
+            format=cfg.output.format,
+            color=True,  # Default for now
+        )
+        set_output_config(output_cfg)
+    except Exception:
+        # If config loading fails, fall back to defaults (quiet/normal/verbose from env)
+        pass
+
     return int(args.func(args))
 
 

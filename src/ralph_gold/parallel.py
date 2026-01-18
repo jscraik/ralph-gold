@@ -49,20 +49,32 @@ class ParallelExecutor:
     - Optional auto-merge on success
     """
 
-    def __init__(self, project_root: Path, cfg: Config):
+    def __init__(self, project_root: Path, cfg: Config, max_tasks: Optional[int] = None):
         """Initialize parallel executor.
 
         Args:
             project_root: Root directory of the project
             cfg: Configuration object with parallel settings
+            max_tasks: Maximum number of tasks to execute (optional cap)
+
+        Raises:
+            RuntimeError: If auto_merge policy is specified but not implemented
         """
         self.project_root = project_root
         self.cfg = cfg
+        self.max_tasks = max_tasks
         self.worktree_mgr = WorktreeManager(
             project_root, project_root / cfg.parallel.worktree_root
         )
         self.workers: dict[int, WorkerState] = {}
         self.executor = ThreadPoolExecutor(max_workers=cfg.parallel.max_workers)
+
+        # Fail fast on unimplemented merge policy
+        if cfg.parallel.merge_policy == "auto_merge":
+            raise RuntimeError(
+                "auto_merge policy is not yet implemented. "
+                "Use merge_policy='manual' in ralph.toml or omit parallel execution."
+            )
 
     def run_parallel(self, agent: str, tracker: Tracker) -> List[IterationResult]:
         """Execute tasks in parallel.
@@ -74,6 +86,18 @@ class ParallelExecutor:
         Returns:
             List of iteration results from all workers
         """
+        # Check if tracker supports parallel execution
+        if not hasattr(tracker, 'get_parallel_groups'):
+            from .output import print_output
+
+            print_output(
+                f"Tracker '{tracker.kind}' does not support parallel execution. "
+                f"Falling back to sequential mode.",
+                level="normal"
+            )
+            # Return empty list to trigger sequential fallback in run_loop
+            return []
+
         # Get parallel groups from tracker
         groups = tracker.get_parallel_groups()
 
@@ -82,6 +106,10 @@ class ParallelExecutor:
             tasks = self._flatten_groups(groups)
         else:  # "group"
             tasks = self._schedule_by_groups(groups)
+
+        # Apply max_tasks cap
+        if self.max_tasks is not None and len(tasks) > self.max_tasks:
+            tasks = tasks[:self.max_tasks]
 
         if not tasks:
             return []
@@ -96,14 +124,18 @@ class ParallelExecutor:
 
         # Wait for completion and collect results
         results = []
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-                results.append(result)
-            except Exception:
-                # Worker failure is already logged in worker state
-                # Continue collecting other results
-                pass
+        try:
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception:
+                    # Worker failure is already logged in worker state
+                    # Continue collecting other results
+                    pass
+        finally:
+            # Ensure executor shutdown even on errors
+            self.executor.shutdown(wait=True)
 
         return results
 
