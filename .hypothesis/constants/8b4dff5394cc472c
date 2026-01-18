@@ -1,0 +1,4 @@
+# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/watch.py
+# hypothesis_version: 6.150.2
+
+[0.1, 1.0, 1000.0, '\nWatch mode stopped.', '**/', '--porcelain', '-A', '-m', '.', '.git', '.ralph', '.venv', 'No changes to commit', 'Running gates...', '__pycache__', 'add', 'commit', 'git', 'node_modules', 'status', 'venv', '✓ All gates passed', '✗ Gates failed']

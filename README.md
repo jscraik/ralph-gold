@@ -155,6 +155,84 @@ Keys:
 
 ---
 
+## Watch Mode
+
+Watch mode automatically runs gates when files change, providing instant feedback during development:
+
+```bash
+ralph watch
+```
+
+**Features:**
+
+- Automatically runs gates when configured file patterns change
+- Debounces rapid changes (500ms default) to avoid excessive runs
+- Shows real-time gate results
+- Optional auto-commit when gates pass
+- Graceful shutdown with Ctrl+C
+
+**Configuration:**
+
+Enable watch mode in `.ralph/ralph.toml`:
+
+```toml
+[watch]
+enabled = true
+patterns = ["**/*.py", "**/*.md"]  # File patterns to watch
+debounce_ms = 500                   # Debounce delay in milliseconds
+auto_commit = false                 # Auto-commit when gates pass
+```
+
+**Command options:**
+
+```bash
+# Run watch mode (gates only - default)
+ralph watch
+
+# Auto-commit changes when gates pass
+ralph watch --auto-commit
+```
+
+**How it works:**
+
+1. Watch mode monitors files matching the configured patterns
+2. When a file changes, it waits for the debounce period
+3. After the debounce period, gates are executed
+4. Results are displayed in real-time
+5. If `--auto-commit` is enabled and gates pass, changes are automatically committed
+
+**Use cases:**
+
+- Get instant feedback while developing
+- Ensure code quality before committing
+- Automate repetitive gate runs during active development
+- Catch issues early in the development cycle
+
+**Example workflow:**
+
+```bash
+# Enable watch mode in config
+# Edit .ralph/ralph.toml and set watch.enabled = true
+
+# Start watch mode
+ralph watch
+
+# In another terminal, make changes to your code
+# Watch mode automatically runs gates and shows results
+
+# When satisfied, stop watch mode with Ctrl+C
+```
+
+**Notes:**
+
+- Watch mode requires `watch.enabled = true` in configuration
+- Uses OS-native file watching when available (inotify on Linux, FSEvents on macOS)
+- Falls back to polling if native watching is unavailable
+- Respects `.gitignore` patterns and ignores common directories (`.ralph/`, `.git/`, `__pycache__/`, etc.)
+- JSON output format is not supported for watch mode (it's interactive)
+
+---
+
 ## Branch automation
 
 Enable in `.ralph/ralph.toml`:
@@ -434,6 +512,89 @@ ERRORS:
 - The loop automatically skips tasks with unmet dependencies
 - Dependencies are checked on every iteration
 - Circular dependencies prevent the loop from making progress and must be fixed
+
+---
+
+## Progress Visualization
+
+Ralph provides powerful progress tracking and visualization features to help you understand your project's velocity and completion timeline.
+
+### Progress Bar and Metrics
+
+View detailed progress metrics including velocity and ETA:
+
+```bash
+ralph status --detailed
+```
+
+Example output:
+
+```
+Progress: [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 60% (12/20 tasks)
+
+Detailed Progress Metrics:
+  Total Tasks:       20
+  Completed:         12
+  In Progress:       1
+  Blocked:           0
+  Completion:        60.0%
+
+  Velocity:          1.50 tasks/day
+  Estimated ETA:     2024-02-15
+```
+
+The `--detailed` flag shows:
+
+- **Progress Bar**: Visual representation of task completion
+- **Task Counts**: Total, completed, in-progress, and blocked tasks
+- **Completion Percentage**: Overall progress percentage
+- **Velocity**: Average tasks completed per day (calculated from history)
+- **Estimated ETA**: Projected completion date based on current velocity
+
+### Burndown Chart
+
+Visualize task completion over time with an ASCII burndown chart:
+
+```bash
+ralph status --chart
+```
+
+Example output:
+
+```
+Tasks
+20 │ ●
+   │  ●
+15 │   ●●
+   │     ●
+10 │      ●●
+   │        ●
+ 5 │         ●●
+   │           ●
+ 0 └─────────────────
+   Day 1  3  5  7  9
+```
+
+The burndown chart shows:
+
+- **Y-axis**: Number of remaining tasks
+- **X-axis**: Days since project start
+- **Data Points (●)**: Task completion milestones
+- **Trend**: Visual representation of progress velocity
+
+### How Progress Tracking Works
+
+- **Velocity Calculation**: Based on successful iterations in `.ralph/state.json`
+- **ETA Estimation**: Uses velocity to project completion date
+- **History Required**: At least 2 successful iterations needed for velocity calculation
+- **Automatic Updates**: Progress metrics update after each successful iteration
+
+### Use Cases
+
+- **Daily Standups**: Quick progress overview with `ralph status --detailed`
+- **Sprint Planning**: Velocity data helps estimate future work
+- **Stakeholder Updates**: Burndown charts visualize progress trends
+- **Bottleneck Detection**: Identify when velocity drops
 
 ---
 

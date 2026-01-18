@@ -259,7 +259,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 8: Watch Mode
 
-- [ ] 8.1 Implement watch core module
+- [x] 8.1 Implement watch core module
   - Create `src/ralph_gold/watch.py`
   - Implement `WatchConfig` dataclass
   - Implement `watch_files()` function
@@ -267,7 +267,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Add debouncing logic (500ms default)
   - Add graceful shutdown (Ctrl+C)
 
-- [ ] 8.2 Write unit tests for watch mode
+- [x] 8.2 Write unit tests for watch mode
   - Create `tests/test_watch.py`
   - Test file watching
   - Test pattern matching
@@ -275,12 +275,12 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test gate execution on change
   - Test auto-commit functionality
 
-- [ ] 8.3 Write property-based tests for watch mode
+- [x] 8.3 Write property-based tests for watch mode
   - Property 19: Watch debouncing
   - Property 20: Watch pattern matching
   - Use `hypothesis` with file change simulation
 
-- [ ] 8.4 Integrate watch CLI command
+- [x] 8.4 Integrate watch CLI command
   - Add `ralph watch` command
   - Add `--gates-only` flag
   - Add `--auto-commit` flag
@@ -290,7 +290,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 9: Progress Visualization
 
-- [ ] 9.1 Implement progress core module
+- [x] 9.1 Implement progress core module
   - Create `src/ralph_gold/progress.py`
   - Implement `ProgressMetrics` dataclass
   - Implement `calculate_progress()` function
@@ -298,7 +298,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Implement `format_burndown_chart()` function (ASCII)
   - Implement `calculate_velocity()` function
 
-- [ ] 9.2 Write unit tests for progress
+- [x] 9.2 Write unit tests for progress
   - Create `tests/test_progress.py`
   - Test progress calculation
   - Test progress bar rendering
@@ -306,13 +306,13 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test velocity calculation
   - Test ETA calculation
 
-- [ ] 9.3 Write property-based tests for progress
+- [x] 9.3 Write property-based tests for progress
   - Property 21: Progress bar accuracy
   - Property 22: Velocity calculation
   - Property 23: ETA calculation
   - Use `hypothesis` with numeric strategies
 
-- [ ] 9.4 Integrate progress into status command
+- [x] 9.4 Integrate progress into status command
   - Extend `ralph status` with `--detailed` flag
   - Add `--chart` flag for burndown chart
   - Update README with progress visualization usage

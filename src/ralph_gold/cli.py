@@ -21,7 +21,13 @@ from .loop import (
     run_iteration,
     run_loop,
 )
-from .output import print_output, set_output_config, OutputConfig, get_output_config, print_json_output
+from .output import (
+    OutputConfig,
+    get_output_config,
+    print_json_output,
+    print_output,
+    set_output_config,
+)
 from .scaffold import init_project
 from .snapshots import (
     create_snapshot,
@@ -78,11 +84,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                 "mode": "setup_checks",
                 "exit_code": 0,
                 "result": {
-                    "project_type": result['project_type'],
-                    "script_name": result['script_name'],
-                    "actions_taken": result['actions_taken'],
-                    "suggestions": result['suggestions'],
-                    "commands": result['commands'],
+                    "project_type": result["project_type"],
+                    "script_name": result["script_name"],
+                    "actions_taken": result["actions_taken"],
+                    "suggestions": result["suggestions"],
+                    "commands": result["commands"],
                 },
             }
             print_json_output(payload)
@@ -125,7 +131,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                     gh_cli_result["ok"] = True
                     try:
                         user_data = gh_auth.api_call("GET", "/user")
-                        gh_cli_result["user"] = user_data.get('login')
+                        gh_cli_result["user"] = user_data.get("login")
                     except Exception:
                         pass
                 else:
@@ -140,7 +146,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                     token_result["ok"] = True
                     try:
                         user_data = token_auth.api_call("GET", "/user")
-                        token_result["user"] = user_data.get('login')
+                        token_result["user"] = user_data.get("login")
                     except Exception:
                         pass
                 else:
@@ -485,7 +491,9 @@ def cmd_resume(args: argparse.Namespace) -> int:
         iter_n = next_iteration_number(root)
 
         try:
-            res = run_iteration(root, agent=resume_info.agent, cfg=cfg, iteration=iter_n)
+            res = run_iteration(
+                root, agent=resume_info.agent, cfg=cfg, iteration=iter_n
+            )
         except RuntimeError as e:
             # Handle rate-limit and other runtime errors
             print_output(f"Error: {e}", level="error")
@@ -923,6 +931,27 @@ def cmd_status(args: argparse.Namespace) -> int:
             print_output(f"Error building dependency graph: {e}", level="error")
             return 1
 
+    # Handle --chart flag for burndown chart
+    if getattr(args, "chart", False):
+        from .progress import format_burndown_chart
+
+        state_path = root / ".ralph" / "state.json"
+        if state_path.exists():
+            try:
+                state = json.loads(state_path.read_text(encoding="utf-8"))
+                history = state.get("history", [])
+                chart = format_burndown_chart(history, width=70, height=20)
+                print_output(chart, level="normal")
+                return 0
+            except Exception as e:
+                print_output(f"Error generating burndown chart: {e}", level="error")
+                return 1
+        else:
+            print_output(
+                "No history data available for burndown chart.", level="normal"
+            )
+            return 0
+
     try:
         done, total = tracker.counts()
     except Exception:
@@ -933,9 +962,10 @@ def cmd_status(args: argparse.Namespace) -> int:
     except Exception:
         next_task = None
 
-    # Load last iteration from state
+    # Load state for progress metrics
     state_path = root / ".ralph" / "state.json"
     last_iteration = None
+    state = {}
     if state_path.exists():
         try:
             state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -946,6 +976,56 @@ def cmd_status(args: argparse.Namespace) -> int:
                     last_iteration = last
         except Exception:
             pass
+
+    # Handle --detailed flag for progress metrics
+    if getattr(args, "detailed", False):
+        from .progress import calculate_progress, format_progress_bar
+
+        try:
+            metrics = calculate_progress(tracker, state)
+
+            # Display progress bar
+            progress_bar = format_progress_bar(
+                metrics.completed_tasks, metrics.total_tasks, width=60
+            )
+            print_output(progress_bar, level="normal")
+            print_output("", level="normal")
+
+            # Display detailed metrics
+            print_output("Detailed Progress Metrics:", level="normal")
+            print_output(f"  Total Tasks:       {metrics.total_tasks}", level="normal")
+            print_output(
+                f"  Completed:         {metrics.completed_tasks}", level="normal"
+            )
+            print_output(
+                f"  In Progress:       {metrics.in_progress_tasks}", level="normal"
+            )
+            print_output(
+                f"  Blocked:           {metrics.blocked_tasks}", level="normal"
+            )
+            print_output(
+                f"  Completion:        {metrics.completion_percentage:.1f}%",
+                level="normal",
+            )
+            print_output("", level="normal")
+
+            if metrics.velocity_tasks_per_day > 0:
+                print_output(
+                    f"  Velocity:          {metrics.velocity_tasks_per_day:.2f} tasks/day",
+                    level="normal",
+                )
+                if metrics.estimated_completion_date:
+                    print_output(
+                        f"  Estimated ETA:     {metrics.estimated_completion_date}",
+                        level="normal",
+                    )
+            else:
+                print_output("  Velocity:          (insufficient data)", level="normal")
+
+            return 0
+        except Exception as e:
+            print_output(f"Error calculating progress metrics: {e}", level="error")
+            return 1
 
     # JSON output for cmd_status
     if get_output_config().format == "json":
@@ -959,7 +1039,9 @@ def cmd_status(args: argparse.Namespace) -> int:
             "next": {
                 "id": next_task.id,
                 "title": next_task.title,
-            } if next_task else None,
+            }
+            if next_task
+            else None,
             "last_iteration": last_iteration,
         }
         print_json_output(payload)
@@ -1436,6 +1518,53 @@ def cmd_rollback(args: argparse.Namespace) -> int:
 
 
 # -------------------------
+# watch
+# -------------------------
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Run watch mode with automatic gate execution on file changes."""
+    root = _project_root()
+    cfg = load_config(root)
+
+    gates_only = args.gates_only
+    auto_commit = args.auto_commit
+
+    # Check if watch mode is enabled in config
+    if not cfg.watch.enabled:
+        print_output("Watch mode is not enabled in ralph.toml", level="error")
+        print_output(
+            "Set watch.enabled = true in the [watch] section to enable watch mode",
+            level="normal",
+        )
+        return 2
+
+    # JSON output not supported for watch mode (it's interactive)
+    if get_output_config().format == "json":
+        print_output(
+            "JSON output format is not supported for watch mode", level="error"
+        )
+        return 2
+
+    try:
+        # Run watch mode (this blocks until Ctrl+C)
+        run_watch_mode(
+            root,
+            cfg,
+            gates_only=gates_only,
+            auto_commit=auto_commit,
+        )
+        return 0
+    except RuntimeError as e:
+        print_output(f"Error: {e}", level="error")
+        return 2
+    except KeyboardInterrupt:
+        # Graceful shutdown on Ctrl+C
+        print_output("\nWatch mode stopped.", level="normal")
+        return 0
+
+
+# -------------------------
 # bridge
 # -------------------------
 
@@ -1718,6 +1847,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Display task dependency graph visualization",
     )
+    p_status.add_argument(
+        "--detailed",
+        action="store_true",
+        help="Show detailed progress metrics including velocity and ETA",
+    )
+    p_status.add_argument(
+        "--chart",
+        action="store_true",
+        help="Display ASCII burndown chart of task completion over time",
+    )
     p_status.set_defaults(func=cmd_status)
 
     p_tui = sub.add_parser("tui", help="Interactive control surface (TUI)")
@@ -1827,6 +1966,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force rollback even with uncommitted changes",
     )
     p_rollback.set_defaults(func=cmd_rollback)
+
+    # Watch mode
+    p_watch = sub.add_parser(
+        "watch",
+        help="Watch files and automatically run gates on changes",
+    )
+    p_watch.add_argument(
+        "--gates-only",
+        action="store_true",
+        default=True,
+        help="Only run gates (don't run full loop) - default behavior",
+    )
+    p_watch.add_argument(
+        "--auto-commit",
+        action="store_true",
+        help="Automatically commit changes when gates pass",
+    )
+    p_watch.set_defaults(func=cmd_watch)
 
     p_bridge = sub.add_parser(
         "bridge", help="Start a JSON-RPC bridge over stdio (for VS Code)"
