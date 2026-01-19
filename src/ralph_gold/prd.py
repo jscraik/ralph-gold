@@ -419,6 +419,35 @@ def task_counts(prd_path: Path) -> Tuple[int, int]:
     return done, total
 
 
+def status_counts(prd_path: Path) -> Tuple[int, int, int, int]:
+    """Return (done, blocked, open, total) detailed status counts.
+
+    Provides separate counts for done, blocked, and open tasks.
+    Blocked tasks are NOT counted as done - they are tracked separately.
+
+    Returns:
+        A tuple of (done_count, blocked_count, open_count, total_count)
+    """
+    if is_markdown_prd(prd_path):
+        prd = _load_md_prd(prd_path)
+        total = len(prd.tasks)
+        done = sum(1 for t in prd.tasks if t.status == "done")
+        blocked = sum(1 for t in prd.tasks if t.status == "blocked")
+        open_count = sum(1 for t in prd.tasks if t.status == "open")
+        return done, blocked, open_count, total
+
+    prd = _load_json_prd(prd_path)
+    stories = prd.get("stories", [])
+    if not isinstance(stories, list):
+        return 0, 0, 0, 0
+    total = sum(1 for s in stories if isinstance(s, dict))
+    done = sum(1 for s in stories if isinstance(s, dict) and _story_done(s))
+    blocked = sum(1 for s in stories if isinstance(s, dict) and _story_blocked(s))
+    # Open = total - done - blocked
+    open_count = total - done - blocked
+    return done, blocked, open_count, total
+
+
 def all_done(prd_path: Path) -> bool:
     if is_markdown_prd(prd_path):
         return _md_all_done(_load_md_prd(prd_path))

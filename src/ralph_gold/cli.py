@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -14,6 +15,8 @@ from . import __version__
 from .config import LOOP_MODE_NAMES, load_config
 from .diagnostics import run_diagnostics
 from .doctor import check_tools, setup_checks
+from .json_response import build_json_response
+from .logging_config import setup_logging
 from .loop import (
     build_runner_invocation,
     dry_run_loop,
@@ -28,6 +31,7 @@ from .output import (
     print_output,
     set_output_config,
 )
+from .path_utils import validate_project_path, validate_output_path
 from .scaffold import init_project
 from .snapshots import (
     create_snapshot,
@@ -37,6 +41,7 @@ from .snapshots import (
 from .specs import check_specs, format_specs_check
 from .stats import calculate_stats, export_stats_csv, format_stats_report
 from .trackers import make_tracker
+from .watch import run_watch_mode
 
 
 def _project_root() -> Path:
@@ -98,174 +103,195 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
+    """Route doctor subcommands."""
     root = _project_root()
 
-    # Setup checks mode
     if args.setup_checks:
-        result = setup_checks(root, dry_run=args.dry_run)
+        return _doctor_setup_checks(root, args)
+    if args.check_github:
+        return _doctor_check_github(root, args)
+    return _doctor_tools(root)
 
-        # JSON output for setup_checks mode
-        if get_output_config().format == "json":
-            payload = {
-                "cmd": "doctor",
-                "mode": "setup_checks",
-                "exit_code": 0,
-                "result": {
-                    "project_type": result["project_type"],
-                    "script_name": result["script_name"],
-                    "actions_taken": result["actions_taken"],
-                    "suggestions": result["suggestions"],
-                    "commands": result["commands"],
-                },
-            }
-            print_json_output(payload)
-            return 0
 
-        print_output(f"Project type: {result['project_type']}", level="normal")
-        print_output(f"Check script: {result['script_name']}", level="normal")
-        print_output("\nSuggested gate commands:", level="normal")
-        for cmd in result["commands"]:
-            print_output(f"  - {cmd}", level="normal")
+def _doctor_setup_checks(project_root: Path, args: argparse.Namespace) -> int:
+    """Handle doctor --setup-checks mode.
 
-        if result["actions_taken"]:
-            print_output("\n✓ Actions taken:", level="normal")
-            for action in result["actions_taken"]:
-                print_output(f"  - {action}", level="normal")
+    Auto-configure quality gates for the project based on detected type.
+    """
+    result = setup_checks(project_root, dry_run=args.dry_run)
 
-        if result["suggestions"]:
-            print_output("\n→ Suggestions:", level="normal")
-            for suggestion in result["suggestions"]:
-                print_output(f"  - {suggestion}", level="normal")
-
-        if args.dry_run:
-            print_output("\n(Dry run - no changes made)", level="normal")
-
+    # JSON output for setup_checks mode
+    if get_output_config().format == "json":
+        payload = build_json_response(
+            "doctor",
+            mode="setup_checks",
+            exit_code=0,
+            result={
+                "project_type": result["project_type"],
+                "script_name": result["script_name"],
+                "actions_taken": result["actions_taken"],
+                "suggestions": result["suggestions"],
+                "commands": result["commands"],
+            },
+        )
+        print_json_output(payload)
         return 0
 
-    # GitHub authentication check mode
-    if args.check_github:
-        from .github_auth import GhCliAuth, GitHubAuthError, TokenAuth
+    # Text output
+    print_output(f"Project type: {result['project_type']}", level="normal")
+    print_output(f"Check script: {result['script_name']}", level="normal")
+    print_output("\nSuggested gate commands:", level="normal")
+    for cmd in result["commands"]:
+        print_output(f"  - {cmd}", level="normal")
 
-        # JSON output for check_github mode - build results without printing
-        if get_output_config().format == "json":
-            gh_cli_result = {"ok": False, "user": None, "error": None}
-            token_result = {"ok": False, "user": None, "error": None}
+    if result["actions_taken"]:
+        print_output("\n✓ Actions taken:", level="normal")
+        for action in result["actions_taken"]:
+            print_output(f"  - {action}", level="normal")
 
-            # Try gh CLI
-            try:
-                gh_auth = GhCliAuth()
-                if gh_auth.validate():
-                    gh_cli_result["ok"] = True
-                    try:
-                        user_data = gh_auth.api_call("GET", "/user")
-                        gh_cli_result["user"] = user_data.get("login")
-                    except Exception:
-                        pass
-                else:
-                    gh_cli_result["error"] = "installed but not authenticated"
-            except GitHubAuthError as e:
-                gh_cli_result["error"] = str(e)
+    if result["suggestions"]:
+        print_output("\n→ Suggestions:", level="normal")
+        for suggestion in result["suggestions"]:
+            print_output(f"  - {suggestion}", level="normal")
 
-            # Try token auth
-            try:
-                token_auth = TokenAuth()
-                if token_auth.validate():
-                    token_result["ok"] = True
-                    try:
-                        user_data = token_auth.api_call("GET", "/user")
-                        token_result["user"] = user_data.get("login")
-                    except Exception:
-                        pass
-                else:
-                    token_result["error"] = "invalid or expired"
-            except GitHubAuthError as e:
-                token_result["error"] = str(e)
+    if args.dry_run:
+        print_output("\n(Dry run - no changes made)", level="normal")
 
-            # Exit code 0 if either auth method is ok
-            exit_code = 0 if (gh_cli_result["ok"] or token_result["ok"]) else 2
+    return 0
 
-            payload = {
-                "cmd": "doctor",
-                "mode": "check_github",
-                "exit_code": exit_code,
-                "auth": {
-                    "gh_cli": gh_cli_result,
-                    "token": token_result,
-                },
-            }
-            print_json_output(payload)
-            return exit_code
 
-        print_output("Checking GitHub authentication...\n", level="normal")
+def _doctor_check_github(project_root: Path, args: argparse.Namespace) -> int:
+    """Handle doctor --check-github mode.
 
-        # Try gh CLI first
-        print_output("[1/2] Checking gh CLI authentication...", level="normal")
+    Check GitHub authentication (gh CLI or token).
+    """
+    from .github_auth import GhCliAuth, GitHubAuthError, TokenAuth
+
+    logger = logging.getLogger(__name__)
+
+    # JSON output for check_github mode
+    if get_output_config().format == "json":
+        gh_cli_result = {"ok": False, "user": None, "error": None}
+        token_result = {"ok": False, "user": None, "error": None}
+
+        # Try gh CLI
         try:
             gh_auth = GhCliAuth()
             if gh_auth.validate():
-                print_output("[OK]   gh CLI: authenticated", level="normal")
-
-                # Get user info to show who's authenticated
+                gh_cli_result["ok"] = True
                 try:
                     user_data = gh_auth.api_call("GET", "/user")
-                    print_output(
-                        f"       User: {user_data.get('login', 'unknown')}",
-                        level="normal",
-                    )
-                except Exception:
-                    pass
-
-                return 0
+                    gh_cli_result["user"] = user_data.get("login")
+                except Exception as e:
+                    logger.debug("Failed to get gh CLI user data: %s", e)
             else:
-                print_output(
-                    "[WARN] gh CLI: installed but not authenticated", level="normal"
-                )
-                print_output(
-                    "       Run 'gh auth login' to authenticate", level="normal"
-                )
+                gh_cli_result["error"] = "installed but not authenticated"
         except GitHubAuthError as e:
-            print_output(f"[MISS] gh CLI: {e}", level="normal")
+            gh_cli_result["error"] = str(e)
 
         # Try token auth
-        print_output("\n[2/2] Checking token authentication...", level="normal")
         try:
             token_auth = TokenAuth()
             if token_auth.validate():
-                print_output(
-                    "[OK]   Token: authenticated (GITHUB_TOKEN)", level="normal"
-                )
-
-                # Get user info to show who's authenticated
+                token_result["ok"] = True
                 try:
                     user_data = token_auth.api_call("GET", "/user")
-                    print_output(
-                        f"       User: {user_data.get('login', 'unknown')}",
-                        level="normal",
-                    )
-                except Exception:
-                    pass
-
-                return 0
+                    token_result["user"] = user_data.get("login")
+                except Exception as e:
+                    logger.debug("Failed to get token user data: %s", e)
             else:
-                print_output("[WARN] Token: invalid or expired", level="normal")
+                token_result["error"] = "invalid or expired"
         except GitHubAuthError as e:
-            print_output(f"[MISS] Token: {e}", level="normal")
+            token_result["error"] = str(e)
 
-        print_output("\n✗ No valid GitHub authentication found", level="error")
-        print_output("\nTo authenticate:", level="normal")
-        print_output("  Option 1 (recommended): gh auth login", level="normal")
-        print_output(
-            "  Option 2: Set GITHUB_TOKEN environment variable", level="normal"
+        # Exit code 0 if either auth method is ok
+        exit_code = 0 if (gh_cli_result["ok"] or token_result["ok"]) else 2
+
+        payload = build_json_response(
+            "doctor",
+            mode="check_github",
+            exit_code=exit_code,
+            auth={"gh_cli": gh_cli_result, "token": token_result},
         )
-        print_output(
-            "            Get a token from https://github.com/settings/tokens",
-            level="normal",
-        )
+        print_json_output(payload)
+        return exit_code
 
-        return 2
+    # Text output
+    print_output("Checking GitHub authentication...\n", level="normal")
 
-    # Standard doctor checks
-    cfg = load_config(root)
+    # Try gh CLI first
+    print_output("[1/2] Checking gh CLI authentication...", level="normal")
+    try:
+        gh_auth = GhCliAuth()
+        if gh_auth.validate():
+            print_output("[OK]   gh CLI: authenticated", level="normal")
+
+            # Get user info to show who's authenticated
+            try:
+                user_data = gh_auth.api_call("GET", "/user")
+                print_output(
+                    f"       User: {user_data.get('login', 'unknown')}",
+                    level="normal",
+                )
+            except Exception as e:
+                logger.debug("Failed to get gh CLI user data: %s", e)
+
+            return 0
+        else:
+            print_output(
+                "[WARN] gh CLI: installed but not authenticated", level="normal"
+            )
+            print_output(
+                "       Run 'gh auth login' to authenticate", level="normal"
+            )
+    except GitHubAuthError as e:
+        print_output(f"[MISS] gh CLI: {e}", level="normal")
+
+    # Try token auth
+    print_output("\n[2/2] Checking token authentication...", level="normal")
+    try:
+        token_auth = TokenAuth()
+        if token_auth.validate():
+            print_output(
+                "[OK]   Token: authenticated (GITHUB_TOKEN)", level="normal"
+            )
+
+            # Get user info to show who's authenticated
+            try:
+                user_data = token_auth.api_call("GET", "/user")
+                print_output(
+                    f"       User: {user_data.get('login', 'unknown')}",
+                    level="normal",
+                )
+            except Exception:
+                pass
+
+            return 0
+        else:
+            print_output("[WARN] Token: invalid or expired", level="normal")
+    except GitHubAuthError as e:
+        print_output(f"[MISS] Token: {e}", level="normal")
+
+    print_output("\n✗ No valid GitHub authentication found", level="error")
+    print_output("\nTo authenticate:", level="normal")
+    print_output("  Option 1 (recommended): gh auth login", level="normal")
+    print_output(
+        "  Option 2: Set GITHUB_TOKEN environment variable", level="normal"
+    )
+    print_output(
+        "            Get a token from https://github.com/settings/tokens",
+        level="normal",
+    )
+
+    return 2
+
+
+def _doctor_tools(project_root: Path) -> int:
+    """Handle default doctor mode - check available tools.
+
+    Lists status of git, uv, codex, claude, copilot, gh, and configured tools.
+    """
+    cfg = load_config(project_root)
     statuses = check_tools(cfg)
 
     # JSON output for tools mode
@@ -282,15 +308,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             }
             for st in statuses
         ]
-        payload = {
-            "cmd": "doctor",
-            "mode": "tools",
-            "exit_code": exit_code,
-            "statuses": statuses_payload,
-        }
+        payload = build_json_response(
+            "doctor",
+            mode="tools",
+            exit_code=exit_code,
+            statuses=statuses_payload,
+        )
         print_json_output(payload)
         return exit_code
 
+    # Text output
     ok = True
     for st in statuses:
         if st.found:
@@ -660,10 +687,13 @@ def cmd_step(args: argparse.Namespace) -> int:
         cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
 
     # Ad-hoc overrides (useful for loop.sh mode switching)
+    # Validate file paths to prevent path traversal attacks
     if args.prompt_file:
-        cfg = replace(cfg, files=replace(cfg.files, prompt=str(args.prompt_file)))
+        validated_prompt = validate_project_path(root, Path(args.prompt_file), must_exist=True)
+        cfg = replace(cfg, files=replace(cfg.files, prompt=str(validated_prompt)))
     if args.prd_file:
-        cfg = replace(cfg, files=replace(cfg.files, prd=str(args.prd_file)))
+        validated_prd = validate_project_path(root, Path(args.prd_file), must_exist=True)
+        cfg = replace(cfg, files=replace(cfg.files, prd=str(validated_prd)))
 
     agent = args.agent
 
@@ -871,10 +901,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     if mode_override:
         cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
 
+    # Validate file paths to prevent path traversal attacks
     if args.prompt_file:
-        cfg = replace(cfg, files=replace(cfg.files, prompt=str(args.prompt_file)))
+        validated_prompt = validate_project_path(root, Path(args.prompt_file), must_exist=True)
+        cfg = replace(cfg, files=replace(cfg.files, prompt=str(validated_prompt)))
     if args.prd_file:
-        cfg = replace(cfg, files=replace(cfg.files, prd=str(args.prd_file)))
+        validated_prd = validate_project_path(root, Path(args.prd_file), must_exist=True)
+        cfg = replace(cfg, files=replace(cfg.files, prd=str(validated_prd)))
 
     # Get parallel and max_workers from args
     parallel = getattr(args, "parallel", False)
@@ -1013,6 +1046,21 @@ def cmd_status(args: argparse.Namespace) -> int:
     except Exception:
         done, total = 0, 0
 
+    # Get detailed status counts for accurate progress reporting
+    blocked = 0
+    open_count = 0
+    try:
+        from .prd import status_counts
+        prd_path = root / cfg.files.prd
+        done_detailed, blocked, open_count, total_from_prd = status_counts(prd_path)
+        # Use detailed counts for accuracy, but keep done/total from tracker for consistency
+        # if PRD has data
+        if total_from_prd > 0:
+            total = total_from_prd
+            done = done_detailed
+    except Exception:
+        pass  # Fall back to simple counts if status_counts fails
+
     try:
         next_task = tracker.select_next_task()
     except Exception:
@@ -1038,7 +1086,9 @@ def cmd_status(args: argparse.Namespace) -> int:
         from .progress import calculate_progress, format_progress_bar
 
         try:
-            metrics = calculate_progress(tracker, state)
+            # Pass PRD path for accurate blocked task counting
+            prd_path = root / cfg.files.prd
+            metrics = calculate_progress(tracker, state, prd_path=prd_path)
 
             # Display progress bar
             progress_bar = format_progress_bar(
@@ -1104,7 +1154,14 @@ def cmd_status(args: argparse.Namespace) -> int:
         return 0
 
     print_output(f"PRD: {cfg.files.prd}", level="normal")
-    print_output(f"Progress: {done}/{total} tasks done", level="normal")
+    # Show detailed progress: X/Y done (A blocked, B open)
+    if blocked > 0 or open_count > 0:
+        print_output(
+            f"Progress: {done}/{total} done ({blocked} blocked, {open_count} open)",
+            level="normal",
+        )
+    else:
+        print_output(f"Progress: {done}/{total} tasks done", level="normal")
     if next_task is not None:
         print_output(f"Next: id={next_task.id} title={next_task.title}", level="normal")
     else:
@@ -2354,9 +2411,19 @@ def main(argv: list[str] | None = None) -> int:
             color=True,  # Default for now
         )
         set_output_config(output_cfg)
+
+        # Setup logging based on verbosity
+        verbose = output_cfg.verbosity == "verbose"
+        quiet = output_cfg.verbosity == "quiet"
+        setup_logging(verbose=verbose, quiet=quiet)
+
+        # Log startup
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Ralph Gold v{__version__} starting")
+        logger.debug(f"Command: {getattr(args, 'cmd', 'unknown')}")
     except Exception:
         # If config loading fails, fall back to defaults (quiet/normal/verbose from env)
-        pass
+        setup_logging(verbose=False, quiet=False)
 
     return int(args.func(args))
 

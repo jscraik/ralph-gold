@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .prd import status_counts
 from .trackers import Tracker
 
 
@@ -30,12 +32,15 @@ class ProgressMetrics:
 def calculate_progress(
     tracker: Tracker,
     state: Dict[str, Any],
+    prd_path: Optional[Path] = None,
 ) -> ProgressMetrics:
     """Calculate progress metrics from task tracker and history.
 
     Args:
         tracker: The task tracker to get current task counts
         state: The state dictionary loaded from state.json
+        prd_path: Optional path to PRD file for detailed status counts.
+                  If provided, blocked tasks are counted accurately.
 
     Returns:
         ProgressMetrics object with calculated progress information
@@ -46,15 +51,28 @@ def calculate_progress(
     # Get task counts from tracker
     completed, total = tracker.counts()
 
-    # Calculate in-progress and blocked tasks
-    # For now, we consider all incomplete tasks as "ready" or "blocked"
-    # This is a simplification - a more sophisticated implementation
-    # would parse the PRD to determine actual status
-    incomplete = total - completed
-    in_progress_tasks = (
-        1 if incomplete > 0 else 0
-    )  # Assume 1 in progress if any incomplete
-    blocked_tasks = 0  # Would need PRD parsing to determine blocked tasks
+    # Get detailed status counts if PRD path is provided
+    if prd_path:
+        try:
+            done, blocked, open_count, total_from_prd = status_counts(prd_path)
+            # Use detailed counts from PRD for accuracy
+            blocked_tasks = blocked
+            # Use tracker's count for consistency, or PRD count if available
+            completed = done if total_from_prd > 0 else completed
+            total = total_from_prd if total_from_prd > 0 else total
+            # In progress is an estimate - assume 1 if any incomplete tasks
+            incomplete = total - completed
+            in_progress_tasks = 1 if (open_count > 0 and incomplete > 0) else 0
+        except Exception:
+            # Fallback to simple calculation if status_counts fails
+            incomplete = total - completed
+            in_progress_tasks = 1 if incomplete > 0 else 0
+            blocked_tasks = 0
+    else:
+        # Fallback: simple calculation without PRD parsing
+        incomplete = total - completed
+        in_progress_tasks = 1 if incomplete > 0 else 0
+        blocked_tasks = 0  # Cannot determine without PRD
 
     # Calculate completion percentage
     completion_percentage = (completed / total * 100.0) if total > 0 else 0.0
@@ -62,7 +80,8 @@ def calculate_progress(
     # Calculate velocity from history
     velocity = calculate_velocity(state.get("history", []))
 
-    # Calculate ETA
+    # Calculate ETA (based on incomplete tasks, not blocked)
+    incomplete = total - completed
     estimated_completion_date = None
     if velocity > 0 and incomplete > 0:
         days_remaining = incomplete / velocity
