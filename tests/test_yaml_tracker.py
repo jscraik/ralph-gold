@@ -420,7 +420,7 @@ tasks: []
         tracker = YamlTracker(yaml_path)
         assert tracker.peek_next_task() is None
         assert tracker.claim_next_task() is None
-        assert tracker.all_done() is True
+        assert tracker.all_done() is False, "Empty PRD should not be considered done"
         assert tracker.counts() == (0, 0)
         assert tracker.get_parallel_groups() == {}
     finally:

@@ -197,7 +197,7 @@ class YamlTracker:
         """
         tasks = self.data.get("tasks", [])
         if not tasks:
-            return True
+            return False  # Empty PRD is not "done"
         return all(task.get("completed", False) for task in tasks)
 
     def all_blocked(self) -> bool:

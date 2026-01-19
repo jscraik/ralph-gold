@@ -228,3 +228,81 @@ def test_file_tracker_all_blocked_json():
 
         tracker = FileTracker(prd_path=ralph_dir / "PRD.json")
         assert tracker.all_blocked() is True
+
+
+def test_empty_md_prd_not_done():
+    """Test that empty MD PRD returns False for all_done (not success)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        ralph_dir = tmpdir / ".ralph"
+        ralph_dir.mkdir()
+
+        # Create MD PRD with no tasks
+        prd_content = """# PRD
+
+## Tasks
+"""
+        (ralph_dir / "PRD.md").write_text(prd_content)
+
+        tracker = FileTracker(prd_path=ralph_dir / "PRD.md")
+        assert tracker.all_done() is False, "Empty PRD should not be considered done"
+        assert tracker.all_blocked() is False, "Empty PRD should not be considered blocked"
+
+
+def test_empty_json_prd_not_done():
+    """Test that empty JSON PRD returns False for all_done (not success)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        ralph_dir = tmpdir / ".ralph"
+        ralph_dir.mkdir()
+
+        # Create JSON PRD with no stories
+        json_content = """{"stories": []}"""
+        (ralph_dir / "PRD.json").write_text(json_content)
+
+        tracker = FileTracker(prd_path=ralph_dir / "PRD.json")
+        assert tracker.all_done() is False, "Empty PRD should not be considered done"
+        assert tracker.all_blocked() is False, "Empty PRD should not be considered blocked"
+
+
+def test_empty_yaml_prd_not_done():
+    """Test that empty YAML PRD returns False for all_done (not success)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        ralph_dir = tmpdir / ".ralph"
+        ralph_dir.mkdir()
+
+        # Create YAML with no tasks
+        yaml_content = """version: 1
+metadata:
+  title: Empty PRD
+tasks: []
+"""
+        (ralph_dir / "tasks.yaml").write_text(yaml_content)
+
+        tracker = YamlTracker(prd_path=ralph_dir / "tasks.yaml")
+        assert tracker.all_done() is False, "Empty PRD should not be considered done"
+        assert tracker.all_blocked() is False, "Empty PRD should not be considered blocked"
+
+
+def test_empty_prd_consistency():
+    """Test that all_done and all_blocked are consistent for empty PRDs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        ralph_dir = tmpdir / ".ralph"
+        ralph_dir.mkdir()
+
+        # Test MD
+        (ralph_dir / "PRD.md").write_text("# PRD\n\n## Tasks\n")
+        tracker_md = FileTracker(prd_path=ralph_dir / "PRD.md")
+        assert tracker_md.all_done() == tracker_md.all_blocked(), "MD: all_done and all_blocked should match"
+
+        # Test JSON
+        (ralph_dir / "PRD.json").write_text('{"stories": []}')
+        tracker_json = FileTracker(prd_path=ralph_dir / "PRD.json")
+        assert tracker_json.all_done() == tracker_json.all_blocked(), "JSON: all_done and all_blocked should match"
+
+        # Test YAML
+        (ralph_dir / "tasks.yaml").write_text("version: 1\nmetadata:\n  title: Empty\ntasks: []")
+        tracker_yaml = YamlTracker(prd_path=ralph_dir / "tasks.yaml")
+        assert tracker_yaml.all_done() == tracker_yaml.all_blocked(), "YAML: all_done and all_blocked should match"

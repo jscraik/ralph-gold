@@ -938,9 +938,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         return exit_code
 
     for r in results:
+        log_name = r.log_path.name if r.log_path else "no-log"
         print_output(
             f"iter={r.iteration} story_id={r.story_id} rc={r.return_code} exit={r.exit_signal} "
-            f"gates={r.gates_ok} judge={r.judge_ok} log={r.log_path.name}",
+            f"gates={r.gates_ok} judge={r.judge_ok} log={log_name}",
             level="quiet",
         )
 

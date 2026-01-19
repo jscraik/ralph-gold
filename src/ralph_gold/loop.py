@@ -2461,14 +2461,13 @@ def run_loop(
         # Exit immediately if no task was selected (all done or all blocked)
         if res.story_id is None:
             try:
-                all_done = tracker.all_done()
+                # Reuse 'done' from above instead of calling all_done() again
                 all_blocked = tracker.all_blocked()
             except Exception as e:
                 print(f"Warning: Failed to check tracker status: {e}")
-                all_done = False
                 all_blocked = False
 
-            if all_done:
+            if done:
                 print("All tasks completed successfully")
                 break
             elif all_blocked:

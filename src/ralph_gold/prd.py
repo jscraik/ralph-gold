@@ -182,7 +182,9 @@ def _select_next_story(
 def _json_all_done(prd: Dict[str, Any]) -> bool:
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
-        return True
+        return False  # Invalid structure is not "done"
+    if not stories:
+        return False  # Empty PRD is not "done"
     return all((not isinstance(s, dict)) or _story_done(s) for s in stories)
 
 
@@ -330,6 +332,8 @@ def _save_md_prd(path: Path, prd: MdPrd) -> None:
 
 
 def _md_all_done(prd: MdPrd) -> bool:
+    if not prd.tasks:
+        return False  # Empty PRD is not "done"
     return all(t.status == "done" for t in prd.tasks)
 
 
