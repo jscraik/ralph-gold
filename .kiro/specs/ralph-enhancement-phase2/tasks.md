@@ -358,7 +358,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 11: Task Templates
 
-- [ ] 11.1 Implement templates core module
+- [x] 11.1 Implement templates core module
   - Create `src/ralph_gold/templates.py`
   - Implement `TaskTemplate` dataclass
   - Implement `load_builtin_templates()` function
@@ -366,13 +366,13 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Implement `create_task_from_template()` function
   - Implement `list_templates()` function
 
-- [ ] 11.2 Create built-in templates
+- [x] 11.2 Create built-in templates
   - Create bug-fix template
   - Create feature template
   - Create refactor template
   - Store in module or data directory
 
-- [ ] 11.3 Write unit tests for templates
+- [x] 11.3 Write unit tests for templates
   - Create `tests/test_templates.py`
   - Test template loading
   - Test variable substitution
@@ -380,13 +380,13 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
   - Test custom template loading
   - Test template validation
 
-- [ ] 11.4 Write property-based tests for templates
+- [x] 11.4 Write property-based tests for templates
   - Property 28: Template variable substitution
   - Property 29: Template format validation
   - Property 30: Tracker format compatibility
   - Use `hypothesis` with template generation
 
-- [ ] 11.5 Integrate templates CLI commands
+- [x] 11.5 Integrate templates CLI commands
   - Add `ralph task add --template <name>` command
   - Add `ralph task templates` command
   - Update README with template usage
@@ -394,26 +394,26 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ### Feature 12: Shell Completion
 
-- [ ] 12.1 Implement completion core module
+- [x] 12.1 Implement completion core module
   - Create `src/ralph_gold/completion.py`
   - Implement `generate_bash_completion()` function
   - Implement `generate_zsh_completion()` function
   - Implement `get_dynamic_completions()` function
   - Generate from argparse definitions
 
-- [ ] 12.2 Write unit tests for completion
+- [x] 12.2 Write unit tests for completion
   - Create `tests/test_completion.py`
   - Test bash script generation
   - Test zsh script generation
   - Test dynamic completion values
   - Test script syntax validity
 
-- [ ] 12.3 Write property-based tests for completion
+- [x] 12.3 Write property-based tests for completion
   - Property 34: Completion script validity
   - Property 35: Dynamic completion accuracy
   - Use `hypothesis` with command generation
 
-- [ ] 12.4 Integrate completion CLI command
+- [x] 12.4 Integrate completion CLI command
   - Add `ralph completion bash` command
   - Add `ralph completion zsh` command
   - Include installation instructions in output
@@ -424,7 +424,7 @@ Tasks are organized by implementation phase (2A-2D) as defined in the design doc
 
 ## Integration & Polish Tasks
 
-- [ ] 13.1 Update configuration schema
+- [x] 13.1 Update configuration schema
   - Extend `ralph.toml` with all new sections
   - Add configuration validation
   - Document all new config options

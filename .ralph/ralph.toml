@@ -3,6 +3,7 @@ max_iterations = 10
 no_progress_limit = 3
 rate_limit_per_hour = 0         # 0 = disabled
 sleep_seconds_between_iters = 0
+runner_timeout_seconds = 120
 
 [files]
 # All paths are relative to project root

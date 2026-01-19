@@ -1565,6 +1565,174 @@ def cmd_watch(args: argparse.Namespace) -> int:
 
 
 # -------------------------
+# task management
+# -------------------------
+
+
+def cmd_task_add(args: argparse.Namespace) -> int:
+    """Add a new task from a template."""
+    root = _project_root()
+    cfg = load_config(root)
+
+    template_name = args.template
+    title = args.title
+
+    if not template_name:
+        print_output("Error: --template is required", level="error")
+        print_output(
+            "Use 'ralph task templates' to see available templates", level="normal"
+        )
+        return 2
+
+    if not title:
+        print_output("Error: --title is required", level="error")
+        return 2
+
+    # Load templates
+    from .templates import TemplateError, create_task_from_template, list_templates
+
+    try:
+        templates = list_templates(root)
+        template_dict = {t.name: t for t in templates}
+
+        if template_name not in template_dict:
+            print_output(f"Error: Template '{template_name}' not found", level="error")
+            print_output("\nAvailable templates:", level="normal")
+            for t in templates:
+                print_output(f"  - {t.name}: {t.description}", level="normal")
+            return 2
+
+        template = template_dict[template_name]
+
+        # Prepare variables
+        variables = {"title": title}
+
+        # Add any additional variables from args
+        if hasattr(args, "variables") and args.variables:
+            for var_assignment in args.variables:
+                if "=" in var_assignment:
+                    var_name, var_value = var_assignment.split("=", 1)
+                    variables[var_name.strip()] = var_value.strip()
+
+        # Create tracker
+        tracker = make_tracker(root, cfg)
+
+        # Create task from template
+        task_id = create_task_from_template(template, variables, tracker)
+
+        # JSON output
+        if get_output_config().format == "json":
+            payload = {
+                "cmd": "task_add",
+                "template": template_name,
+                "task_id": task_id,
+                "title": title,
+            }
+            print_json_output(payload)
+            return 0
+
+        print_output(
+            f"✓ Created task '{task_id}' from template '{template_name}'", level="quiet"
+        )
+        print_output(
+            f"  Title: {template.title_template.format(**variables)}", level="normal"
+        )
+        print_output(f"  Priority: {template.priority}", level="normal")
+        print_output(
+            f"  Acceptance criteria: {len(template.acceptance_criteria)} items",
+            level="normal",
+        )
+
+        return 0
+
+    except TemplateError as e:
+        print_output(f"Error: {e}", level="error")
+        return 2
+    except Exception as e:
+        print_output(f"Unexpected error: {e}", level="error")
+        return 2
+
+
+def cmd_task_templates(args: argparse.Namespace) -> int:
+    """List available task templates."""
+    root = _project_root()
+
+    from .templates import list_templates
+
+    try:
+        templates = list_templates(root)
+
+        # JSON output
+        if get_output_config().format == "json":
+            templates_payload = [
+                {
+                    "name": t.name,
+                    "description": t.description,
+                    "title_template": t.title_template,
+                    "priority": t.priority,
+                    "variables": t.variables,
+                    "acceptance_criteria_count": len(t.acceptance_criteria),
+                    "builtin": t.metadata.get("builtin", False),
+                }
+                for t in templates
+            ]
+            payload = {
+                "cmd": "task_templates",
+                "templates": templates_payload,
+            }
+            print_json_output(payload)
+            return 0
+
+        if not templates:
+            print_output("No templates available.", level="normal")
+            return 0
+
+        print_output("Available Task Templates:", level="quiet")
+        print_output("=" * 60, level="quiet")
+        print_output("", level="quiet")
+
+        for template in templates:
+            builtin_marker = (
+                " [built-in]" if template.metadata.get("builtin", False) else ""
+            )
+            print_output(f"{template.name}{builtin_marker}", level="normal")
+            print_output(f"  Description: {template.description}", level="normal")
+            print_output(f"  Title format: {template.title_template}", level="normal")
+            print_output(f"  Priority: {template.priority}", level="normal")
+
+            if template.variables:
+                print_output(
+                    f"  Variables: {', '.join(template.variables)}", level="normal"
+                )
+
+            print_output(
+                f"  Acceptance criteria: {len(template.acceptance_criteria)} items",
+                level="normal",
+            )
+
+            # Show acceptance criteria in verbose mode
+            if get_output_config().verbosity == "verbose":
+                for criterion in template.acceptance_criteria:
+                    print_output(f"    - {criterion}", level="verbose")
+
+            print_output("", level="normal")
+
+        print_output("=" * 60, level="quiet")
+        print_output(f"Total: {len(templates)} template(s)", level="quiet")
+        print_output("", level="quiet")
+        print_output("Usage:", level="normal")
+        print_output(
+            '  ralph task add --template <name> --title "Task title"', level="normal"
+        )
+
+        return 0
+
+    except Exception as e:
+        print_output(f"Error: {e}", level="error")
+        return 2
+
+
+# -------------------------
 # bridge
 # -------------------------
 
@@ -1596,6 +1764,56 @@ def cmd_serve(args: argparse.Namespace) -> int:
 # -------------------------
 # convert
 # -------------------------
+
+
+def cmd_completion(args: argparse.Namespace) -> int:
+    """Generate shell completion scripts."""
+    import sys
+
+    from .completion import generate_bash_completion, generate_zsh_completion
+
+    shell = args.shell
+
+    if shell == "bash":
+        script = generate_bash_completion()
+        print(script)
+        print_output("\n# Installation instructions:", level="normal", file=sys.stderr)
+        print_output(
+            "# Save to file: ralph completion bash > ~/.ralph-completion.sh",
+            level="normal",
+            file=sys.stderr,
+        )
+        print_output(
+            "# Add to ~/.bashrc: source ~/.ralph-completion.sh",
+            level="normal",
+            file=sys.stderr,
+        )
+        print_output(
+            "# Or install system-wide: sudo cp ~/.ralph-completion.sh /etc/bash_completion.d/ralph",
+            level="normal",
+            file=sys.stderr,
+        )
+    elif shell == "zsh":
+        script = generate_zsh_completion()
+        print(script)
+        print_output("\n# Installation instructions:", level="normal", file=sys.stderr)
+        print_output(
+            "# Save to file: ralph completion zsh > ~/.zsh/completion/_ralph",
+            level="normal",
+            file=sys.stderr,
+        )
+        print_output(
+            "# Add to ~/.zshrc: fpath=(~/.zsh/completion $fpath)",
+            level="normal",
+            file=sys.stderr,
+        )
+        print_output("# Then run: compinit", level="normal", file=sys.stderr)
+    else:
+        print_output(f"Error: Unknown shell '{shell}'", level="error")
+        print_output("Supported shells: bash, zsh", level="error")
+        return 2
+
+    return 0
 
 
 def cmd_convert(args: argparse.Namespace) -> int:
@@ -1985,10 +2203,54 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_watch.set_defaults(func=cmd_watch)
 
+    # Task management
+    p_task = sub.add_parser("task", help="Manage tasks in the PRD")
+    task_sub = p_task.add_subparsers(dest="task_cmd", required=True)
+
+    p_task_add = task_sub.add_parser(
+        "add",
+        help="Add a new task from a template",
+    )
+    p_task_add.add_argument(
+        "--template",
+        "-t",
+        required=True,
+        help="Template name (use 'ralph task templates' to list available templates)",
+    )
+    p_task_add.add_argument(
+        "--title",
+        required=True,
+        help="Task title (will be substituted into template)",
+    )
+    p_task_add.add_argument(
+        "--var",
+        dest="variables",
+        action="append",
+        help="Additional template variables in format VAR=value (can be used multiple times)",
+    )
+    p_task_add.set_defaults(func=cmd_task_add)
+
+    p_task_templates = task_sub.add_parser(
+        "templates",
+        help="List available task templates",
+    )
+    p_task_templates.set_defaults(func=cmd_task_templates)
+
     p_bridge = sub.add_parser(
         "bridge", help="Start a JSON-RPC bridge over stdio (for VS Code)"
     )
     p_bridge.set_defaults(func=cmd_bridge)
+
+    # Completion
+    p_completion = sub.add_parser(
+        "completion", help="Generate shell completion scripts"
+    )
+    p_completion.add_argument(
+        "shell",
+        choices=["bash", "zsh"],
+        help="Shell type (bash or zsh)",
+    )
+    p_completion.set_defaults(func=cmd_completion)
 
     # Convert
     p_convert = sub.add_parser(

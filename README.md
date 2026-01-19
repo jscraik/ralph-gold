@@ -515,6 +515,243 @@ ERRORS:
 
 ---
 
+## Task Templates
+
+Ralph provides reusable task templates to quickly create common task types with pre-defined acceptance criteria. Templates help maintain consistency across your PRD and save time when adding similar tasks.
+
+### Built-in Templates
+
+Ralph includes three built-in templates:
+
+- **bug-fix**: For bug fixes (high priority)
+- **feature**: For new features (medium priority)
+- **refactor**: For refactoring tasks (low priority)
+
+### Listing Available Templates
+
+View all available templates:
+
+```bash
+ralph task templates
+```
+
+Example output:
+
+```
+Available Task Templates:
+============================================================
+
+bug-fix [built-in]
+  Description: Template for bug fixes
+  Title format: Fix: {title}
+  Priority: high
+  Variables: title
+  Acceptance criteria: 4 items
+
+feature [built-in]
+  Description: Template for new features
+  Title format: Feature: {title}
+  Priority: medium
+  Variables: title
+  Acceptance criteria: 4 items
+
+refactor [built-in]
+  Description: Template for refactoring tasks
+  Title format: Refactor: {title}
+  Priority: low
+  Variables: title
+  Acceptance criteria: 4 items
+
+============================================================
+Total: 3 template(s)
+```
+
+### Creating Tasks from Templates
+
+Add a new task using a template:
+
+```bash
+ralph task add --template bug-fix --title "Login fails on Safari"
+```
+
+This creates a new task with:
+
+- Title: "Fix: Login fails on Safari"
+- Priority: high
+- Pre-defined acceptance criteria for bug fixes
+
+The task is automatically added to your configured PRD file (Markdown, JSON, or YAML).
+
+### Custom Templates
+
+Create custom templates for your project by adding JSON files to `.ralph/templates/`:
+
+```bash
+mkdir -p .ralph/templates
+```
+
+Create a template file (e.g., `.ralph/templates/api-endpoint.json`):
+
+```json
+{
+  "name": "api-endpoint",
+  "description": "Template for new API endpoints",
+  "title_template": "API: {title}",
+  "acceptance_criteria": [
+    "Endpoint is implemented with proper HTTP methods",
+    "Request/response validation is in place",
+    "Unit tests cover happy path and error cases",
+    "API documentation is updated",
+    "Integration tests pass"
+  ],
+  "priority": "medium",
+  "variables": ["title"],
+  "metadata": {
+    "author": "your-team",
+    "version": "1.0"
+  }
+}
+```
+
+Use your custom template:
+
+```bash
+ralph task add --template api-endpoint --title "Create user profile endpoint"
+```
+
+### Template Variables
+
+Templates support variable substitution using `{variable}` syntax. The `title` variable is always available. You can add additional variables:
+
+```bash
+ralph task add --template custom --title "Fix bug" --var component=auth --var severity=critical
+```
+
+### Template Format
+
+Custom templates must include:
+
+- `name`: Unique template identifier
+- `description`: Human-readable description
+- `title_template`: Template string with `{variable}` placeholders
+- `acceptance_criteria`: Array of acceptance criteria strings
+
+Optional fields:
+
+- `priority`: "low", "medium", or "high" (default: "medium")
+- `variables`: Array of variable names (default: ["title"])
+- `metadata`: Additional metadata (author, version, etc.)
+
+Custom templates override built-in templates with the same name.
+
+---
+
+## Shell Completion
+
+Ralph provides shell completion scripts for bash and zsh to enable tab completion for commands, flags, and dynamic values.
+
+### Bash Completion
+
+Generate and install bash completion:
+
+```bash
+# Generate completion script
+ralph completion bash > ~/.ralph-completion.sh
+
+# Add to your ~/.bashrc
+echo "source ~/.ralph-completion.sh" >> ~/.bashrc
+
+# Reload your shell
+source ~/.bashrc
+```
+
+**System-wide installation (optional):**
+
+```bash
+# Install for all users
+sudo ralph completion bash > /etc/bash_completion.d/ralph
+
+# Reload bash completion
+source /etc/bash_completion.d/ralph
+```
+
+### Zsh Completion
+
+Generate and install zsh completion:
+
+```bash
+# Create completion directory
+mkdir -p ~/.zsh/completion
+
+# Generate completion script
+ralph completion zsh > ~/.zsh/completion/_ralph
+
+# Add to your ~/.zshrc (if not already present)
+echo "fpath=(~/.zsh/completion \$fpath)" >> ~/.zshrc
+echo "autoload -Uz compinit && compinit" >> ~/.zshrc
+
+# Reload your shell
+source ~/.zshrc
+```
+
+### What Gets Completed
+
+Shell completion provides intelligent suggestions for:
+
+- **Commands**: All ralph commands (init, run, step, status, etc.)
+- **Flags**: Command-specific and global flags
+- **Agent names**: Configured runners (codex, claude, copilot, custom)
+- **Templates**: Available task templates (built-in and custom)
+- **Snapshots**: Existing snapshot names for rollback
+- **File paths**: For flags that accept files (--prd-file, --export, etc.)
+- **Formats**: Output formats (text, json) and tracker formats (markdown, json, yaml)
+
+### Examples
+
+```bash
+# Tab completion for commands
+ralph <TAB>
+# Shows: init doctor diagnose stats resume clean step run status ...
+
+# Tab completion for flags
+ralph run --<TAB>
+# Shows: --agent --max-iterations --prompt-file --prd-file --parallel ...
+
+# Tab completion for agent names
+ralph step --agent <TAB>
+# Shows: codex claude copilot
+
+# Tab completion for templates
+ralph task add --template <TAB>
+# Shows: bug-fix feature refactor (and any custom templates)
+
+# Tab completion for snapshots
+ralph rollback <TAB>
+# Shows: before-refactor my-checkpoint (your snapshot names)
+```
+
+### Troubleshooting
+
+**Bash completion not working:**
+
+- Ensure `bash-completion` package is installed
+- Check that `~/.ralph-completion.sh` exists and is sourced in `~/.bashrc`
+- Try reloading: `source ~/.bashrc`
+
+**Zsh completion not working:**
+
+- Ensure `~/.zsh/completion/_ralph` exists
+- Check that `fpath` includes `~/.zsh/completion` in `~/.zshrc`
+- Run `compinit` to rebuild completion cache
+- Try: `rm ~/.zcompdump && compinit`
+
+**Dynamic completions not showing:**
+
+- Dynamic completions (templates, snapshots) require ralph to be run from a valid ralph project directory
+- Ensure `.ralph/ralph.toml` exists in your project
+
+---
+
 ## Progress Visualization
 
 Ralph provides powerful progress tracking and visualization features to help you understand your project's velocity and completion timeline.

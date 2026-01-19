@@ -26,6 +26,18 @@
       ],
       "passes": false,
       "notes": ""
+    },
+    {
+      "id": "task-3",
+      "title": "Fix: Login fails on Safari",
+      "status": "open",
+      "priority": "high",
+      "acceptance": [
+        "Bug is reproducible with test case",
+        "Root cause is identified",
+        "Fix is implemented and tested",
+        "Regression test added"
+      ]
     }
   ]
 }
