@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__
-from .config import load_config
+from .config import LOOP_MODE_NAMES, load_config
 from .diagnostics import run_diagnostics
 from .doctor import check_tools, setup_checks
 from .loop import (
@@ -43,6 +43,28 @@ def _project_root() -> Path:
     return Path(os.getcwd()).resolve()
 
 
+def _normalize_cli_mode(value: str | None) -> str | None:
+    if value is None:
+        return None
+    mode = value.strip().lower()
+    if not mode:
+        raise ValueError(
+            "Invalid --mode: ''. Must be one of: "
+            f"{', '.join(LOOP_MODE_NAMES)}."
+        )
+    if mode not in LOOP_MODE_NAMES:
+        raise ValueError(
+            f"Invalid --mode: {value!r}. Must be one of: "
+            f"{', '.join(LOOP_MODE_NAMES)}."
+        )
+    return mode
+
+
+class _RalphArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        self.exit(2, f"Error: {message}\n")
+
+
 # -------------------------
 # init / doctor
 # -------------------------
@@ -51,7 +73,12 @@ def _project_root() -> Path:
 def cmd_init(args: argparse.Namespace) -> int:
     root = _project_root()
     format_type = getattr(args, "format", None)
-    archived = init_project(root, force=bool(args.force), format_type=format_type)
+    archived = init_project(
+        root,
+        force=bool(args.force),
+        format_type=format_type,
+        solo=bool(getattr(args, "solo", False)),
+    )
 
     print_output(f"Initialized Ralph files in: {root / '.ralph'}", level="quiet")
 
@@ -618,7 +645,19 @@ def cmd_clean(args: argparse.Namespace) -> int:
 
 def cmd_step(args: argparse.Namespace) -> int:
     root = _project_root()
-    cfg = load_config(root)
+    try:
+        cfg = load_config(root)
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+
+    try:
+        mode_override = _normalize_cli_mode(getattr(args, "mode", None))
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+    if mode_override:
+        cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
 
     # Ad-hoc overrides (useful for loop.sh mode switching)
     if args.prompt_file:
@@ -639,6 +678,10 @@ def cmd_step(args: argparse.Namespace) -> int:
         print_output("", level="quiet")
         print_output(
             f"Configuration: {'VALID' if result.config_valid else 'INVALID'}",
+            level="quiet",
+        )
+        print_output(
+            f"Resolved loop mode: {result.resolved_mode.get('name')}",
             level="quiet",
         )
         print_output(f"Total tasks: {result.total_tasks}", level="quiet")
@@ -814,7 +857,19 @@ def cmd_step(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     root = _project_root()
     agent = args.agent
-    cfg = load_config(root)
+    try:
+        cfg = load_config(root)
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+
+    try:
+        mode_override = _normalize_cli_mode(getattr(args, "mode", None))
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+    if mode_override:
+        cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
 
     if args.prompt_file:
         cfg = replace(cfg, files=replace(cfg.files, prompt=str(args.prompt_file)))
@@ -1878,7 +1933,7 @@ def cmd_convert(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
+    p = _RalphArgumentParser(
         prog="ralph",
         description="ralph-gold: Golden Ralph Loop orchestrator (uv-first)",
     )
@@ -1888,6 +1943,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_init = sub.add_parser("init", help="Initialize Ralph files in the current repo")
     p_init.add_argument("--force", action="store_true", help="Overwrite existing files")
+    p_init.add_argument(
+        "--solo",
+        action="store_true",
+        help="Use solo-dev optimized defaults for ralph.toml",
+    )
     p_init.add_argument(
         "--format",
         choices=["markdown", "json", "yaml"],
@@ -2000,6 +2060,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Runner to use (codex|claude|copilot or custom runner name)",
     )
     p_step.add_argument(
+        "--mode",
+        choices=LOOP_MODE_NAMES,
+        help="Override loop.mode (speed|quality|exploration)",
+    )
+    p_step.add_argument(
         "--prompt-file",
         default=None,
         help="Override files.prompt for this run (e.g. PROMPT_plan.md)",
@@ -2029,6 +2094,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--agent",
         default="codex",
         help="Runner to use (codex|claude|copilot or custom)",
+    )
+    p_run.add_argument(
+        "--mode",
+        choices=LOOP_MODE_NAMES,
+        help="Override loop.mode (speed|quality|exploration)",
     )
     p_run.add_argument(
         "--max-iterations", type=int, default=None, help="Override loop.max_iterations"

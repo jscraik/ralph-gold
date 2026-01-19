@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-115317-iter0048",
+  "iteration": 48,
+  "task_id": "12",
+  "task_title": "Improve PRD template with context and task breakdown guidance",
+  "started_at": "2026-01-19T11:53:17.530074+00:00",
+  "ended_at": "2026-01-19T11:53:25.816876+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": null,
+  "return_code": 1,
+  "prompt_hash": "63fa0a2febf9f595c6f8ee23e33cbc81d85ca894c1e51e83d03143c2bacba010",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T115317Z-iter0048-claude.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/12/20260119-115317-iter0048",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/12/20260119-115317-iter0048"
+}

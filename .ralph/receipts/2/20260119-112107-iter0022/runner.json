@@ -1,0 +1,21 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "duration_seconds": 900.0146858692169,
+  "ended_at": "2026-01-19T11:36:08.028837+00:00",
+  "name": "runner",
+  "notes": {
+    "prompt_hash": "6124d670a0dae41c8922b2fda88481a954049406841657ed99b7cd20c61e8e19",
+    "stderr_tail": "b'OpenAI Codex v0.88.0-alpha.3 (research preview)\\n--------\\nworkdir: /Users/jamiecraik/dev/ralph-gold\\nmodel: gpt-5.2-codex\\nprovider: openai\\napproval: never\\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\\nreasoning effort: medium\\nreasoning summaries: auto\\nsession id: 019bd5fc-ba3b-77f0-bc57-9389b7647400\\n--------\\nuser\\nYou are operating inside the Ralph Gold loop.\\n\\nRules:\\n- Do exactly ONE task per iteration.\\n- Use the Memory Files below as the source of truth (especially ANC'\n... [truncated 680820 chars] ...\nb', cwd=project_root)\\n-    _git([\"git\", \"config\", \"user.email\", \"test@example.com\"], cwd=project_root)\\n-    _git([\"git\", \"config\", \"user.name\", \"Test User\"], cwd=project_root)\\n+        [loop.modes.exploration]\\n+        max_iterations = 1\\n \\n-    ralph_dir = project_root / \".ralph\"\\n-    ralph_dir.mkdir()\\n+        [runners.codex]\\n+        argv = [\"echo\", \"mock-agent\"]\\n \\n-    _write_minimal_prd(ralph_dir / \"PRD.md\")\\n-    _write_minimal_prompt(ralph_dir / \"PROMPT_build.md\")\\n-    _write_minimal_agents(ralph_dir / \"AGENTS.md\")\\n-    _write_config_with_modes(ralph_dir / \"ralph.toml\")\\n+        [files]\\n+        prd = \"prd.json\"\\n+        \"\"\"\\n+    ).strip() + \"\\\\n\"\\n \\n-    _git([\"git\", \"add\", \".\"], cwd=project_root)\\n-    _git([\"git\", \"commit\", \"-m\", \"init\"], cwd=project_root)\\n+    (project_root / \".ralph\" / \"ralph.toml\").write_text(config, encoding=\"utf-8\")\\n+    _write_prd(project_root)\\n \\n-    result = dry_run_loop(project_root, agent=\"test\", max_iterations=1)\\n+    previous_config = get_output_config()\\n+    set_output_config(OutputConfig(verbosity=\"normal\", format=\"text\"))\\n+    try:\\n+        run_loop(project_root, agent=\"codex\", dry_run=True)\\n+    finally:\\n+        set_output_config(previous_config)\\n \\n-    assert result.resolved_mode.get(\"name\") == \"quality\"\\n-    assert result.resolved_mode.get(\"settings\", {}).get(\"runner_timeout_seconds\") == 5\\n+    captured = capsys.readouterr()\\n+    assert \"up to 1 iterations\" in captured.out\\n\\n'",
+    "stdout_tail": ""
+  },
+  "returncode": 124,
+  "started_at": "2026-01-19T11:21:08.014087+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/logs/20260119T112107Z-iter0022-codex.log"
+}

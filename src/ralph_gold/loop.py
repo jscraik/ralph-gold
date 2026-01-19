@@ -6,12 +6,12 @@ import re
 import shutil
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .config import Config, RunnerConfig, load_config
+from .config import Config, LoopModeConfig, RunnerConfig, load_config
 from .prd import SelectedTask
 from .receipts import CommandReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
@@ -88,10 +88,50 @@ class DryRunResult:
     issues: List[str]
     total_tasks: int
     completed_tasks: int
+    resolved_mode: Dict[str, Any]
 
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _resolve_loop_mode(cfg: Config) -> Tuple[Config, Dict[str, Any]]:
+    mode_name = (cfg.loop.mode or "speed").strip().lower() or "speed"
+    mode_cfg = cfg.loop.modes.get(mode_name) if cfg.loop.modes else None
+    if mode_cfg is None:
+        mode_cfg = LoopModeConfig()
+
+    resolved_settings: Dict[str, Any] = {
+        "max_iterations": cfg.loop.max_iterations,
+        "no_progress_limit": cfg.loop.no_progress_limit,
+        "rate_limit_per_hour": cfg.loop.rate_limit_per_hour,
+        "sleep_seconds_between_iters": cfg.loop.sleep_seconds_between_iters,
+        "runner_timeout_seconds": cfg.loop.runner_timeout_seconds,
+        "max_attempts_per_task": cfg.loop.max_attempts_per_task,
+        "skip_blocked_tasks": cfg.loop.skip_blocked_tasks,
+    }
+
+    overrides = {
+        "max_iterations": mode_cfg.max_iterations,
+        "no_progress_limit": mode_cfg.no_progress_limit,
+        "rate_limit_per_hour": mode_cfg.rate_limit_per_hour,
+        "sleep_seconds_between_iters": mode_cfg.sleep_seconds_between_iters,
+        "runner_timeout_seconds": mode_cfg.runner_timeout_seconds,
+        "max_attempts_per_task": mode_cfg.max_attempts_per_task,
+        "skip_blocked_tasks": mode_cfg.skip_blocked_tasks,
+    }
+
+    for key, value in overrides.items():
+        if value is not None:
+            resolved_settings[key] = value
+
+    resolved_loop = replace(cfg.loop, **resolved_settings)
+    resolved_cfg = replace(cfg, loop=resolved_loop)
+    resolved_mode = {
+        "name": mode_name,
+        "settings": dict(resolved_settings),
+    }
+    return resolved_cfg, resolved_mode
 
 
 def ensure_git_repo(project_root: Path) -> None:
@@ -721,6 +761,7 @@ def dry_run_loop(
         DryRunResult with simulation details
     """
     cfg = cfg or load_config(project_root)
+    cfg, resolved_mode = _resolve_loop_mode(cfg)
     issues: List[str] = []
 
     # Validate git repository
@@ -849,6 +890,7 @@ def dry_run_loop(
         issues=issues,
         total_tasks=total_tasks,
         completed_tasks=completed_tasks,
+        resolved_mode=resolved_mode,
     )
 
 
@@ -1127,6 +1169,7 @@ def run_iteration(
     task_override: Optional[SelectedTask] = None,
 ) -> IterationResult:
     cfg = cfg or load_config(project_root)
+    cfg, resolved_mode = _resolve_loop_mode(cfg)
     ensure_git_repo(project_root)
     iter_started = time.time()
 
@@ -1950,8 +1993,10 @@ def run_iteration(
             "ts": ts,
             "iteration": iteration,
             "agent": agent,
+            "loop_mode": resolved_mode,
             "branch": branch_label,
             "story_id": story_id,
+            "mode": resolved_mode,
             "duration_seconds": round(duration_s, 2),
             "return_code": int(cp.returncode),
             "exit_signal_raw": exit_signal_raw,
@@ -2075,6 +2120,7 @@ def run_loop(
         List of iteration results
     """
     cfg = cfg or load_config(project_root)
+    cfg, resolved_mode = _resolve_loop_mode(cfg)
 
     # Handle dry-run mode
     if dry_run:
@@ -2092,6 +2138,10 @@ def run_loop(
         print_output("", level="quiet")
         print_output(
             f"Configuration: {'VALID' if result.config_valid else 'INVALID'}",
+            level="quiet",
+        )
+        print_output(
+            f"Resolved loop mode: {result.resolved_mode.get('name')}",
             level="quiet",
         )
         print_output(f"Total tasks: {result.total_tasks}", level="quiet")

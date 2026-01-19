@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 from . import __version__
 from .config import Config, load_config
-from .loop import IterationResult, next_iteration_number, run_iteration
+from .loop import IterationResult, _resolve_loop_mode, next_iteration_number, run_iteration
 from .trackers import make_tracker
 
 
@@ -230,7 +230,10 @@ class BridgeServer:
         self._active_run_id = run_id
 
         cfg = self._cfg()
-        limit = int(max_iterations) if max_iterations is not None else int(cfg.loop.max_iterations)
+        cfg, _ = _resolve_loop_mode(cfg)
+        limit = (
+            int(max_iterations) if max_iterations is not None else int(cfg.loop.max_iterations)
+        )
         start_iter = next_iteration_number(self.project_root)
 
         def worker() -> None:

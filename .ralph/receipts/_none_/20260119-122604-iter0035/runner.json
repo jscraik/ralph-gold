@@ -1,0 +1,21 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "duration_seconds": 12.068756103515625,
+  "ended_at": "2026-01-19T12:26:16.340377+00:00",
+  "name": "runner",
+  "notes": {
+    "prompt_hash": "e5e52ae246249b3683f4c5731fcda752951fccf58949d0e368d545d82d0d7dc5",
+    "stderr_tail": "OpenAI Codex v0.88.0-alpha.3 (research preview)\n--------\nworkdir: /Users/jamiecraik/dev/ralph-gold\nmodel: gpt-5.2-codex\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\nreasoning effort: medium\nreasoning summaries: auto\nsession id: 019bd638-2ceb-7921-8b51-3922f3b85e0f\n--------\nuser\nYou are operating inside the Ralph Gold loop.\n\nRules:\n- Do exactly ONE task per iteration.\n- Use the Memory Files below as the source of truth (especially ANC\n... [truncated 39146 chars] ...\nory starting\nmcp: XcodeBuildMCP starting\nmcp: cloudflare-observability starting\nmcp: local-memory ready\nmcp: cloudflare-docs ready\nmcp: cloudflare-agents-docs ready\nmcp: openaiDeveloperDocs ready\nmcp: vercel ready\nmcp: context7 ready\nmcp: cloudflare-workers-bindings ready\nmcp: cloudflare-workers-builds ready\nmcp: sequential-thinking ready\nmcp: firecrawl ready\nmcp: github ready\nmcp: memory ready\nmcp: filesystem ready\nmcp: cloudflare-observability ready\nmcp: magic ready\nmcp: XcodeBuildMCP ready\nmcp: pieces ready\nmcp: RepoPrompt failed: MCP client for `RepoPrompt` timed out after 10 seconds. Add or adjust `startup_timeout_sec` in your config.toml:\n[mcp_servers.RepoPrompt]\nstartup_timeout_sec = XX\nmcp startup: ready: local-memory, cloudflare-docs, cloudflare-agents-docs, openaiDeveloperDocs, vercel, context7, cloudflare-workers-bindings, cloudflare-workers-builds, sequential-thinking, firecrawl, github, memory, filesystem, cloudflare-observability, magic, XcodeBuildMCP, pieces; failed: RepoPrompt\n2026-01-19T12:26:16.327804Z ERROR codex_api::endpoint::responses: error=http 429 Too Many Requests: Some(\"{\\\"error\\\":{\\\"type\\\":\\\"usage_limit_reached\\\",\\\"message\\\":\\\"The usage limit has been reached\\\",\\\"plan_type\\\":\\\"pro\\\",\\\"resets_at\\\":1769110132,\\\"resets_in_seconds\\\":284556}}\")\nERROR: You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Jan 22nd, 2026 7:28 PM.\n",
+    "stdout_tail": ""
+  },
+  "returncode": 1,
+  "started_at": "2026-01-19T12:26:04.271516+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/logs/20260119T122604Z-iter0035-codex.log"
+}

@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-115018-iter0033",
+  "iteration": 33,
+  "task_id": "7",
+  "task_title": "Enable quick task batching for `[QUICK]` tasks",
+  "started_at": "2026-01-19T11:50:18.360550+00:00",
+  "ended_at": "2026-01-19T11:50:30.422806+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": false,
+  "return_code": 1,
+  "prompt_hash": "2f63fd17ee035de6d443a7163231e78e010db6f664aa5aae1f6373ea4e7d50c1",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T115018Z-iter0033-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/7/20260119-115018-iter0033",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/7/20260119-115018-iter0033"
+}

@@ -125,7 +125,7 @@ format = "text"      # text|json
 argv = ["codex", "exec", "--full-auto", "-"]
 
 [runners.claude]
-argv = ["claude", "--output-format", "stream-json", "-p"]
+argv = ["claude", "-p"]
 
 [runners.copilot]
 argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]

@@ -1,0 +1,158 @@
+# Ralph Gold configuration (solo defaults)
+#
+# Safe defaults:
+# - branch_strategy = "none"
+# - auto_commit = false
+# - everything stays in .ralph/
+
+[loop]
+max_iterations = 20
+no_progress_limit = 3
+rate_limit_per_hour = 0
+sleep_seconds_between_iters = 0
+runner_timeout_seconds = 120
+
+# Backstop: mark a task BLOCKED after N failed attempts (0 disables)
+max_attempts_per_task = 3
+skip_blocked_tasks = true
+mode = "speed"
+
+[loop.modes.speed]
+max_iterations = 20
+runner_timeout_seconds = 120
+
+[loop.modes.quality]
+max_iterations = 50
+no_progress_limit = 5
+runner_timeout_seconds = 900
+
+[loop.modes.exploration]
+max_iterations = 30
+no_progress_limit = 4
+runner_timeout_seconds = 300
+
+[files]
+prd = ".ralph/PRD.md"
+progress = ".ralph/progress.md"
+agents = ".ralph/AGENTS.md"
+prompt = ".ralph/PROMPT_build.md"
+plan = ".ralph/PROMPT_plan.md"
+judge = ".ralph/PROMPT_judge.md"
+review = ".ralph/PROMPT_review.md"
+feedback = ".ralph/FEEDBACK.md"
+specs_dir = ".spec"
+
+[tracker]
+# auto|markdown|json|beads|yaml|github_issues
+kind = "auto"
+
+[git]
+# none|per_prd|task
+branch_strategy = "none"
+base_branch = ""
+branch_prefix = "ralph/"
+
+auto_commit = false
+commit_message_template = "ralph: {story_id} {title}"
+amend_if_needed = true
+
+[gates]
+# Extra gate commands (run after prek if enabled)
+commands = []
+
+[gates.smart]
+enabled = true
+skip_gates_for = [
+  "**/*.md",
+  "**/*.mdx",
+  "docs/**",
+  "**/*.toml",
+  "**/*.yaml",
+  "**/*.yml",
+  "**/*.json",
+]
+
+[gates.prek]
+# Optional: use prek as your universal gate runner.
+# It reads .pre-commit-config.yaml but does not require installing hooks.
+enabled = false
+argv = ["prek", "run", "--all-files"]
+
+[gates.review]
+# Cross-model review gate. Must output a final line: SHIP or BLOCK.
+enabled = false
+backend = "repoprompt"             # repoprompt|runner
+agent = "claude"                   # used when backend=runner
+required_token = "SHIP"
+max_diff_chars = 30000
+prompt = ".ralph/PROMPT_review.md"
+
+[gates.llm_judge]
+# Optional: legacy LLM-as-judge quality gate.
+enabled = false
+agent = "claude"
+prompt = ".ralph/PROMPT_judge.md"
+max_diff_chars = 30000
+
+[repoprompt]
+# Repo Prompt integration (rp-cli).
+enabled = false
+required = false
+cli = "rp-cli"
+# window_id = 1
+# tab = "Ralph Gold"
+# workspace = "MyProject"
+builder_type = "clarify"
+# copy_preset = "MCP Agent"
+timeout_seconds = 300
+fail_open = true
+
+[parallel]
+enabled = false
+max_workers = 3
+worktree_root = ".ralph/worktrees"
+strategy = "queue"                 # queue|group
+merge_policy = "manual"            # manual|auto_merge
+
+[diagnostics]
+# Configuration validation and testing
+enabled = true
+check_gates = true
+validate_prd = true
+
+[stats]
+# Iteration statistics tracking
+track_duration = true
+track_cost = false    # Future: API cost tracking
+
+[watch]
+# File watching and auto-execution
+enabled = false
+patterns = ["**/*.py", "**/*.md"]
+debounce_ms = 500
+auto_commit = false
+
+[progress]
+# Progress visualization settings
+show_velocity = true
+show_burndown = true
+chart_width = 60
+
+[templates]
+# Task template configuration
+builtin = ["bug-fix", "feature", "refactor"]
+custom_dir = ".ralph/templates"
+
+[output]
+# Output control (verbosity and format)
+verbosity = "normal" # quiet|normal|verbose
+format = "text"      # text|json
+
+[runners.codex]
+argv = ["codex", "exec", "--full-auto", "-"]
+
+[runners.claude]
+argv = ["claude", "--output-format", "stream-json", "-p"]
+
+[runners.copilot]
+argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]

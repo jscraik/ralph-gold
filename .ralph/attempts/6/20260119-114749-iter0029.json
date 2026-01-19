@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-114749-iter0029",
+  "iteration": 29,
+  "task_id": "6",
+  "task_title": "Implement workflow shortcut flags (`--quick`, `--batch`, `--explore`, `--hotfix`, `--task`)",
+  "started_at": "2026-01-19T11:47:49.199944+00:00",
+  "ended_at": "2026-01-19T11:48:35.916272+00:00",
+  "runner_ok": true,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": false,
+  "exit_signal": false,
+  "return_code": 0,
+  "prompt_hash": "1af86799b49ea890a7c130f2efbc3cfcdccf349ccd029b95ab90084be2a9d412",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T114749Z-iter0029-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/6/20260119-114749-iter0029",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/6/20260119-114749-iter0029"
+}

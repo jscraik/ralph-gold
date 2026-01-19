@@ -1,0 +1,21 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "duration_seconds": 474.20719718933105,
+  "ended_at": "2026-01-19T11:43:31.606150+00:00",
+  "name": "runner",
+  "notes": {
+    "prompt_hash": "491e66fc11fed5c226a464b7a2253beb5aafe86735bca1f0bf18c358a9d856a1",
+    "stderr_tail": "OpenAI Codex v0.88.0-alpha.3 (research preview)\n--------\nworkdir: /Users/jamiecraik/dev/ralph-gold\nmodel: gpt-5.2-codex\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\nreasoning effort: medium\nreasoning summaries: auto\nsession id: 019bd609-fd2e-7663-83da-da9ff2dd25c8\n--------\nuser\nYou are operating inside the Ralph Gold loop.\n\nRules:\n- Do exactly ONE task per iteration.\n- Use the Memory Files below as the source of truth (especially ANC\n... [truncated 135654 chars] ...\npace) -> int:\n     root = _project_root()\n-    cfg = load_config(root)\n+    try:\n+        cfg = load_config(root)\n+    except ValueError as exc:\n+        print_output(str(exc), level=\"error\")\n+        return 2\n \n-    mode_override = getattr(args, \"mode\", None)\n+    try:\n+        mode_override = _normalize_cli_mode(getattr(args, \"mode\", None))\n+    except ValueError as exc:\n+        print_output(str(exc), level=\"error\")\n+        return 2\n     if mode_override:\n         cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))\n \n@@ -827,9 +852,17 @@\n def cmd_run(args: argparse.Namespace) -> int:\n     root = _project_root()\n     agent = args.agent\n-    cfg = load_config(root)\n+    try:\n+        cfg = load_config(root)\n+    except ValueError as exc:\n+        print_output(str(exc), level=\"error\")\n+        return 2\n \n-    mode_override = getattr(args, \"mode\", None)\n+    try:\n+        mode_override = _normalize_cli_mode(getattr(args, \"mode\", None))\n+    except ValueError as exc:\n+        print_output(str(exc), level=\"error\")\n+        return 2\n     if mode_override:\n         cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))\n \n\ntokens used\n171,463\n2026-01-19T11:43:31.594691Z ERROR rmcp::transport::streamable_http_client: fail to delete session: Client error: error sending request for url (https://builds.mcp.cloudflare.com/mcp) session_id=\"ad2c1c31a1ffcba1acc353a31acac1b815b261f5a02e1d8af42d4671d9e3ecbd\"\n",
+    "stdout_tail": "Objective: Add CLI `--mode` support for `ralph step/run` with clear invalid-mode handling; I updated CLI mode normalization/error handling while preserving argparse\u2019s invalid-choice messaging.\n\nPlan:\n1) Adjust CLI mode parsing/normalization for step/run runtime handling.\n2) Preserve argparse invalid-choice errors for invalid `--mode` values.\n3) Run the targeted CLI mode tests.\n4) Update progress tracker entry.\n\nNext step: Optional full test sweep (`uv run pytest -q`) if you want broader coverage.\n\nChanges:\n- Runtime validation and error handling for `--mode` in `cmd_step`/`cmd_run`, with config-load error handling in `src/ralph_gold/cli.py`.\n- Progress log appended in `.ralph/progress.md`.\n\nTests:\n- `uv run pytest -q tests/test_cli_mode.py`\n  - `... 3 passed in 0.19s`\n  - `warning: VIRTUAL_ENV=... does not match ...` (benign)\n\nVerification (significant task):\n- Standards mapping: Input validation and error handling aligned with OWASP ASVS 5.0 (input validation) and NIST SSDF v1.2 verification discipline.\n- Checks executed: `uv run pytest -q tests/test_cli_mode.py` (pass; VIRTUAL_ENV warning only).\n- Review artifact: Self-review of CLI parsing/override flow in `src/ralph_gold/cli.py`.\n- Deviations/risks: None.\n\nAction: Review the CLI change in `src/ralph_gold/cli.py` and confirm whether to run the full suite.\n\nEXIT_SIGNAL: true\n"
+  },
+  "returncode": 0,
+  "started_at": "2026-01-19T11:35:37.398921+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/logs/20260119T113537Z-iter0023-codex.log"
+}

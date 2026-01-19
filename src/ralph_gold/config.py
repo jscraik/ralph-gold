@@ -28,6 +28,7 @@ class LoopModeConfig:
 
 
 _LOOP_MODE_NAMES: Tuple[str, ...] = ("speed", "quality", "exploration")
+LOOP_MODE_NAMES: Tuple[str, ...] = _LOOP_MODE_NAMES
 
 
 def _default_loop_modes() -> Dict[str, LoopModeConfig]:
@@ -91,11 +92,18 @@ class PrekConfig:
 
 
 @dataclass(frozen=True)
+class GatesSmartConfig:
+    enabled: bool = False
+    skip_gates_for: List[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class GatesConfig:
     commands: List[str]
     llm_judge: LlmJudgeConfig
     review: ReviewConfig = field(default_factory=ReviewConfig)
     prek: PrekConfig = field(default_factory=PrekConfig)
+    smart: GatesSmartConfig = field(default_factory=GatesSmartConfig)
     precommit_hook: bool = False
     fail_fast: bool = True
     output_mode: str = "summary"  # full|summary|errors_only
@@ -614,11 +622,28 @@ def load_config(project_root: Path) -> Config:
         argv=prek_argv,
     )
 
+    smart_raw = gates_raw.get("smart", {}) or {}
+    if not isinstance(smart_raw, dict):
+        smart_raw = {}
+    skip_raw = smart_raw.get("skip_gates_for", smart_raw.get("skipGatesFor", []))
+    skip_gates_for: List[str] = []
+    if isinstance(skip_raw, list):
+        skip_gates_for = [str(x) for x in skip_raw if str(x).strip()]
+    elif isinstance(skip_raw, str) and skip_raw.strip():
+        skip_gates_for = [skip_raw.strip()]
+    smart = GatesSmartConfig(
+        enabled=_coerce_bool(
+            smart_raw.get("enabled", gates_raw.get("smart_enabled")), False
+        ),
+        skip_gates_for=skip_gates_for,
+    )
+
     gates = GatesConfig(
         commands=gate_cmds,
         llm_judge=llm_judge,
         review=review,
         prek=prek,
+        smart=smart,
         precommit_hook=_coerce_bool(
             gates_raw.get("precommit_hook", gates_raw.get("precommitHook")), False
         ),

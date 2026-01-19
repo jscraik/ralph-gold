@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-114331-iter0024",
+  "iteration": 24,
+  "task_id": "4",
+  "task_title": "Implement smart gate selection (config + runtime)",
+  "started_at": "2026-01-19T11:43:31.699427+00:00",
+  "ended_at": "2026-01-19T11:44:53.068484+00:00",
+  "runner_ok": true,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": false,
+  "return_code": 0,
+  "prompt_hash": "082db0348a695f59b60d0fba9a038bb98dc0e8ee05397d89ebccedd27718a801",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T114331Z-iter0024-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/4/20260119-114331-iter0024",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/4/20260119-114331-iter0024"
+}

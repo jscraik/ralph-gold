@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-114606-iter0027",
+  "iteration": 27,
+  "task_id": "5",
+  "task_title": "Add solo-dev defaults + `ralph init --solo`",
+  "started_at": "2026-01-19T11:46:06.921171+00:00",
+  "ended_at": "2026-01-19T11:47:05.465665+00:00",
+  "runner_ok": true,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": false,
+  "return_code": 0,
+  "prompt_hash": "c42ecc59ae006275d8bdcb6ab476a9c6539ff3728b8868d5a487509da3158dd7",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T114606Z-iter0027-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/5/20260119-114606-iter0027",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/5/20260119-114606-iter0027"
+}

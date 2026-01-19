@@ -1,0 +1,21 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "duration_seconds": 920.5676259994507,
+  "ended_at": "2026-01-19T12:43:39.885077+00:00",
+  "name": "runner",
+  "notes": {
+    "prompt_hash": "b40ed74c3d6b9a6f90a20e51d7a1a686512d9c0460d857905e5d0dbacf1f987d",
+    "stderr_tail": "b'OpenAI Codex v0.88.0-alpha.3 (research preview)\\n--------\\nworkdir: /Users/jamiecraik/dev/ralph-gold\\nmodel: gpt-5.2-codex\\nprovider: openai\\napproval: never\\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\\nreasoning effort: medium\\nreasoning summaries: auto\\nsession id: 019bd63a-3c58-7ad2-bbc2-96465f0d6196\\n--------\\nuser\\nYou are operating inside the Ralph Gold loop.\\n\\nRules:\\n- Do exactly ONE task per iteration.\\n- Use the Memory Files below as the source of truth (especially ANC'\n... [truncated 39913 chars] ...\nb' Mixed file changes across risk levels (adaptive rigor should apply the strictest path).\\n- Batch selection with dependencies (batching must respect `Depends on:` entries).\\n\\n\\n</PROJECT_MEMORY>\\n\\nExit protocol (required):\\nAt the very end of your output, print exactly one line:\\nEXIT_SIGNAL: true  OR  EXIT_SIGNAL: false\\n\\n\\nmcp: filesystem starting\\nmcp: cloudflare-workers-builds starting\\nmcp: github starting\\nmcp: sequential-thinking starting\\nmcp: cloudflare-observability starting\\nmcp: cloudflare-workers-bindings starting\\nmcp: memory starting\\nmcp: pieces starting\\nmcp: context7 starting\\nmcp: RepoPrompt starting\\nmcp: magic starting\\nmcp: openaiDeveloperDocs starting\\nmcp: vercel starting\\nmcp: firecrawl starting\\nmcp: XcodeBuildMCP starting\\nmcp: local-memory starting\\nmcp: cloudflare-docs starting\\nmcp: cloudflare-agents-docs starting\\nmcp: local-memory ready\\nmcp: cloudflare-docs ready\\nmcp: cloudflare-agents-docs ready\\nmcp: openaiDeveloperDocs ready\\nmcp: context7 ready\\nmcp: cloudflare-workers-builds ready\\nmcp: cloudflare-workers-bindings ready\\nmcp: cloudflare-observability ready\\nmcp: vercel ready\\nmcp: filesystem ready\\nmcp: sequential-thinking ready\\nmcp: firecrawl ready\\nmcp: github ready\\nmcp: magic ready\\nmcp: XcodeBuildMCP ready\\nmcp: pieces ready\\nmcp: RepoPrompt failed: MCP client for `RepoPrompt` timed out after 10 seconds. Add or adjust `startup_timeout_sec` in your config.toml:\\n[mcp_servers.RepoPrompt]\\nstartup_timeout_sec = XX\\n'",
+    "stdout_tail": ""
+  },
+  "returncode": 124,
+  "started_at": "2026-01-19T12:28:19.317396+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/logs/20260119T122819Z-iter0046-codex.log"
+}

@@ -58,7 +58,10 @@ def _archive_existing_files(
 
 
 def init_project(
-    project_root: Path, force: bool = False, format_type: str | None = None
+    project_root: Path,
+    force: bool = False,
+    format_type: str | None = None,
+    solo: bool = False,
 ) -> list[str]:
     """
     Write default Ralph files into .ralph/ (durable memory + config).
@@ -67,6 +70,7 @@ def init_project(
         project_root: Root directory of the project
         force: If True, overwrite existing files (after archiving)
         format_type: Task tracker format ("markdown", "json", "yaml", or None for default)
+        solo: If True, use the solo-optimized config template
 
     Returns:
         List of archived file paths (empty if nothing was archived)
@@ -78,6 +82,7 @@ def init_project(
     ralph_dir = project_root / ".ralph"
     ralph_dir.mkdir(parents=True, exist_ok=True)
 
+    ralph_template = "ralph_solo.toml" if solo else "ralph.toml"
     files = [
         # Prompt variants (plan/build).
         ("PROMPT_build.md", ".ralph/PROMPT_build.md"),
@@ -92,7 +97,7 @@ def init_project(
         # Optional planning context
         ("AUDIENCE_JTBD.md", ".ralph/AUDIENCE_JTBD.md"),
         ("loop.sh", ".ralph/loop.sh"),
-        ("ralph.toml", ".ralph/ralph.toml"),
+        (ralph_template, ".ralph/ralph.toml"),
     ]
 
     # Add task tracker files based on format

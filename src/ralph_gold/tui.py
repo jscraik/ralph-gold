@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import load_config
-from .loop import IterationResult, next_iteration_number, run_iteration
+from .loop import IterationResult, _resolve_loop_mode, next_iteration_number, run_iteration
 from .trackers import make_tracker
 
 
@@ -63,6 +63,7 @@ def run_tui(project_root: Path) -> int:
     """
 
     cfg = load_config(project_root)
+    cfg, _ = _resolve_loop_mode(cfg)
     agents = list(cfg.runners.keys())
     if not agents:
         agents = ["codex"]

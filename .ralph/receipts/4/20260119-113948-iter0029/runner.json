@@ -1,0 +1,21 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "duration_seconds": 356.62078404426575,
+  "ended_at": "2026-01-19T11:45:45.564413+00:00",
+  "name": "runner",
+  "notes": {
+    "prompt_hash": "5585d82161810f9f2d584b088eb633397f02f01e28e85ef32e95d5093ea47c91",
+    "stderr_tail": "OpenAI Codex v0.88.0-alpha.3 (research preview)\n--------\nworkdir: /Users/jamiecraik/dev/ralph-gold\nmodel: gpt-5.2-codex\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\nreasoning effort: medium\nreasoning summaries: auto\nsession id: 019bd60f-7d9a-7931-ae2b-ee7d55c5e071\n--------\nuser\nYou are operating inside the Ralph Gold loop.\n\nRules:\n- Do exactly ONE task per iteration.\n- Use the Memory Files below as the source of truth (especially ANC\n... [truncated 44154 chars] ...\ny\n@@ -615,11 +622,28 @@\n         argv=prek_argv,\n     )\n \n+    smart_raw = gates_raw.get(\"smart\", {}) or {}\n+    if not isinstance(smart_raw, dict):\n+        smart_raw = {}\n+    skip_raw = smart_raw.get(\"skip_gates_for\", smart_raw.get(\"skipGatesFor\", []))\n+    skip_gates_for: List[str] = []\n+    if isinstance(skip_raw, list):\n+        skip_gates_for = [str(x) for x in skip_raw if str(x).strip()]\n+    elif isinstance(skip_raw, str) and skip_raw.strip():\n+        skip_gates_for = [skip_raw.strip()]\n+    smart = GatesSmartConfig(\n+        enabled=_coerce_bool(\n+            smart_raw.get(\"enabled\", gates_raw.get(\"smart_enabled\")), False\n+        ),\n+        skip_gates_for=skip_gates_for,\n+    )\n+\n     gates = GatesConfig(\n         commands=gate_cmds,\n         llm_judge=llm_judge,\n         review=review,\n         prek=prek,\n+        smart=smart,\n         precommit_hook=_coerce_bool(\n             gates_raw.get(\"precommit_hook\", gates_raw.get(\"precommitHook\")), False\n         ),\n\n2026-01-19T11:45:45.544444Z ERROR codex_api::endpoint::responses: error=http 429 Too Many Requests: Some(\"{\\\"error\\\":{\\\"type\\\":\\\"usage_limit_reached\\\",\\\"message\\\":\\\"The usage limit has been reached\\\",\\\"plan_type\\\":\\\"pro\\\",\\\"resets_at\\\":1769110132,\\\"resets_in_seconds\\\":286987}}\")\nERROR: You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Jan 22nd, 2026 7:28 PM.\ntokens used\n119,004\n",
+    "stdout_tail": ""
+  },
+  "returncode": 1,
+  "started_at": "2026-01-19T11:39:48.943522+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/logs/20260119T113948Z-iter0029-codex.log"
+}

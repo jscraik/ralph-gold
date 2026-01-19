@@ -6,15 +6,30 @@
 # - everything stays in .ralph/
 
 [loop]
-max_iterations = 50
+max_iterations = 20
 no_progress_limit = 3
 rate_limit_per_hour = 0
 sleep_seconds_between_iters = 0
-runner_timeout_seconds = 900
+runner_timeout_seconds = 120
 
 # Backstop: mark a task BLOCKED after N failed attempts (0 disables)
 max_attempts_per_task = 3
 skip_blocked_tasks = true
+mode = "speed"
+
+[loop.modes.speed]
+max_iterations = 20
+runner_timeout_seconds = 120
+
+[loop.modes.quality]
+max_iterations = 50
+no_progress_limit = 5
+runner_timeout_seconds = 900
+
+[loop.modes.exploration]
+max_iterations = 30
+no_progress_limit = 4
+runner_timeout_seconds = 300
 
 [files]
 prd = ".ralph/PRD.md"
@@ -44,6 +59,18 @@ amend_if_needed = true
 [gates]
 # Extra gate commands (run after prek if enabled)
 commands = []
+
+[gates.smart]
+enabled = true
+skip_gates_for = [
+  "**/*.md",
+  "**/*.mdx",
+  "docs/**",
+  "**/*.toml",
+  "**/*.yaml",
+  "**/*.yml",
+  "**/*.json",
+]
 
 [gates.prek]
 # Optional: use prek as your universal gate runner.
@@ -125,7 +152,7 @@ format = "text"      # text|json
 argv = ["codex", "exec", "--full-auto", "-"]
 
 [runners.claude]
-argv = ["claude", "--output-format", "stream-json", "-p"]
+argv = ["claude", "-p"]
 
 [runners.copilot]
 argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]

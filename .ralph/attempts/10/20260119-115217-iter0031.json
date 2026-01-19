@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-115217-iter0031",
+  "iteration": 31,
+  "task_id": "10",
+  "task_title": "Implement adaptive rigor based on history",
+  "started_at": "2026-01-19T11:52:17.461329+00:00",
+  "ended_at": "2026-01-19T11:52:29.645266+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": false,
+  "exit_signal": false,
+  "return_code": 1,
+  "prompt_hash": "a1557d5bc529742f6e5b4540a99cdde243a216a835f80be9891ed9180635d6cd",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T115217Z-iter0031-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/10/20260119-115217-iter0031",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/10/20260119-115217-iter0031"
+}

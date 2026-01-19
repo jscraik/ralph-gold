@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-115134-iter0039",
+  "iteration": 39,
+  "task_id": "9",
+  "task_title": "Add context-aware prompts (docs/hotfix/exploration)",
+  "started_at": "2026-01-19T11:51:34.207713+00:00",
+  "ended_at": "2026-01-19T11:51:46.452061+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": false,
+  "return_code": 1,
+  "prompt_hash": "2fb4fad8c04244dc74ad3ac84e3a86d6f035dff230f8f50f164d666ef8d2fd83",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T115134Z-iter0039-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/9/20260119-115134-iter0039",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/9/20260119-115134-iter0039"
+}

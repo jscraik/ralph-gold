@@ -1,0 +1,21 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "duration_seconds": 502.5915720462799,
+  "ended_at": "2026-01-19T11:54:23.926758+00:00",
+  "name": "runner",
+  "notes": {
+    "prompt_hash": "a78781b8ec2cf4919774b2ce656e9c2a094353eb5b0515a1a7c07fc3c3278a00",
+    "stderr_tail": "OpenAI Codex v0.88.0-alpha.3 (research preview)\n--------\nworkdir: /Users/jamiecraik/dev/ralph-gold\nmodel: gpt-5.2-codex\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\nreasoning effort: medium\nreasoning summaries: auto\nsession id: 019bd613-827c-7f52-8013-7a409e5b8300\n--------\nuser\nYou are operating inside the Ralph Gold loop.\n\nRules:\n- Do exactly ONE task per iteration.\n- Use the Memory Files below as the source of truth (especially ANC\n... [truncated 107084 chars] ...\n\"\n+def test_init_project_solo_uses_solo_template(tmp_path: Path) -> None:\n+    \"\"\"Solo init should use the solo template variant with speed mode.\"\"\"\n     init_project(tmp_path, solo=True)\n \n-    content = _read_config(tmp_path)\n+    config_path = tmp_path / \".ralph\" / \"ralph.toml\"\n+    config_text = config_path.read_text(encoding=\"utf-8\")\n+    assert \"solo defaults\" in config_text\n \n-    assert \"# Ralph Gold configuration (solo defaults)\" in content\n-    assert 'mode = \"speed\"' in content\n-    assert \"[gates.smart]\" in content\n-    assert \"**/*.md\" in content\n-    assert \"docs/**\" in content\n+    data = _load_ralph_toml(tmp_path)\n+    assert data[\"loop\"][\"mode\"] == \"speed\"\n+    assert set(data[\"loop\"][\"modes\"].keys()) == {\n+        \"speed\",\n+        \"quality\",\n+        \"exploration\",\n+    }\n+    assert \"gates\" in data\n+    assert \"smart\" in data[\"gates\"]\n+    assert \"skip_gates_for\" in data[\"gates\"][\"smart\"]\n+    skip_patterns = data[\"gates\"][\"smart\"][\"skip_gates_for\"]\n+    assert \"**/*.md\" in skip_patterns\n+    assert \"**/*.toml\" in skip_patterns\n \n+\n+def test_init_project_default_uses_standard_template(tmp_path: Path) -> None:\n+    \"\"\"Default init should use the standard template variant.\"\"\"\n+    init_project(tmp_path, solo=False)\n+\n+    config_path = tmp_path / \".ralph\" / \"ralph.toml\"\n+    config_text = config_path.read_text(encoding=\"utf-8\")\n+    assert \"solo defaults\" not in config_text\n\ntokens used\n159,050\n",
+    "stdout_tail": "Objective: complete task 5 by ensuring solo-dev defaults + `ralph init --solo` behavior and verifying the solo scaffold test passes.\n\nPlan:\n1) Inspect scaffold/init paths and templates for solo support.\n2) Add/confirm solo template usage in init.\n3) Add a focused solo scaffold test.\n4) Run `uv run pytest -q tests/test_scaffold_solo.py`.\n5) Update PRD/progress tracker.\n\nNext single step: review the changes and confirm task 5 is accepted.\n\nChanges made:\n- Added solo scaffold tests to validate `ralph init --solo` writes the solo template with `loop.mode = \"speed\"` and smart-gate defaults. (`tests/test_scaffold_solo.py`)\n- Logged completion in progress tracker. (`.ralph/progress.md`)\n\nGates:\n- `uv run pytest -q tests/test_scaffold_solo.py`\n  - `warning: VIRTUAL_ENV=... does not match ...`\n  - `2 passed in 0.10s`\n\nVerification (Gold baseline):\n- Standards mapping: Python config handling + scaffold behavior aligned with repo config patterns; tests added per pytest guidance in repo docs; security/privacy unchanged (no new IO, no secrets).\n- Checks executed: `uv run pytest -q tests/test_scaffold_solo.py` (pass; VIRTUAL_ENV warning noted).\n- Review artifact: self-review completed; verified solo template selection and required defaults in test.\n- Deviations/risks: none.\n\nAction: Reply \u201cnext\u201d to proceed to the next task.  \nEXIT_SIGNAL: true\n"
+  },
+  "returncode": 0,
+  "started_at": "2026-01-19T11:46:01.335138+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/logs/20260119T114601Z-iter0024-codex.log"
+}

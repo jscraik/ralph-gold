@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-115344-iter0051",
+  "iteration": 51,
+  "task_id": "13",
+  "task_title": "Add task breakdown validator to `ralph plan`",
+  "started_at": "2026-01-19T11:53:44.895001+00:00",
+  "ended_at": "2026-01-19T11:53:50.319983+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": null,
+  "return_code": 1,
+  "prompt_hash": "0df29454733d46f7aab1a2e332593f4b8b958768413023d7bc96fea2a22fa340",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T115344Z-iter0051-claude.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/13/20260119-115344-iter0051",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/13/20260119-115344-iter0051"
+}

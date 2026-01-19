@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-115727-iter0074",
+  "iteration": 74,
+  "task_id": null,
+  "task_title": "No remaining tasks",
+  "started_at": "2026-01-19T11:57:27.677610+00:00",
+  "ended_at": "2026-01-19T11:57:36.971024+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": false,
+  "exit_signal": null,
+  "return_code": 1,
+  "prompt_hash": "91decdfe9821c5427e9be40e86fdc37f49bf2e84589b32b9a3b19e3347c2053c",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T115727Z-iter0074-claude.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/_none_/20260119-115727-iter0074",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/_none_/20260119-115727-iter0074"
+}

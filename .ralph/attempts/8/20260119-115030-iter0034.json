@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-115030-iter0034",
+  "iteration": 34,
+  "task_id": "8",
+  "task_title": "Add flow + momentum tracking (velocity + blocked handling)",
+  "started_at": "2026-01-19T11:50:30.430728+00:00",
+  "ended_at": "2026-01-19T11:50:42.615705+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": false,
+  "exit_signal": false,
+  "return_code": 1,
+  "prompt_hash": "d7904a0acebbff56b0ae7d9c3ef9d4d05a1a276426b7290ea286a3fc6e6c1e84",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T115030Z-iter0034-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/8/20260119-115030-iter0034",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/8/20260119-115030-iter0034"
+}

@@ -43,14 +43,14 @@ _ralph_completion() {
     local global_flags="--version --quiet --verbose --format"
     
     # Command-specific flags
-    local init_flags="--force --format"
+    local init_flags="--force --format --solo"
     local doctor_flags="--setup-checks --dry-run --check-github"
     local diagnose_flags="--test-gates"
     local stats_flags="--by-task --export"
     local resume_flags="--clear --auto"
     local clean_flags="--logs-days --archives-days --receipts-days --context-days --dry-run"
-    local step_flags="--agent --prompt-file --prd-file --dry-run --interactive"
-    local run_flags="--agent --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run"
+    local step_flags="--agent --mode --prompt-file --prd-file --dry-run --interactive"
+    local run_flags="--agent --mode --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run"
     local status_flags="--graph --detailed --chart"
     local serve_flags="--host --port"
     local plan_flags="--agent --desc --desc-file --prd-file"
@@ -66,6 +66,7 @@ _ralph_completion() {
     
     # Agent names for --agent flag
     local agents="codex claude copilot"
+    local modes="speed quality exploration"
     
     # Format values for --format flag
     local formats="text json"
@@ -129,6 +130,10 @@ _ralph_completion() {
     case "$prev" in
         --agent)
             COMPREPLY=( $(compgen -W "$agents" -- "$cur") )
+            return 0
+            ;;
+        --mode)
+            COMPREPLY=( $(compgen -W "$modes" -- "$cur") )
             return 0
             ;;
         --format)
@@ -288,6 +293,7 @@ _ralph() {
                 init)
                     _arguments \
                         '--force[Overwrite existing files]' \
+                        '--solo[Use solo-dev optimized defaults for ralph.toml]' \
                         '--format[Task tracker format]:format:(markdown json yaml)'
                     ;;
                 doctor)
@@ -321,6 +327,7 @@ _ralph() {
                 step)
                     _arguments \
                         '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--mode[Override loop.mode]:mode:(speed quality exploration)' \
                         '--prompt-file[Override files.prompt]:file:_files' \
                         '--prd-file[Override files.prd]:file:_files' \
                         '--dry-run[Simulate execution without running agents]' \
@@ -329,6 +336,7 @@ _ralph() {
                 run)
                     _arguments \
                         '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--mode[Override loop.mode]:mode:(speed quality exploration)' \
                         '--max-iterations[Override loop.max_iterations]:iterations:' \
                         '--prompt-file[Override files.prompt]:file:_files' \
                         '--prd-file[Override files.prd]:file:_files' \
