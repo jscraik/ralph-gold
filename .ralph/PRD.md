@@ -7,7 +7,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
 
 ## Tasks
 
-- [-] Add loop mode config schema + parsing
+- [x] Add loop mode config schema + parsing
   - Parse `loop.mode` and `loop.modes.*` into new config types (no breaking changes).
   - Provide safe defaults when modes are absent or incomplete.
   - Unknown mode names produce a clear config error.
@@ -86,7 +86,3 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Suggest breaking down tasks >30 lines of acceptance criteria.
   - Add `--strict` flag to fail on vague tasks.
   - `uv run pytest -q tests/test_plan_validation.py` passes.
-
-## Legacy Tracker
-
-- [x] Define the project structure and scaffolding
