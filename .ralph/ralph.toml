@@ -6,11 +6,11 @@
 # - everything stays in .ralph/
 
 [loop]
-max_iterations = 10
+max_iterations = 50
 no_progress_limit = 3
 rate_limit_per_hour = 0
 sleep_seconds_between_iters = 0
-runner_timeout_seconds = 300
+runner_timeout_seconds = 900
 
 # Backstop: mark a task BLOCKED after N failed attempts (0 disables)
 max_attempts_per_task = 3
@@ -25,7 +25,7 @@ plan = ".ralph/PROMPT_plan.md"
 judge = ".ralph/PROMPT_judge.md"
 review = ".ralph/PROMPT_review.md"
 feedback = ".ralph/FEEDBACK.md"
-specs_dir = ".spec"
+specs_dir = ".ralph/specs"
 
 [tracker]
 # auto|markdown|json|beads|yaml|github_issues
@@ -125,7 +125,7 @@ format = "text"      # text|json
 argv = ["codex", "exec", "--full-auto", "-"]
 
 [runners.claude]
-argv = ["claude", "-p", "--output-format", "text"]
+argv = ["claude", "--output-format", "stream-json", "-p"]
 
 [runners.copilot]
 argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]

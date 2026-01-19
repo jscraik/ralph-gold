@@ -17,6 +17,24 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 @dataclass(frozen=True)
+class LoopModeConfig:
+    max_iterations: Optional[int] = None
+    no_progress_limit: Optional[int] = None
+    rate_limit_per_hour: Optional[int] = None
+    sleep_seconds_between_iters: Optional[int] = None
+    runner_timeout_seconds: Optional[int] = None
+    max_attempts_per_task: Optional[int] = None
+    skip_blocked_tasks: Optional[bool] = None
+
+
+_LOOP_MODE_NAMES: Tuple[str, ...] = ("speed", "quality", "exploration")
+
+
+def _default_loop_modes() -> Dict[str, LoopModeConfig]:
+    return {name: LoopModeConfig() for name in _LOOP_MODE_NAMES}
+
+
+@dataclass(frozen=True)
 class LoopConfig:
     max_iterations: int = 10
     no_progress_limit: int = 3
@@ -25,6 +43,8 @@ class LoopConfig:
     runner_timeout_seconds: int = 900  # 15m default (Codex can be slow)
     max_attempts_per_task: int = 3
     skip_blocked_tasks: bool = True
+    mode: str = "speed"
+    modes: Dict[str, LoopModeConfig] = field(default_factory=_default_loop_modes)
 
 
 @dataclass(frozen=True)
@@ -265,6 +285,56 @@ def _load_toml(path: Path) -> Dict[str, Any]:
         return {}
 
 
+def _normalize_mode_name(value: Any, default: str = "speed") -> str:
+    if isinstance(value, str):
+        candidate = value.strip().lower()
+        if candidate:
+            return candidate
+    return default
+
+
+def _parse_loop_mode_config(raw: Any) -> LoopModeConfig:
+    if not isinstance(raw, dict):
+        return LoopModeConfig()
+    return LoopModeConfig(
+        max_iterations=(
+            _coerce_int(raw.get("max_iterations"), None)
+            if raw.get("max_iterations") is not None
+            else None
+        ),
+        no_progress_limit=(
+            _coerce_int(raw.get("no_progress_limit"), None)
+            if raw.get("no_progress_limit") is not None
+            else None
+        ),
+        rate_limit_per_hour=(
+            _coerce_int(raw.get("rate_limit_per_hour"), None)
+            if raw.get("rate_limit_per_hour") is not None
+            else None
+        ),
+        sleep_seconds_between_iters=(
+            _coerce_int(raw.get("sleep_seconds_between_iters"), None)
+            if raw.get("sleep_seconds_between_iters") is not None
+            else None
+        ),
+        runner_timeout_seconds=(
+            _coerce_int(raw.get("runner_timeout_seconds"), None)
+            if raw.get("runner_timeout_seconds") is not None
+            else None
+        ),
+        max_attempts_per_task=(
+            _coerce_int(raw.get("max_attempts_per_task"), None)
+            if raw.get("max_attempts_per_task") is not None
+            else None
+        ),
+        skip_blocked_tasks=(
+            _coerce_bool(raw.get("skip_blocked_tasks"), None)
+            if raw.get("skip_blocked_tasks") is not None
+            else None
+        ),
+    )
+
+
 def _deep_merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     """Merge b into a (recursively for dicts), return new dict."""
 
@@ -346,6 +416,31 @@ def load_config(project_root: Path) -> Config:
     tracker_raw = data.get("tracker", {}) or {}
     parallel_raw = data.get("parallel", {}) or {}
 
+    mode_name = _normalize_mode_name(loop_raw.get("mode"), "speed")
+
+    modes_raw = loop_raw.get("modes", {}) or {}
+    if not isinstance(modes_raw, dict):
+        modes_raw = {}
+    modes: Dict[str, LoopModeConfig] = _default_loop_modes()
+    for name, raw in modes_raw.items():
+        if not isinstance(name, str):
+            continue
+        key = name.strip().lower()
+        if not key:
+            continue
+        if key not in _LOOP_MODE_NAMES:
+            raise ValueError(
+                f"Invalid loop mode: {key!r}. "
+                f"Must be one of: {', '.join(_LOOP_MODE_NAMES)}."
+            )
+        modes[key] = _parse_loop_mode_config(raw)
+
+    if mode_name not in _LOOP_MODE_NAMES:
+        raise ValueError(
+            f"Invalid loop.mode: {mode_name!r}. "
+            f"Must be one of: {', '.join(_LOOP_MODE_NAMES)}."
+        )
+
     loop = LoopConfig(
         max_iterations=_coerce_int(loop_raw.get("max_iterations"), 10),
         no_progress_limit=_coerce_int(loop_raw.get("no_progress_limit"), 3),
@@ -356,6 +451,8 @@ def load_config(project_root: Path) -> Config:
         runner_timeout_seconds=_coerce_int(loop_raw.get("runner_timeout_seconds"), 900),
         max_attempts_per_task=_coerce_int(loop_raw.get("max_attempts_per_task"), 3),
         skip_blocked_tasks=_coerce_bool(loop_raw.get("skip_blocked_tasks"), True),
+        mode=mode_name,
+        modes=modes,
     )
 
     # Default file layout: all durable memory files live in .ralph/
