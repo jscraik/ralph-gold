@@ -4,6 +4,8 @@
 
 **Every task must be atomic, verifiable, and completable in a single iteration.**
 
+**Solo dev optimization:** Tasks should preserve flow state and minimize context switching. When in doubt, bias toward smaller tasks that maintain momentum.
+
 ## Task Sizing Rules
 
 ### Maximum Task Scope
@@ -11,6 +13,8 @@
 - One task = one commit
 - One task = one iteration (typically 5-15 minutes of focused work)
 - One task = one clear acceptance criterion (or tightly related set)
+
+**Solo dev guideline:** Prefer 5-10 minute tasks over 15-20 minute tasks. Shorter tasks = more frequent wins = sustained motivation.
 
 ### Task Must Be
 
@@ -80,6 +84,13 @@ Break down further if:
 - Implementation requires changes to more than 3 files
 - You can't describe the task in one sentence
 - Estimated time > 20 minutes
+
+**Solo dev red flags:**
+
+- You feel resistance to starting the task (too big/unclear)
+- You can't visualize the entire solution in your head
+- The task requires reading docs for >5 minutes
+- You'd need to context switch between multiple domains
 
 ## Iteration Drift Prevention
 
@@ -153,6 +164,83 @@ Good: - [ ] Add unit tests for User model (5 test cases)
       - [ ] Add edge case tests for token expiry
 ```
 
+## Solo Developer Patterns
+
+### Spike Tasks (Exploration)
+
+When you need to learn/explore before implementing:
+
+```markdown
+- [ ] Spike: Research JWT library options (timebox: 15 min)
+  - Document 2-3 options with pros/cons in progress.md
+  - Pick one and note why
+```
+
+### "Good Enough" Tasks
+
+For solo projects, perfect is the enemy of shipped:
+
+```markdown
+- [ ] Add basic error handling (happy path only)
+  - Catch exceptions, log them, return 500
+  - TODO: Add specific error types later
+```
+
+### Momentum Tasks
+
+When you need quick wins to maintain flow:
+
+```markdown
+- [ ] Add type hints to auth.py (5 min)
+- [ ] Fix typo in README
+- [ ] Add docstring to User class
+```
+
+### Emergency Mode
+
+When you need to ship NOW (use sparingly):
+
+```markdown
+- [ ] HOTFIX: Disable broken feature flag
+  - Skip tests, commit directly to main
+  - Create follow-up task for proper fix
+```
+
+## Time-Boxing for Solo Devs
+
+**15-minute rule:** If you're not making progress after 15 minutes:
+
+1. Document what you tried in `.ralph/progress.md`
+2. Mark task BLOCKED with specific blocker
+3. Create a smaller task to unblock (research, spike, ask for help)
+4. Move to next task to maintain momentum
+
+**Don't grind:** Stuck for 30+ minutes = wrong approach. Step back, decompose differently.
+
+## Context Switching Costs
+
+Solo devs pay a higher price for context switches. Group related tasks:
+
+**Bad (high switching cost):**
+
+```markdown
+- [ ] Add user model
+- [ ] Update README
+- [ ] Add login endpoint
+- [ ] Fix CI config
+```
+
+**Good (batched by context):**
+
+```markdown
+- [ ] Add user model
+- [ ] Add login endpoint
+- [ ] Add auth integration tests
+--- (context switch) ---
+- [ ] Update README
+- [ ] Fix CI config
+```
+
 ## Acceptance Criteria
 
 This standard is met when:
@@ -162,3 +250,5 @@ This standard is met when:
 - No task requires more than 20 minutes to complete
 - Task dependencies are explicit and minimal
 - Planning phase consistently produces well-decomposed tasks
+- **Solo dev:** Tasks maintain flow state and minimize context switching
+- **Solo dev:** You feel confident starting any task immediately
