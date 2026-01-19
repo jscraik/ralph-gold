@@ -1216,9 +1216,9 @@ def run_iteration(
             max_attempts = 10  # Prevent infinite loops
             for attempt in range(max_attempts):
                 try:
-                    if hasattr(tracker, 'claim_next_task'):
+                    if hasattr(tracker, "claim_next_task"):
                         task = tracker.claim_next_task()
-                    elif hasattr(tracker, 'select_next_task'):
+                    elif hasattr(tracker, "select_next_task"):
                         task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
                     else:
                         task = tracker.claim_next_task()
@@ -1256,6 +1256,91 @@ def run_iteration(
 
     story_id: Optional[str] = task.id if task is not None else None
     task_title = task.title if task is not None else "No remaining tasks"
+
+    # CRITICAL: Exit cleanly when no task is available
+    if task is None:
+        # Check why no task was selected
+        try:
+            all_done = tracker.all_done()
+            done_count, total_count = tracker.counts()
+
+            if all_done or done_count == total_count:
+                # All tasks completed successfully
+                from .output import print_output
+
+                print_output("All tasks completed successfully", level="normal")
+                return IterationResult(
+                    iteration=iteration,
+                    agent=agent,
+                    story_id=None,
+                    exit_signal=True,
+                    return_code=0,  # Success
+                    log_path=None,
+                    progress_made=False,
+                    no_progress_streak=0,
+                    gates_ok=None,
+                    repo_clean=True,
+                    judge_ok=None,
+                )
+            elif total_count > done_count:
+                # Tasks remain but all are blocked
+                from .output import print_output
+
+                print_output(
+                    f"All remaining tasks are blocked ({total_count - done_count} blocked)",
+                    level="error",
+                )
+                return IterationResult(
+                    iteration=iteration,
+                    agent=agent,
+                    story_id=None,
+                    exit_signal=True,
+                    return_code=1,  # Failure - blocked tasks
+                    log_path=None,
+                    progress_made=False,
+                    no_progress_streak=0,
+                    gates_ok=None,
+                    repo_clean=True,
+                    judge_ok=None,
+                )
+            else:
+                # No task but unclear why (configuration error)
+                from .output import print_output
+
+                print_output(
+                    "No task selected but tasks may remain (check PRD)", level="error"
+                )
+                return IterationResult(
+                    iteration=iteration,
+                    agent=agent,
+                    story_id=None,
+                    exit_signal=True,
+                    return_code=2,  # Configuration error
+                    log_path=None,
+                    progress_made=False,
+                    no_progress_streak=0,
+                    gates_ok=None,
+                    repo_clean=True,
+                    judge_ok=None,
+                )
+        except Exception as e:
+            # Tracker error - exit with error
+            from .output import print_output
+
+            print_output(f"Tracker error when checking task status: {e}", level="error")
+            return IterationResult(
+                iteration=iteration,
+                agent=agent,
+                story_id=None,
+                exit_signal=True,
+                return_code=2,  # Configuration/tracker error
+                log_path=None,
+                progress_made=False,
+                no_progress_streak=0,
+                gates_ok=None,
+                repo_clean=True,
+                judge_ok=None,
+            )
 
     attempt_id = _now_attempt_id(iteration)
     task_dirname = _safe_task_dirname(story_id or "(none)")
@@ -2214,13 +2299,13 @@ def run_loop(
             tracker = make_tracker(project_root, cfg)
 
             # Check if tracker supports parallel execution
-            if not hasattr(tracker, 'get_parallel_groups'):
+            if not hasattr(tracker, "get_parallel_groups"):
                 from .output import print_output
 
                 print_output(
                     f"Tracker '{tracker.kind}' does not support parallel execution. "
                     f"Falling back to sequential mode.",
-                    level="normal"
+                    level="normal",
                 )
                 # Fall through to sequential mode below by setting flag
                 parallel_enabled = False
@@ -2237,13 +2322,16 @@ def run_loop(
                     from .output import print_output
 
                     print_output(
-                        f"Rate limit reached. Wait ~{wait_seconds}s",
-                        level="error"
+                        f"Rate limit reached. Wait ~{wait_seconds}s", level="error"
                     )
                     return []
 
                 # Compute max tasks we can run this invocation
-                limit = max_iterations if max_iterations is not None else cfg.loop.max_iterations
+                limit = (
+                    max_iterations
+                    if max_iterations is not None
+                    else cfg.loop.max_iterations
+                )
 
                 # Compute remaining slots from rate limit
                 # Define invocations once before the rate-limit branch
@@ -2270,8 +2358,7 @@ def run_loop(
                     from .output import print_output
 
                     print_output(
-                        "No tasks remaining or rate limit reached.",
-                        level="normal"
+                        "No tasks remaining or rate limit reached.", level="normal"
                     )
                     return []
 
@@ -2319,7 +2406,9 @@ def run_loop(
                     f.write(
                         f"successful: {sum(1 for r in results if r.gates_ok is not False)}\n"
                     )
-                    f.write(f"failed: {sum(1 for r in results if r.gates_ok is False)}\n")
+                    f.write(
+                        f"failed: {sum(1 for r in results if r.gates_ok is False)}\n"
+                    )
 
                 # Log completion and return results
                 from .output import print_output
