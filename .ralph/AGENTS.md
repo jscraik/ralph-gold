@@ -1,68 +1,34 @@
-# AGENTS.md
+# Ralph Gold Agents & Gates
 
-This file is **project-specific operational memory**.
-Keep it short and deterministic. Add only what you repeatedly need.
+This file is read by Ralph Gold each iteration.
 
-## Stack
+## Gates (backpressure)
 
-- Language: (e.g. Python 3.12, TypeScript 5.x, Go 1.22)
-- Framework: (e.g. FastAPI, Next.js, Gin)
-- Package manager: (e.g. uv, pnpm, go mod)
+Ralph Gold will run gates *after* the agent makes changes. Configure them in `.ralph/ralph.toml`.
 
-## Repo Commands
+Recommended patterns:
 
-### Install
+### Option A (recommended): `prek` as the universal gate runner
 
-```bash
-# Example: uv sync
-```
+- Put your quality contract in `.pre-commit-config.yaml`
+- Then enable the gate:
+  - `[gates.prek] enabled = true` (runs `prek run --all-files`)
 
-### Build
+No git hooks are installed by Ralph Gold.
 
-```bash
-# Example: uv run python -m build
-```
+### Option B: Explicit commands
 
-### Test
+Examples:
+- `uv run ruff check .`
+- `uv run mypy src`
+- `uv run pytest -q`
+- `npm test`
 
-```bash
-# Example: uv run pytest -q
-```
+## Review gate (cross-model)
 
-### Lint / Format
+Optionally enable `[gates.review]` to require a reviewer model to return `SHIP`.
 
-```bash
-# Example: uv run ruff check . && uv run ruff format --check .
-```
+## Notes
 
-### Type Check
-
-```bash
-# Example: uv run mypy src/
-```
-
-## Quality Gates
-
-Commands that MUST pass before marking a task done:
-
-```bash
-# 1. Compile check
-uv run python -m compileall .
-
-# 2. Tests
-uv run pytest -q
-
-# 3. Lint
-uv run ruff check .
-```
-
-## Conventions
-
-- Write small, focused commits
-- One task per iteration
-- Prefer editing existing code over creating parallel implementations
-- Run quality gates before committing
-
-## Project-Specific Notes
-
-(Add any project-specific context the agent needs to know)
+- Receipts are written under `.ralph/receipts/` each iteration.
+- Repo Prompt context packs (if enabled) are written under `.ralph/context/`.
