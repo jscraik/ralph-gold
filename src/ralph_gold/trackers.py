@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
 
 from .config import Config
 from .prd import SelectedTask, TaskId, get_prd_branch_name, is_markdown_prd
+from .prd import all_blocked as prd_all_blocked
 from .prd import all_done as prd_all_done
 from .prd import block_task as prd_block_task
 from .prd import force_task_open as prd_force_open
@@ -36,6 +37,7 @@ class Tracker(Protocol):
     def counts(self) -> Tuple[int, int]: ...
 
     def all_done(self) -> bool: ...
+    def all_blocked(self) -> bool: ...
 
     def is_task_done(self, task_id: TaskId) -> bool: ...
 
@@ -79,6 +81,9 @@ class FileTracker:
 
     def all_done(self) -> bool:
         return prd_all_done(self.prd_path)
+
+    def all_blocked(self) -> bool:
+        return prd_all_blocked(self.prd_path)
 
     def is_task_done(self, task_id: TaskId) -> bool:
         return prd_is_done(self.prd_path, task_id)
@@ -236,6 +241,10 @@ class BeadsTracker:
 
     def all_done(self) -> bool:
         # Unknown without a project-level query.
+        return False
+
+    def all_blocked(self) -> bool:
+        # Conservative: Beads API doesn't support this query efficiently.
         return False
 
     def is_task_done(self, task_id: TaskId) -> bool:

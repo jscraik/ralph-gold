@@ -384,6 +384,27 @@ class GitHubIssuesTracker:
         issues = self._load_cache()
         return len(issues) == 0
 
+    def all_blocked(self) -> bool:
+        """Check if all remaining tasks are marked as blocked.
+
+        For GitHub Issues, we check if all remaining issues have the "blocked" label.
+
+        Returns:
+            True if all remaining issues have the "blocked" label, False otherwise.
+            Returns False if there are no remaining issues (all done).
+        """
+        self._sync_cache()
+        issues = self._load_cache()
+        if not issues:
+            return False  # All done, not blocked
+        for issue in issues:
+            labels = issue.get("labels", [])
+            if isinstance(labels, list):
+                label_names = [l.get("name", "") for l in labels if isinstance(l, dict)]
+                if "blocked" not in label_names:
+                    return False
+        return True
+
     def is_task_done(self, task_id: TaskId) -> bool:
         """Check if a specific task is marked done.
 

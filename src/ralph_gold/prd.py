@@ -421,6 +421,47 @@ def all_done(prd_path: Path) -> bool:
     return _json_all_done(_load_json_prd(prd_path))
 
 
+def all_blocked(prd_path: Path) -> bool:
+    """Check if all remaining tasks are marked as blocked.
+
+    Returns:
+        True if all remaining tasks have status "blocked", False otherwise.
+        Returns False if there are no remaining tasks (all done).
+    """
+    if is_markdown_prd(prd_path):
+        return _md_all_blocked(_load_md_prd(prd_path))
+    return _json_all_blocked(_load_json_prd(prd_path))
+
+
+def _md_all_blocked(prd: MdPrd) -> bool:
+    """Check if all remaining MD tasks are blocked.
+
+    Returns:
+        True if all remaining tasks have status "blocked", False otherwise.
+        Returns False if there are no remaining tasks (all done).
+    """
+    remaining = [t for t in prd.tasks if t.status != "done"]
+    if not remaining:
+        return False  # All done, not blocked
+    return all(t.status == "blocked" for t in remaining)
+
+
+def _json_all_blocked(prd: Dict[str, Any]) -> bool:
+    """Check if all remaining JSON stories are blocked.
+
+    Returns:
+        True if all remaining stories have status "blocked", False otherwise.
+        Returns False if there are no remaining stories (all done).
+    """
+    stories = prd.get("stories", [])
+    if not isinstance(stories, list):
+        return False
+    remaining = [s for s in stories if isinstance(s, dict) and not _story_done(s)]
+    if not remaining:
+        return False  # All done, not blocked
+    return all(s.get("status") == "blocked" for s in remaining if isinstance(s, dict))
+
+
 def force_task_open(prd_path: Path, task_id: TaskId) -> bool:
     """Force a task/story back to unfinished (used when gates fail)."""
 

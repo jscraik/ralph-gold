@@ -186,11 +186,7 @@ class YamlTracker:
         """
         tasks = self.data.get("tasks", [])
         total = len(tasks)
-        completed = sum(
-            1
-            for task in tasks
-            if task.get("completed", False) or task.get("blocked", False)
-        )
+        completed = sum(1 for task in tasks if task.get("completed", False))
         return (completed, total)
 
     def all_done(self) -> bool:
@@ -202,9 +198,22 @@ class YamlTracker:
         tasks = self.data.get("tasks", [])
         if not tasks:
             return True
-        return all(
-            task.get("completed", False) or task.get("blocked", False) for task in tasks
-        )
+        return all(task.get("completed", False) for task in tasks)
+
+    def all_blocked(self) -> bool:
+        """Check if all remaining tasks are marked as blocked.
+
+        Returns:
+            True if all remaining tasks have status "blocked", False otherwise.
+            Returns False if there are no remaining tasks (all done).
+        """
+        tasks = self.data.get("tasks", [])
+        if not tasks:
+            return False
+        remaining = [t for t in tasks if not t.get("completed", False)]
+        if not remaining:
+            return False  # All done, not blocked
+        return all(t.get("blocked", False) for t in remaining)
 
     def is_task_done(self, task_id: TaskId) -> bool:
         """Check if a specific task is marked done.

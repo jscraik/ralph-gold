@@ -543,7 +543,7 @@ def load_config(project_root: Path) -> Config:
     # Using '-' is the most robust way to feed long prompts (no quoting issues).
     default_runners: Dict[str, RunnerConfig] = {
         "codex": RunnerConfig(argv=["codex", "exec", "--full-auto", "-"]),
-        "claude": RunnerConfig(argv=["claude", "--output-format", "stream-json", "-p"]),
+        "claude": RunnerConfig(argv=["claude", "-p"]),
         "copilot": RunnerConfig(
             argv=["gh", "copilot", "suggest", "--type", "shell", "--prompt"]
         ),

@@ -2459,8 +2459,24 @@ def run_loop(
             break
 
         # Exit immediately if no task was selected (all done or all blocked)
-        if res.story_id is None and res.exit_signal is True:
-            break
+        if res.story_id is None:
+            try:
+                all_done = tracker.all_done()
+                all_blocked = tracker.all_blocked()
+            except Exception as e:
+                print(f"Warning: Failed to check tracker status: {e}")
+                all_done = False
+                all_blocked = False
+
+            if all_done:
+                print("All tasks completed successfully")
+                break
+            elif all_blocked:
+                print("Error: All remaining tasks are blocked")
+                break
+            else:
+                print("Error: No task selected but tasks remain (configuration error)")
+                break
 
         if (done or allow_exit_without_all_done) and res.exit_signal is True:
             break
