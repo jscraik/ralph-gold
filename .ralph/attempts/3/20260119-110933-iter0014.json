@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-110933-iter0014",
+  "iteration": 14,
+  "task_id": "3",
+  "task_title": "Add tests and quality gates",
+  "started_at": "2026-01-19T11:09:33.014656+00:00",
+  "ended_at": "2026-01-19T11:10:41.107528+00:00",
+  "runner_ok": true,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": false,
+  "return_code": 0,
+  "prompt_hash": "43cf4f21a939ee7c68d15e41456f4316a240180b48649438721ea27d25f5760a",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T110933Z-iter0014-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/3/20260119-110933-iter0014",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/3/20260119-110933-iter0014"
+}

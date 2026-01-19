@@ -86,6 +86,8 @@ This creates the recommended default layout:
 
 You can switch trackers by changing `files.prd` in `.ralph/ralph.toml`.
 
+Project layout and scaffolding details live in `docs/PROJECT_STRUCTURE.md`.
+
 **Re-initializing with `--force`:** If you need to reset your `.ralph` directory, use `ralph init --force`. This automatically archives existing files to `.ralph/archive/<timestamp>/` before creating fresh templates, preventing accidental data loss. See [docs/INIT_ARCHIVING.md](docs/INIT_ARCHIVING.md) for details.
 
 ---

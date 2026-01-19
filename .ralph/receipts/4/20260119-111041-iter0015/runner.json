@@ -1,0 +1,21 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "duration_seconds": 158.28114199638367,
+  "ended_at": "2026-01-19T11:13:19.462167+00:00",
+  "name": "runner",
+  "notes": {
+    "prompt_hash": "37984e0d99b408403d0f438a056422f726e86bd09b2343accd1586510e398e31",
+    "stderr_tail": "OpenAI Codex v0.88.0-alpha.3 (research preview)\n--------\nworkdir: /Users/jamiecraik/dev/ralph-gold\nmodel: gpt-5.2-codex\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\nreasoning effort: medium\nreasoning summaries: auto\nsession id: 019bd5f3-2886-7ec0-a54e-dd4baf7f4c11\n--------\nuser\nYou are operating inside the Ralph Gold loop.\n\nRules:\n- Do exactly ONE task per iteration.\n- Use the Memory Files below as the source of truth (especially ANC\n... [truncated 27714 chars] ...\nvant output):\n- `uv run python -m ralph_gold.cli --help`  \n  `warning: VIRTUAL_ENV=... does not match ...`  \n  `usage: ralph [-h] [--version] ...`\n\nGates:\n- No gates configured in `.ralph/AGENTS.md` / `.ralph/ralph.toml`, so none were run.\n\nTracker:\n- Task 4 marked done in `.ralph/PRD.md`.\n- Progress logged in `.ralph/progress.md`.\n\nIf you want me to proceed, say: \u201cContinue to the next task.\u201d\n\nEXIT_SIGNAL: true\nfile update:\ndiff --git a/.ralph/PRD.md b/.ralph/PRD.md\nindex fb63dc60a9f67666ea7f3dadf3fb72b4a654d3fc..4bd0d761b6c20d9876e52cafed9c236f7d734e4e\n--- a/.ralph/PRD.md\n+++ b/.ralph/PRD.md\n@@ -12,7 +12,7 @@\n - [x] Define the project structure and scaffolding\n - [-] Implement the first thin vertical slice\n - [-] Add tests and quality gates\n-- [ ] Polish, docs, and smoke test\n+- [x] Polish, docs, and smoke test\n \n # Notes\n # - Mark done:   - [x] ...\ndiff --git a/docs/PROJECT_STRUCTURE.md b/docs/PROJECT_STRUCTURE.md\nindex 983422fc7d39fd69a91553122139f0b65898d2bb..ccd478a61349e2714ca2568a38591cc38db0308c\n--- a/docs/PROJECT_STRUCTURE.md\n+++ b/docs/PROJECT_STRUCTURE.md\n@@ -43,6 +43,14 @@\n The scaffold templates are the single source of truth for these files and are stored in\n `src/ralph_gold/templates/`.\n \n+## Smoke Test\n+\n+Run the CLI help to confirm the entrypoint is wired:\n+\n+```bash\n+uv run python -m ralph_gold.cli --help\n+```\n+\n ## Where To Add New Work\n \n - Core features: `src/ralph_gold/`\n\ntokens used\n59,593\n",
+    "stdout_tail": "Objective: Finish task 4 by polishing docs and running a CLI smoke test; I added a smoke-test note to the docs and verified the CLI help runs.\n\nAcceptance criteria (task 4):\n- Docs are polished/updated.\n- Smoke test runs successfully.\n\nPlan:\n1) Confirm task 4 scope and locate doc touchpoints.  \n2) Add a minimal doc polish entry for the smoke test.  \n3) Run the CLI smoke test.  \n4) Update PRD tracker and progress log.  \n\nNext single step to execute: Review the changes and confirm I should proceed to the next task.\n\nUpdates:\n- Added a smoke test section to `docs/PROJECT_STRUCTURE.md`.\n- Marked task 4 done in ` .ralph/PRD.md`.\n- Appended iteration 15 entry to `.ralph/progress.md`.\n\nCommands (most relevant output):\n- `uv run python -m ralph_gold.cli --help`  \n  `warning: VIRTUAL_ENV=... does not match ...`  \n  `usage: ralph [-h] [--version] ...`\n\nGates:\n- No gates configured in `.ralph/AGENTS.md` / `.ralph/ralph.toml`, so none were run.\n\nTracker:\n- Task 4 marked done in `.ralph/PRD.md`.\n- Progress logged in `.ralph/progress.md`.\n\nIf you want me to proceed, say: \u201cContinue to the next task.\u201d\n\nEXIT_SIGNAL: true\n"
+  },
+  "returncode": 0,
+  "started_at": "2026-01-19T11:10:41.180995+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/logs/20260119T111041Z-iter0015-codex.log"
+}

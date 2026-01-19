@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-110734-iter0013",
+  "iteration": 13,
+  "task_id": "2",
+  "task_title": "Implement the first thin vertical slice",
+  "started_at": "2026-01-19T11:07:34.037417+00:00",
+  "ended_at": "2026-01-19T11:09:33.005960+00:00",
+  "runner_ok": true,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": false,
+  "return_code": 0,
+  "prompt_hash": "35510fe7d0c49ed86baedb22e2201b1502516ae41aad5ed4ab30e36f8667bb42",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T110734Z-iter0013-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/2/20260119-110734-iter0013",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/2/20260119-110734-iter0013"
+}

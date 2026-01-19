@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-111041-iter0015",
+  "iteration": 15,
+  "task_id": "4",
+  "task_title": "Polish, docs, and smoke test",
+  "started_at": "2026-01-19T11:10:41.115504+00:00",
+  "ended_at": "2026-01-19T11:13:19.543348+00:00",
+  "runner_ok": true,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": false,
+  "exit_signal": false,
+  "return_code": 0,
+  "prompt_hash": "37984e0d99b408403d0f438a056422f726e86bd09b2343accd1586510e398e31",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T111041Z-iter0015-codex.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/4/20260119-111041-iter0015",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/4/20260119-111041-iter0015"
+}
