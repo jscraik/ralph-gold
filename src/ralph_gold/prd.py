@@ -183,10 +183,7 @@ def _json_all_done(prd: Dict[str, Any]) -> bool:
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
         return True
-    return all(
-        (not isinstance(s, dict)) or _story_done(s) or _story_blocked(s)
-        for s in stories
-    )
+    return all((not isinstance(s, dict)) or _story_done(s) for s in stories)
 
 
 def _json_force_story_open(prd: Dict[str, Any], story_id: str) -> bool:
@@ -333,7 +330,7 @@ def _save_md_prd(path: Path, prd: MdPrd) -> None:
 
 
 def _md_all_done(prd: MdPrd) -> bool:
-    return all(t.status in {"done", "blocked"} for t in prd.tasks)
+    return all(t.status == "done" for t in prd.tasks)
 
 
 def _md_force_task_open(prd: MdPrd, task_id: str) -> bool:
@@ -406,7 +403,7 @@ def task_counts(prd_path: Path) -> Tuple[int, int]:
     if is_markdown_prd(prd_path):
         prd = _load_md_prd(prd_path)
         total = len(prd.tasks)
-        done = sum(1 for t in prd.tasks if t.status in {"done", "blocked"})
+        done = sum(1 for t in prd.tasks if t.status == "done")
         return done, total
 
     prd = _load_json_prd(prd_path)
@@ -414,11 +411,7 @@ def task_counts(prd_path: Path) -> Tuple[int, int]:
     if not isinstance(stories, list):
         return 0, 0
     total = sum(1 for s in stories if isinstance(s, dict))
-    done = sum(
-        1
-        for s in stories
-        if isinstance(s, dict) and (_story_done(s) or _story_blocked(s))
-    )
+    done = sum(1 for s in stories if isinstance(s, dict) and _story_done(s))
     return done, total
 
 

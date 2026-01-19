@@ -2458,6 +2458,10 @@ def run_loop(
         if res.no_progress_streak >= cfg.loop.no_progress_limit:
             break
 
+        # Exit immediately if no task was selected (all done or all blocked)
+        if res.story_id is None and res.exit_signal is True:
+            break
+
         if (done or allow_exit_without_all_done) and res.exit_signal is True:
             break
 
