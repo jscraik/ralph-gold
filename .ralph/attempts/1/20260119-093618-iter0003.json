@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-093618-iter0003",
+  "iteration": 3,
+  "task_id": "1",
+  "task_title": "Add loop mode config schema + parsing",
+  "started_at": "2026-01-19T09:36:18.957995+00:00",
+  "ended_at": "2026-01-19T09:41:19.118203+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": false,
+  "exit_signal": null,
+  "return_code": 124,
+  "prompt_hash": "1146cead70a91893e95c1cf36601af007ff80ee3c5617df111b0b36a2cbf29c5",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T093618Z-iter0003-claude.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/1/20260119-093618-iter0003",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/1/20260119-093618-iter0003"
+}

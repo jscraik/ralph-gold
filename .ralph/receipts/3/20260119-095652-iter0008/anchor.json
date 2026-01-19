@@ -1,0 +1,20 @@
+{
+  "_schema": "ralph_gold.receipt.v1",
+  "argv": [
+    "git",
+    "status",
+    "--porcelain",
+    "&&",
+    "git",
+    "diff",
+    "--stat"
+  ],
+  "duration_seconds": 0.0,
+  "ended_at": "2026-01-19T09:56:52.497930+00:00",
+  "name": "anchor",
+  "notes": {},
+  "returncode": 0,
+  "started_at": "2026-01-19T09:56:52.497918+00:00",
+  "stderr_path": null,
+  "stdout_path": ".ralph/context/3/20260119-095652-iter0008/ANCHOR.md"
+}

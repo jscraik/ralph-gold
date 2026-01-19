@@ -1,6 +1,7 @@
 # PRD: Solo Dev Optimizations (Plan)
 
 ## Overview
+
 Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md` and
 `.spec/PHASE1_QUICK_WINS.md`, aligned to current implementation gaps in `src/ralph_gold/`.
 

@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-100653-iter0009",
+  "iteration": 9,
+  "task_id": "3",
+  "task_title": "Add CLI support for `--mode` on `ralph run` and `ralph step`",
+  "started_at": "2026-01-19T10:06:53.854537+00:00",
+  "ended_at": "2026-01-19T10:11:53.221174+00:00",
+  "runner_ok": true,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": true,
+  "exit_signal": false,
+  "return_code": 0,
+  "prompt_hash": "b1eaf87a34c92184fd4f5ef9695dc68990f13b2f7b062d5582e30f42cb8b2a4e",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T100653Z-iter0009-claude.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/3/20260119-100653-iter0009",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/3/20260119-100653-iter0009"
+}

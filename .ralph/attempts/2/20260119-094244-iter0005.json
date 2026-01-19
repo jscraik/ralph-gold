@@ -1,0 +1,20 @@
+{
+  "attempt_id": "20260119-094244-iter0005",
+  "iteration": 5,
+  "task_id": "2",
+  "task_title": "Apply loop mode overrides at runtime",
+  "started_at": "2026-01-19T09:42:44.800927+00:00",
+  "ended_at": "2026-01-19T09:47:44.960710+00:00",
+  "runner_ok": false,
+  "gates_ok": null,
+  "judge_ok": null,
+  "review_ok": null,
+  "blocked": false,
+  "exit_signal": null,
+  "return_code": 124,
+  "prompt_hash": "7e6cb3d54d80e8cde9f31e2371c5518775f7668d067f183f603e76d0a7fa79aa",
+  "branch": "main",
+  "log_path": "/Users/jamiecraik/dev/ralph-gold/.ralph/logs/20260119T094244Z-iter0005-claude.log",
+  "receipts_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/receipts/2/20260119-094244-iter0005",
+  "context_dir": "/Users/jamiecraik/dev/ralph-gold/.ralph/context/2/20260119-094244-iter0005"
+}
