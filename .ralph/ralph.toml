@@ -10,7 +10,7 @@ max_iterations = 10
 no_progress_limit = 3
 rate_limit_per_hour = 0
 sleep_seconds_between_iters = 0
-runner_timeout_seconds = 120
+runner_timeout_seconds = 300
 
 # Backstop: mark a task BLOCKED after N failed attempts (0 disables)
 max_attempts_per_task = 3
