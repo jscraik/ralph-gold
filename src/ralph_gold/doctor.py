@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .config import Config
+from .subprocess_helper import check_command_available, run_subprocess
 
 
 @dataclass
@@ -25,10 +25,8 @@ def _which(cmd: str) -> Optional[str]:
 
 def _version(cmd: List[str]) -> Optional[str]:
     try:
-        cp = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        out = (cp.stdout or "").strip()
-        err = (cp.stderr or "").strip()
-        text = out if out else err
+        result = run_subprocess(cmd, check=False)
+        text = result.stdout.strip() or result.stderr.strip()
         if text:
             # first line only
             return text.splitlines()[0][:200]

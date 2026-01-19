@@ -47,6 +47,81 @@ class LoopConfig:
     mode: str = "speed"
     modes: Dict[str, LoopModeConfig] = field(default_factory=_default_loop_modes)
 
+    def __post_init__(self) -> None:
+        """Validate LoopConfig values to prevent configuration errors.
+
+        This validation catches common misconfigurations early, preventing
+        runtime issues like infinite loops or unreasonable timeouts.
+
+        Raises:
+            ValueError: If any configuration value is invalid
+        """
+        if self.max_iterations < 1:
+            raise ValueError(
+                f"max_iterations must be >= 1, got {self.max_iterations}"
+            )
+        if self.max_iterations > 1000:
+            raise ValueError(
+                f"max_iterations suspiciously large: {self.max_iterations} "
+                f"(limit: 1000)"
+            )
+        if self.no_progress_limit < 1:
+            raise ValueError(
+                f"no_progress_limit must be >= 1, got {self.no_progress_limit}"
+            )
+        if self.no_progress_limit > 100:
+            raise ValueError(
+                f"no_progress_limit suspiciously large: {self.no_progress_limit} "
+                f"(limit: 100)"
+            )
+        # Auto-adjust no_progress_limit if it exceeds max_iterations
+        # This can happen when combining defaults with overrides
+        if self.no_progress_limit > self.max_iterations:
+            # Use object.__setattr__ because dataclass is frozen
+            object.__setattr__(self, "no_progress_limit", self.max_iterations)
+
+        if self.runner_timeout_seconds < 1:
+            raise ValueError(
+                f"runner_timeout_seconds must be >= 1, got {self.runner_timeout_seconds}"
+            )
+        if self.runner_timeout_seconds > 86400:  # 24 hours
+            raise ValueError(
+                f"runner_timeout_seconds suspiciously large: {self.runner_timeout_seconds} "
+                f"(limit: 86400 = 24 hours)"
+            )
+        if self.max_attempts_per_task < 1:
+            raise ValueError(
+                f"max_attempts_per_task must be >= 1, got {self.max_attempts_per_task}"
+            )
+        if self.max_attempts_per_task > 100:
+            raise ValueError(
+                f"max_attempts_per_task suspiciously large: {self.max_attempts_per_task} "
+                f"(limit: 100)"
+            )
+        if self.rate_limit_per_hour < 0:
+            raise ValueError(
+                f"rate_limit_per_hour must be >= 0, got {self.rate_limit_per_hour}"
+            )
+        if self.rate_limit_per_hour > 1000:
+            raise ValueError(
+                f"rate_limit_per_hour suspiciously large: {self.rate_limit_per_hour} "
+                f"(limit: 1000)"
+            )
+        if self.sleep_seconds_between_iters < 0:
+            raise ValueError(
+                f"sleep_seconds_between_iters must be >= 0, got {self.sleep_seconds_between_iters}"
+            )
+        if self.sleep_seconds_between_iters > 3600:  # 1 hour
+            raise ValueError(
+                f"sleep_seconds_between_iters suspiciously large: {self.sleep_seconds_between_iters} "
+                f"(limit: 3600 = 1 hour)"
+            )
+        if self.mode not in _LOOP_MODE_NAMES:
+            raise ValueError(
+                f"Invalid loop mode: {self.mode!r}. "
+                f"Must be one of: {', '.join(_LOOP_MODE_NAMES)}."
+            )
+
 
 @dataclass(frozen=True)
 class FilesConfig:

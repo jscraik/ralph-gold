@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -11,10 +12,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .agents import build_agent_invocation, get_runner_config
+from .atomic_file import atomic_write_json
 from .config import Config, LoopModeConfig, RunnerConfig, load_config
 from .prd import SelectedTask
 from .receipts import CommandReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
+from .subprocess_helper import SubprocessResult, run_subprocess
 from .trackers import make_tracker
 
 EXIT_RE = re.compile(r"EXIT_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
@@ -135,92 +139,88 @@ def _resolve_loop_mode(cfg: Config) -> Tuple[Config, Dict[str, Any]]:
 
 
 def ensure_git_repo(project_root: Path) -> None:
+    """Verify we're inside a git repository.
+
+    Raises:
+        RuntimeError: If not in a git repository
+    """
     try:
-        subprocess.run(
+        run_subprocess(
             ["git", "rev-parse", "--is-inside-work-tree"],
-            cwd=str(project_root),
+            cwd=project_root,
             check=True,
-            capture_output=True,
-            text=True,
         )
-    except Exception as e:
+    except RuntimeError as e:
         raise RuntimeError(
             "This tool must be run inside a git repository (git init)."
         ) from e
 
 
 def git_head(project_root: Path) -> str:
-    cp = subprocess.run(
+    """Get the current git HEAD commit hash.
+
+    Returns empty string if no commits yet.
+    """
+    result = run_subprocess(
         ["git", "rev-parse", "--verify", "HEAD"],
-        cwd=str(project_root),
+        cwd=project_root,
         check=False,
-        capture_output=True,
-        text=True,
     )
-    if cp.returncode != 0:
+    if result.failed:
         return ""
-    return (cp.stdout or "").strip()
+    return result.stdout.strip()
 
 
 def git_current_branch(project_root: Path) -> str:
-    cp = subprocess.run(
+    """Get the current git branch name."""
+    result = run_subprocess(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=str(project_root),
+        cwd=project_root,
         check=True,
-        capture_output=True,
-        text=True,
     )
-    return (cp.stdout or "").strip()
+    return result.stdout.strip()
 
 
 def git_branch_exists(project_root: Path, branch: str) -> bool:
-    cp = subprocess.run(
+    """Check if a git branch exists."""
+    result = run_subprocess(
         ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
-        cwd=str(project_root),
-        capture_output=True,
-        text=True,
+        cwd=project_root,
         check=False,
     )
-    return cp.returncode == 0
+    return result.success
 
 
 def git_checkout(project_root: Path, branch: str) -> None:
-    subprocess.run(
+    """Checkout a git branch."""
+    run_subprocess(
         ["git", "checkout", branch],
-        cwd=str(project_root),
+        cwd=project_root,
         check=True,
-        capture_output=True,
-        text=True,
     )
 
 
 def git_create_and_checkout(
     project_root: Path, branch: str, base_ref: Optional[str]
 ) -> None:
+    """Create and checkout a new git branch."""
     argv = ["git", "checkout", "-b", branch]
     if base_ref:
         argv.append(base_ref)
-    subprocess.run(
-        argv,
-        cwd=str(project_root),
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    run_subprocess(argv, cwd=project_root, check=True)
 
 
 _IGNORED_GIT_STATUS_PREFIXES = (".ralph/",)
 
 
 def _git_status_lines(project_root: Path) -> List[str]:
-    cp = subprocess.run(
+    """Get git status lines, filtering out orchestrator noise."""
+    result = run_subprocess(
         ["git", "status", "--porcelain"],
-        cwd=str(project_root),
+        cwd=project_root,
         check=True,
-        capture_output=True,
-        text=True,
     )
-    lines = [ln for ln in (cp.stdout or "").splitlines() if ln.strip()]
+    lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
 
     # Filter orchestrator noise that should not count as "repo dirty".
     filtered: List[str] = []
@@ -242,6 +242,7 @@ def git_is_clean(project_root: Path) -> bool:
 
 def _parse_bool_signal(output: str, pattern: re.Pattern[str]) -> Optional[bool]:
     """Parse a trailing boolean signal from plain text or NDJSON streams."""
+    logger = logging.getLogger(__name__)
 
     raw = output.strip()
     m = pattern.search(raw)
@@ -265,7 +266,8 @@ def _parse_bool_signal(output: str, pattern: re.Pattern[str]) -> Optional[bool]:
             continue
         try:
             obj = json.loads(line)
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to parse JSON line: %s", e)
             continue
         for s in _iter_strings(obj):
             mm = pattern.search(s.strip())
@@ -308,25 +310,23 @@ def _read_text_if_exists(path: Path, limit_chars: int = 200_000) -> str:
 
 
 def _git_status_porcelain_raw(project_root: Path) -> str:
-    cp = subprocess.run(
+    """Get raw git status output (unfiltered)."""
+    result = run_subprocess(
         ["git", "status", "--porcelain"],
-        cwd=str(project_root),
-        capture_output=True,
-        text=True,
+        cwd=project_root,
         check=False,
     )
-    return (cp.stdout or "").strip()
+    return result.stdout.strip()
 
 
 def _git_diff_stat_raw(project_root: Path) -> str:
-    cp = subprocess.run(
+    """Get raw git diff --stat output."""
+    result = run_subprocess(
         ["git", "diff", "--stat"],
-        cwd=str(project_root),
-        capture_output=True,
-        text=True,
+        cwd=project_root,
         check=False,
     )
-    return (cp.stdout or "").strip()
+    return result.stdout.strip()
 
 
 def _build_anchor(task: SelectedTask, project_root: Path) -> str:
@@ -488,50 +488,19 @@ def build_runner_invocation(
 ) -> Tuple[List[str], Optional[str]]:
     """Build argv and optional stdin for the configured agent runner.
 
+    This function now delegates to the agent plugin architecture.
+
     Key rule for Codex:
     - Prefer passing the prompt via stdin using '-' to avoid argv quoting/length issues.
       Example: `codex exec --full-auto -` (prompt read from stdin).
     """
+    from .config import RunnerConfig
 
-    argv = [str(x) for x in argv_template]
-    agent_l = agent.lower().strip()
+    # Create a temporary RunnerConfig for the plugin architecture
+    temp_config = RunnerConfig(argv=argv_template)
 
-    # Placeholder replacement (string literal '{prompt}')
-    if "{prompt}" in argv:
-        argv = [prompt_text if x == "{prompt}" else x for x in argv]
-        return argv, None
-
-    # Codex: stdin is the most robust.
-    if agent_l == "codex":
-        if "-" not in argv:
-            argv.append("-")
-        return argv, prompt_text
-
-    # Claude Code: `claude -p "..."`
-    if agent_l == "claude":
-        if "-p" in argv:
-            i = argv.index("-p")
-            if i == len(argv) - 1 or str(argv[i + 1]).startswith("-"):
-                argv.insert(i + 1, prompt_text)
-        else:
-            argv.extend(["-p", prompt_text])
-        return argv, None
-
-    # GitHub Copilot CLI: `copilot --prompt "..."`
-    if agent_l == "copilot":
-        if "--prompt" in argv:
-            i = argv.index("--prompt")
-            if i == len(argv) - 1 or str(argv[i + 1]).startswith("-"):
-                argv.insert(i + 1, prompt_text)
-            else:
-                argv[i + 1] = prompt_text
-        else:
-            argv.extend(["--prompt", prompt_text])
-        return argv, None
-
-    # Default: append prompt as final argument.
-    argv.append(prompt_text)
-    return argv, None
+    # Delegate to the plugin architecture
+    return build_agent_invocation(agent, prompt_text, temp_config)
 
 
 def load_state(state_path: Path) -> Dict[str, Any]:
@@ -572,7 +541,16 @@ def load_state(state_path: Path) -> Dict[str, Any]:
 
 
 def save_state(state_path: Path, state: Dict[str, Any]) -> None:
-    state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    """Save state atomically to prevent data corruption.
+
+    Uses atomic write operations to ensure state.json is never in a
+    partially-written state, even if the process is interrupted.
+
+    Args:
+        state_path: Path to state.json file
+        state: State dictionary to save
+    """
+    atomic_write_json(state_path, state)
 
 
 def next_iteration_number(project_root: Path) -> int:
@@ -624,7 +602,9 @@ def _gate_shell_argv(cmd: str) -> List[str]:
         return ["cmd", "/c", cmd]
 
     # Prefer bash when available for predictable behavior; otherwise fall back to sh.
-    if shutil.which("bash"):
+    from .subprocess_helper import check_command_available
+
+    if check_command_available("bash"):
         return ["bash", "-lc", cmd]
 
     return ["sh", "-lc", cmd]
@@ -669,27 +649,23 @@ def _run_gate_command(
         except Exception:
             pass
 
-        cp = subprocess.run(
+        result = run_subprocess(
             argv,
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
+            cwd=project_root,
             env={**os.environ, "RALPH_RUNNING_HOOK": "1"},
         )
     else:
-        cp = subprocess.run(
+        result = run_subprocess(
             _gate_shell_argv(cmd),
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
+            cwd=project_root,
         )
 
     return GateResult(
         cmd=cmd,
-        return_code=int(cp.returncode),
+        return_code=result.returncode,
         duration_seconds=time.time() - start,
-        stdout=cp.stdout or "",
-        stderr=cp.stderr or "",
+        stdout=result.stdout,
+        stderr=result.stderr,
         is_precommit_hook=is_precommit_hook,
     )
 
@@ -978,12 +954,11 @@ def _truncate(text: str, max_chars: int) -> Tuple[str, bool]:
 
 
 def _git_capture(project_root: Path, argv: List[str]) -> str:
-    cp = subprocess.run(argv, cwd=str(project_root), capture_output=True, text=True)
-    out = cp.stdout or ""
-    err = cp.stderr or ""
-    if err.strip():
-        return out + "\n" + err
-    return out
+    """Capture git command output, including stderr in the result."""
+    result = run_subprocess(argv, cwd=project_root)
+    if result.stderr.strip():
+        return result.stdout + "\n" + result.stderr
+    return result.stdout
 
 
 def _diff_for_judge(
@@ -1091,11 +1066,11 @@ def build_judge_prompt(
 
 
 def _get_runner(cfg: Config, agent: str) -> RunnerConfig:
-    runner = cfg.runners.get(agent)
-    if runner is None:
-        available = ", ".join(sorted(cfg.runners.keys()))
-        raise RuntimeError(f"Unknown agent '{agent}'. Available runners: {available}")
-    return runner
+    """Get the runner configuration for a given agent.
+
+    This function now delegates to the agent plugin architecture.
+    """
+    return get_runner_config(cfg, agent)
 
 
 def _slugify(text: str) -> str:
@@ -1139,7 +1114,8 @@ def _ensure_feature_branch(
 
     try:
         current = git_current_branch(project_root)
-    except Exception:
+    except Exception as e:
+        logging.getLogger(__name__).debug("Failed to get current branch: %s", e)
         current = ""
     if current == branch:
         return branch
@@ -1463,38 +1439,42 @@ def run_iteration(
         cfg.loop.runner_timeout_seconds if cfg.loop.runner_timeout_seconds > 0 else None
     )
     try:
-        cp = subprocess.run(
+        result = run_subprocess(
             argv,
-            cwd=str(project_root),
-            input=stdin_text,
-            capture_output=True,
-            text=True,
+            cwd=project_root,
             timeout=timeout,
         )
-    except subprocess.TimeoutExpired as e:
-        timed_out = True
-        cp = subprocess.CompletedProcess(
-            argv, returncode=124, stdout=e.stdout or "", stderr=e.stderr or "(timeout)"
+        runner_ok = result.success
+        duration_s = time.time() - start
+    except RuntimeError as e:
+        # Handle timeout and command not found from run_subprocess
+        if "timed out" in str(e):
+            timed_out = True
+            runner_ok = False
+        else:
+            runner_ok = False
+        duration_s = time.time() - start
+        result = SubprocessResult(
+            returncode=124 if timed_out else 127,
+            stdout="",
+            stderr=str(e),
+            timed_out=timed_out,
         )
-    except FileNotFoundError as e:
-        cp = subprocess.CompletedProcess(argv, returncode=127, stdout="", stderr=str(e))
-    duration_s = time.time() - start
-    runner_ok = int(cp.returncode) == 0
 
     write_receipt(
         receipts_dir / "runner.json",
         CommandReceipt(
             name="runner",
             argv=argv,
-            returncode=int(cp.returncode),
+            returncode=result.returncode,
             started_at=iso_utc(time.time() - duration_s),
             ended_at=iso_utc(),
             duration_seconds=duration_s,
             stdout_path=str(log_path.relative_to(project_root)),
             notes={
                 "prompt_hash": prompt_hash,
-                "stdout_tail": truncate_text(cp.stdout or ""),
-                "stderr_tail": truncate_text(cp.stderr or ""),
+                "stdout_tail": truncate_text(result.stdout),
+                "stderr_tail": truncate_text(result.stderr),
             },
         ),
     )
@@ -1538,8 +1518,8 @@ def run_iteration(
     if gates_ok is False and story_id is not None:
         try:
             tracker.force_task_open(story_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.getLogger(__name__).debug("Failed to force task open: %s", e)
 
     head_after_agent = git_head(project_root)
 
@@ -1550,7 +1530,8 @@ def run_iteration(
     if judge_cfg.enabled and story_id is not None and gates_ok is not False:
         try:
             done_now = tracker.is_task_done(story_id)
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).debug("Failed to check if task is done: %s", e)
             done_now = False
 
         if done_now and task is not None:
@@ -1589,39 +1570,47 @@ def run_iteration(
             else:
                 j_start = time.time()
                 try:
-                    j_cp = subprocess.run(
+                    j_result = run_subprocess(
                         jr_argv,
-                        cwd=str(project_root),
-                        input=jr_stdin,
-                        capture_output=True,
-                        text=True,
+                        cwd=project_root,
                         timeout=timeout,
                     )
-                except subprocess.TimeoutExpired as e:
-                    j_cp = subprocess.CompletedProcess(
-                        jr_argv,
-                        returncode=124,
-                        stdout=e.stdout or "",
-                        stderr=e.stderr or "(timeout)",
+                    j_dur = time.time() - j_start
+                    j_out = j_result.stdout
+                    j_err = j_result.stderr
+                    j_combined = j_out + "\n" + j_err
+                    j_raw = parse_judge_signal(j_combined)
+                    j_pass = j_result.success and (j_raw is True)
+                    j_effective = True if j_pass else False
+                    judge_result = LlmJudgeResult(
+                        enabled=True,
+                        agent=str(judge_cfg.agent),
+                        return_code=j_result.returncode,
+                        duration_seconds=j_dur,
+                        judge_signal_raw=j_raw,
+                        judge_signal_effective=j_effective,
+                        stdout=j_out,
+                        stderr=j_err,
                     )
-                j_dur = time.time() - j_start
-                j_out = _coerce_text(j_cp.stdout)
-                j_err = _coerce_text(j_cp.stderr)
-                j_combined = j_out + "\n" + j_err
-                j_raw = parse_judge_signal(j_combined)
-                j_pass = (int(j_cp.returncode) == 0) and (j_raw is True)
-                j_effective = True if j_pass else False
-                judge_result = LlmJudgeResult(
-                    enabled=True,
-                    agent=str(judge_cfg.agent),
-                    return_code=int(j_cp.returncode),
-                    duration_seconds=j_dur,
-                    judge_signal_raw=j_raw,
-                    judge_signal_effective=j_effective,
-                    stdout=j_out,
-                    stderr=j_err,
-                )
-                judge_ok = bool(j_effective)
+                    judge_ok = bool(j_effective)
+                except RuntimeError as e:
+                    # Handle timeout and command not found
+                    j_dur = time.time() - j_start
+                    j_out = ""
+                    j_err = str(e)
+                    j_rc = 124 if "timed out" in str(e) else 127
+                    j_effective = False
+                    judge_result = LlmJudgeResult(
+                        enabled=True,
+                        agent=str(judge_cfg.agent),
+                        return_code=j_rc,
+                        duration_seconds=j_dur,
+                        judge_signal_raw=None,
+                        judge_signal_effective=j_effective,
+                        stdout="",
+                        stderr=j_err,
+                    )
+                    judge_ok = False
 
             if judge_ok is False and story_id is not None:
                 try:
@@ -1717,46 +1706,51 @@ def run_iteration(
             else:
                 r_start = time.time()
                 try:
-                    r_cp = subprocess.run(
+                    r_result = run_subprocess(
                         rr_argv,
-                        cwd=str(project_root),
-                        input=rr_stdin,
-                        capture_output=True,
-                        text=True,
+                        cwd=project_root,
                         timeout=timeout,
                     )
-                except subprocess.TimeoutExpired as e:
-                    r_cp = subprocess.CompletedProcess(
-                        rr_argv,
-                        returncode=124,
-                        stdout=e.stdout or "",
-                        stderr=e.stderr or "(timeout)",
+                    r_dur = time.time() - r_start
+                    r_out = r_result.stdout
+                    r_err = r_result.stderr
+                    review_ok = bool(
+                        r_result.success
+                        and _parse_review_token(
+                            r_out + "\n" + r_err, required=review_cfg.required_token
+                        )
                     )
-                r_dur = time.time() - r_start
-                r_out = _coerce_text(r_cp.stdout)
-                r_err = _coerce_text(r_cp.stderr)
-                review_ok = bool(
-                    int(r_cp.returncode) == 0
-                    and _parse_review_token(
-                        r_out + "\n" + r_err, required=review_cfg.required_token
+                    write_receipt(
+                        receipts_dir / "review.json",
+                        CommandReceipt(
+                            name="review",
+                            argv=rr_argv,
+                            returncode=r_result.returncode,
+                            started_at=iso_utc(time.time() - r_dur),
+                            ended_at=iso_utc(),
+                            duration_seconds=r_dur,
+                            notes={
+                                "required_token": review_cfg.required_token,
+                                "stdout_tail": truncate_text(r_out),
+                                "stderr_tail": truncate_text(r_err),
+                            },
+                        ),
                     )
-                )
-                write_receipt(
-                    receipts_dir / "review.json",
-                    CommandReceipt(
-                        name="review",
-                        argv=rr_argv,
-                        returncode=int(r_cp.returncode),
-                        started_at=iso_utc(time.time() - r_dur),
-                        ended_at=iso_utc(),
-                        duration_seconds=r_dur,
-                        notes={
-                            "required_token": review_cfg.required_token,
-                            "stdout_tail": truncate_text(r_out),
-                            "stderr_tail": truncate_text(r_err),
-                        },
-                    ),
-                )
+                except RuntimeError as e:
+                    r_dur = time.time() - r_start
+                    review_ok = False
+                    write_receipt(
+                        receipts_dir / "review.json",
+                        CommandReceipt(
+                            name="review",
+                            argv=rr_argv,
+                            returncode=124 if "timed out" in str(e) else 127,
+                            started_at=iso_utc(time.time() - r_dur),
+                            ended_at=iso_utc(),
+                            duration_seconds=r_dur,
+                            notes={"error": str(e)},
+                        ),
+                    )
 
         if review_ok is False and story_id is not None:
             try:
@@ -1821,69 +1815,58 @@ def run_iteration(
         if dirty:
             try:
                 # Stage everything, then unstage orchestrator operational state.
-                subprocess.run(
+                run_subprocess(
                     ["git", "add", "-A"],
-                    cwd=str(project_root),
+                    cwd=project_root,
                     check=True,
-                    capture_output=True,
-                    text=True,
                 )
-                subprocess.run(
+                run_subprocess(
                     ["git", "reset", "--quiet", "--", ".ralph/logs/"],
-                    cwd=str(project_root),
+                    cwd=project_root,
                     check=False,
-                    capture_output=True,
-                    text=True,
                 )
-                subprocess.run(
+                run_subprocess(
                     ["git", "reset", "--quiet", "--", ".ralph/state.json"],
-                    cwd=str(project_root),
+                    cwd=project_root,
                     check=False,
-                    capture_output=True,
-                    text=True,
                 )
 
                 # Nothing staged? Don't create empty commits.
-                staged = (
-                    subprocess.run(
-                        ["git", "diff", "--cached", "--quiet"],
-                        cwd=str(project_root),
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    ).returncode
-                    != 0
+                staged_result = run_subprocess(
+                    ["git", "diff", "--cached", "--quiet"],
+                    cwd=project_root,
+                    check=False,
                 )
+                staged = not staged_result.success
+
                 if not staged:
                     commit_action = "noop"
                     commit_rc = 0
                 elif head_after_agent != head_before and cfg.git.amend_if_needed:
-                    c_cp = subprocess.run(
+                    c_result = run_subprocess(
                         ["git", "commit", "--amend", "--no-edit"],
-                        cwd=str(project_root),
-                        capture_output=True,
-                        text=True,
+                        cwd=project_root,
                         check=False,
                     )
                     commit_action = "amend"
+                    commit_rc = c_result.returncode
+                    commit_out = c_result.stdout
+                    commit_err = c_result.stderr
                 else:
                     title = (task.title if task is not None else "no-task").strip()
                     msg = cfg.git.commit_message_template.format(
                         story_id=story_id or "-", title=title
                     )
                     msg = msg.strip() or f"ralph: {story_id or '-'}"
-                    c_cp = subprocess.run(
+                    c_result = run_subprocess(
                         ["git", "commit", "-m", msg],
-                        cwd=str(project_root),
-                        capture_output=True,
-                        text=True,
+                        cwd=project_root,
                         check=False,
                     )
                     commit_action = "commit"
-                if commit_action not in {"noop"}:
-                    commit_rc = int(c_cp.returncode)
-                    commit_out = c_cp.stdout or ""
-                    commit_err = c_cp.stderr or ""
+                    commit_rc = c_result.returncode
+                    commit_out = c_result.stdout
+                    commit_err = c_result.stderr
             except Exception as e:
                 commit_action = "error"
                 commit_rc = 1
@@ -1961,8 +1944,8 @@ def run_iteration(
         done_delta or (head_after != head_before) or (not repo_clean) or blocked_now
     )
 
-    stdout_text = _coerce_text(cp.stdout)
-    stderr_text = _coerce_text(cp.stderr)
+    stdout_text = _coerce_text(result.stdout)
+    stderr_text = _coerce_text(result.stderr)
     combined_output = stdout_text + "\n" + stderr_text
     exit_signal_raw = parse_exit_signal(combined_output)
     exit_signal = exit_signal_raw
@@ -2039,7 +2022,7 @@ def run_iteration(
         f"timeout_seconds: {timeout}\n"
         f"timed_out: {str(timed_out).lower()}\n"
         f"duration_seconds: {duration_s:.2f}\n"
-        f"return_code: {cp.returncode}\n"
+        f"return_code: {result.returncode}\n"
         f"repo_clean: {str(repo_clean).lower()}\n"
         f"exit_signal_raw: {exit_signal_raw}\n"
         f"exit_signal_effective: {exit_signal}\n"
@@ -2083,7 +2066,7 @@ def run_iteration(
             "story_id": story_id,
             "mode": resolved_mode,
             "duration_seconds": round(duration_s, 2),
-            "return_code": int(cp.returncode),
+            "return_code": int(result.returncode),
             "exit_signal_raw": exit_signal_raw,
             "exit_signal_effective": exit_signal,
             "repo_clean": bool(repo_clean),
@@ -2147,7 +2130,7 @@ def run_iteration(
                 "review_ok": review_ok,
                 "blocked": blocked_now,
                 "exit_signal": exit_signal,
-                "return_code": int(cp.returncode),
+                "return_code": int(result.returncode),
                 "prompt_hash": prompt_hash,
                 "branch": branch_label,
                 "log_path": str(log_path),
@@ -2165,7 +2148,7 @@ def run_iteration(
         agent=agent,
         story_id=story_id,
         exit_signal=exit_signal,
-        return_code=int(cp.returncode),
+        return_code=int(result.returncode),
         log_path=log_path,
         progress_made=progress_made,
         no_progress_streak=int(state.get("noProgressStreak", 0)),
