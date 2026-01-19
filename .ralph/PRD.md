@@ -7,7 +7,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
 
 ## Tasks
 
-- [ ] Add loop mode config schema + parsing
+- [-] Add loop mode config schema + parsing
   - Parse `loop.mode` and `loop.modes.*` into new config types (no breaking changes).
   - Provide safe defaults when modes are absent or incomplete.
   - Unknown mode names produce a clear config error.
@@ -66,3 +66,27 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Track per-area failures and tighten gate requirements for risky areas.
   - Mixed-change iterations follow the strictest path.
   - `uv run pytest -q tests/test_adaptive_rigor.py` passes.
+
+- [ ] Fix story_id=None infinite loop bug
+  - When all tasks are blocked/done, Ralph loops with `story_id=None` instead of exiting.
+  - Add check in `src/ralph_gold/loop.py` to exit cleanly when no tasks available.
+  - Exit with code 0 (success) when all tasks done, code 1 when all blocked.
+  - Add test: `uv run pytest -q tests/test_loop_exit_conditions.py` passes.
+
+- [ ] Improve PRD template with context and task breakdown guidance
+  - Update `src/ralph_gold/templates/PRD.md` with examples of good vs bad tasks.
+  - Add guidance: "Break tasks into 5-15 minute iterations with clear acceptance criteria".
+  - Include example tasks showing proper granularity and specificity.
+  - Template should guide users to create actionable, testable tasks.
+  - `uv run pytest -q tests/test_templates.py` passes (verify template exists).
+
+- [ ] Add task breakdown validator to `ralph plan`
+  - Detect vague tasks (e.g., "Define structure", "Implement feature") during plan generation.
+  - Warn when tasks lack specific acceptance criteria or test commands.
+  - Suggest breaking down tasks >30 lines of acceptance criteria.
+  - Add `--strict` flag to fail on vague tasks.
+  - `uv run pytest -q tests/test_plan_validation.py` passes.
+
+## Legacy Tracker
+
+- [x] Define the project structure and scaffolding
