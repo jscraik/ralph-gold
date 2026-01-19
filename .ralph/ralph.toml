@@ -7,7 +7,7 @@ runner_timeout_seconds = 120
 
 [files]
 # All paths are relative to project root
-prd = ".ralph/prd.json"
+prd = ".ralph/PRD.md"
 progress = ".ralph/progress.md"
 prompt = ".ralph/PROMPT.md"
 agents = ".ralph/AGENTS.md"
