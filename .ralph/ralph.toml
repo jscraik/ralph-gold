@@ -10,6 +10,7 @@ prd = ".ralph/prd.json"
 progress = ".ralph/progress.md"
 prompt = ".ralph/PROMPT.md"
 agents = ".ralph/AGENTS.md"
+specs_dir = ".spec"
 
 [gates]
 # Optional: commands to run after each iteration.
