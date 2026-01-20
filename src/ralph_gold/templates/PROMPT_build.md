@@ -14,6 +14,28 @@ Rules:
 - **Implement the entire solution** in one iteration. Don't design and then wait—design AND implement.
 - Your task acceptance criteria are your complete authority to proceed with file changes.
 
+## Evidence Discipline (REQUIRED)
+
+You MUST provide evidence for ALL changes. Format:
+
+**Evidence**: <file-path>:<line-range>
+**Evidence**: <command-output>
+**Evidence**: <test-result>
+
+### Required Evidence Types
+1. **Code changes**: `src/file.py:42-47` (specific lines)
+2. **Commands**: Show command + output (abbreviated to 3 lines max)
+3. **Tests**: `pytest tests/file.py - X passed, Y failed`
+
+### Before Final Output
+Check your work:
+- [ ] Every file change cited with line numbers
+- [ ] Every command run with output shown
+- [ ] All tests pass with evidence
+- [ ] No claims without supporting evidence
+
+If you cannot provide evidence, state: "Unable to verify: <reason>"
+
 Workflow:
 1) Read Memory Files in order.
 2) Re-state the task acceptance criteria.

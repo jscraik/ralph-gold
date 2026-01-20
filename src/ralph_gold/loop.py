@@ -15,12 +15,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
+from .authorization import load_authorization_checker
 from .config import Config, LoopModeConfig, RunnerConfig, load_config
+from .evidence import EvidenceReceipt, extract_evidence
 from .prd import SelectedTask
 from .receipts import CommandReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .subprocess_helper import SubprocessResult, run_subprocess
 from .trackers import make_tracker
+
+logger = logging.getLogger(__name__)
 
 EXIT_RE = re.compile(r"EXIT_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
 JUDGE_RE = re.compile(r"JUDGE_SIGNAL:\s*(true|false)\s*$", re.IGNORECASE | re.MULTILINE)
@@ -79,6 +83,7 @@ class IterationResult:
     receipts_dir: Optional[str] = None
     context_dir: Optional[str] = None
     task_title: Optional[str] = None
+    evidence_count: int = 0  # Number of evidence citations extracted
 
 
 @dataclass
@@ -1424,6 +1429,15 @@ def run_iteration(
     if task is not None:
         anchor_text = _build_anchor(task, project_root)
         anchor_path = context_dir / "ANCHOR.md"
+
+        # Authorization check (soft warning only)
+        auth_checker = load_authorization_checker(project_root, cfg.authorization.permissions_file)
+        runner_cfg = _get_runner(cfg, agent)
+        allowed, reason = auth_checker.check_write_permission(anchor_path, runner_cfg.argv)
+        if not allowed:
+            logger.warning(f"Authorization check failed for {anchor_path}: {reason}")
+        # Continue anyway - this is soft enforcement initially
+
         anchor_path.write_text(anchor_text + "\n", encoding="utf-8")
         write_receipt(
             receipts_dir / "anchor.json",
@@ -2041,6 +2055,35 @@ def run_iteration(
     exit_signal_raw = parse_exit_signal(combined_output)
     exit_signal = exit_signal_raw
 
+    # Extract evidence citations (Phase 2/3: Regex with optional JSON)
+    evidence_count = 0
+    try:
+        from .evidence import extract_evidence
+        # Note: evidence_json_enabled would come from cfg.prompt if implemented
+        citations = extract_evidence(combined_output, enable_json=False)
+        evidence_count = len(citations)
+
+        # Write evidence receipt if citations found
+        if citations and receipts_dir:
+            receipt = EvidenceReceipt(
+                attempt_id=attempt_id,
+                timestamp=iso_utc(),
+                citations=citations,
+                raw_output_hash=_hash_text(combined_output),
+                metadata={
+                    "iteration": iteration,
+                    "agent": agent,
+                    "story_id": story_id,
+                },
+            )
+            write_receipt(
+                receipts_dir / "evidence.json",
+                receipt._to_command_receipt(),
+            )
+    except Exception as e:
+        # Evidence extraction is non-blocking
+        logger.debug(f"Evidence extraction failed: {e}")
+
     # Enforce exit constraints at orchestrator level.
     try:
         tracker_done = tracker.all_done()
@@ -2252,6 +2295,7 @@ def run_iteration(
         receipts_dir=str(receipts_dir),
         context_dir=str(context_dir),
         task_title=task_title,
+        evidence_count=evidence_count,
     )
 
 

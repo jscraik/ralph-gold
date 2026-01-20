@@ -316,6 +316,15 @@ class OutputControlConfig:
 
 
 @dataclass(frozen=True)
+class AuthorizationConfig:
+    """Configuration for file write authorization."""
+
+    enabled: bool = False
+    fallback_to_full_auto: bool = False
+    permissions_file: str = ".ralph/permissions.json"
+
+
+@dataclass(frozen=True)
 class Config:
     loop: LoopConfig
     files: FilesConfig
@@ -331,6 +340,7 @@ class Config:
     progress: ProgressConfig = field(default_factory=ProgressConfig)
     templates: TemplatesConfig = field(default_factory=TemplatesConfig)
     output: OutputControlConfig = field(default_factory=OutputControlConfig)
+    authorization: AuthorizationConfig = field(default_factory=AuthorizationConfig)
 
 
 # -------------------------
@@ -948,6 +958,17 @@ def load_config(project_root: Path) -> Config:
         format=output_format,
     )
 
+    # Parse authorization configuration
+    auth_raw = data.get("authorization", {}) or {}
+    if not isinstance(auth_raw, dict):
+        auth_raw = {}
+
+    authorization = AuthorizationConfig(
+        enabled=_coerce_bool(auth_raw.get("enabled"), False),
+        fallback_to_full_auto=_coerce_bool(auth_raw.get("fallback_to_full_auto"), False),
+        permissions_file=str(auth_raw.get("permissions_file", ".ralph/permissions.json")),
+    )
+
     return Config(
         loop=loop,
         files=files,
@@ -963,4 +984,5 @@ def load_config(project_root: Path) -> Config:
         progress=progress,
         templates=templates,
         output=output,
+        authorization=authorization,
     )

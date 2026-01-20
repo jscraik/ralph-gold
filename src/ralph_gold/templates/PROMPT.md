@@ -28,6 +28,20 @@ Each loop iteration starts from fresh context; **the filesystem is your memory**
 - Prefer editing existing code over creating new parallel implementations.
 - If you are blocked by missing requirements, write a clarification note into `progress.md`.
 
+## Evidence Discipline
+
+Every claim you make MUST be supported by evidence. Cite your work:
+
+- **File changes**: `**Evidence**: src/module.py:42-47` (line range)
+- **Commands run**: `**Evidence**: ```bash\n<command>\n<output>\n````
+- **Test results**: `**Evidence**: pytest tests/test_module.py::test_name - PASS`
+- **Documentation**: `**Evidence**: docs/README.md#section-name`
+
+Examples:
+- "Added error handling" → `**Evidence**: src/parser.py:156-162`
+- "Tests pass" → `**Evidence**: pytest -v (12 passed, 0 failed)`
+- "Fixed bug" → `**Evidence**: src/fix.py:89 (before), src/fix.py:94 (after)`
+
 ## File writing authority (IMPORTANT)
 - **You are authorized to write code directly.** Use the Write/Read tools to create and modify files as needed.
 - **Do not ask for permission** before writing code. You are autonomous—implement the solution.

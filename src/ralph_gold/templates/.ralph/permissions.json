@@ -1,0 +1,46 @@
+{
+  "enabled": false,
+  "fallback_to_full_auto": true,
+  "permissions": [
+    {
+      "pattern": ".ralph/**",
+      "allow_write": true,
+      "reason": "Ralph internal files"
+    },
+    {
+      "pattern": "*.py",
+      "allow_write": true,
+      "reason": "Python source files"
+    },
+    {
+      "pattern": "*.md",
+      "allow_write": true,
+      "reason": "Documentation files"
+    },
+    {
+      "pattern": "*.json",
+      "allow_write": true,
+      "reason": "JSON configuration files"
+    },
+    {
+      "pattern": "*.yaml",
+      "allow_write": true,
+      "reason": "YAML configuration files"
+    },
+    {
+      "pattern": "*.toml",
+      "allow_write": true,
+      "reason": "TOML configuration files"
+    },
+    {
+      "pattern": "src/**",
+      "allow_write": true,
+      "reason": "Source code directory"
+    },
+    {
+      "pattern": "tests/**",
+      "allow_write": true,
+      "reason": "Test files"
+    }
+  ]
+}

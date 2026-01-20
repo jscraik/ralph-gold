@@ -98,6 +98,8 @@ def init_project(
         ("AUDIENCE_JTBD.md", ".ralph/AUDIENCE_JTBD.md"),
         ("loop.sh", ".ralph/loop.sh"),
         (ralph_template, ".ralph/ralph.toml"),
+        # Authorization artifacts
+        (".ralph/permissions.json", ".ralph/permissions.json"),
     ]
 
     # Add task tracker files based on format
