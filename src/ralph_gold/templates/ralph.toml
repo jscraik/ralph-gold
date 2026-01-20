@@ -10,16 +10,25 @@ max_iterations = 20
 no_progress_limit = 3
 rate_limit_per_hour = 0
 sleep_seconds_between_iters = 0
-runner_timeout_seconds = 120
+runner_timeout_seconds = 300
 
 # Backstop: mark a task BLOCKED after N failed attempts (0 disables)
 max_attempts_per_task = 3
 skip_blocked_tasks = true
 mode = "speed"
 
+[prompt]
+# Control spec file inclusion to prevent PROJECT_MEMORY bloat
+enable_limits = true
+max_specs_files = 5           # Max number of spec files to include
+max_specs_chars = 30000       # Max total characters across all specs
+max_single_spec_chars = 15000 # Max characters for a single spec file
+truncate_long_specs = true    # Truncate oversized specs vs excluding them
+specs_inclusion_order = "sorted"  # sorted|recency|manual
+
 [loop.modes.speed]
 max_iterations = 20
-runner_timeout_seconds = 120
+runner_timeout_seconds = 300
 
 [loop.modes.quality]
 max_iterations = 50
