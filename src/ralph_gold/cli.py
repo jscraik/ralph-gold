@@ -2008,7 +2008,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_init.add_argument(
         "--format",
-        choices=["markdown", "json", "yaml"],
+        choices=["markdown", "yaml"],
         default=None,
         help="Task tracker format (default: markdown)",
     )

@@ -1,11 +1,14 @@
 """Tests for enhanced gate functionality (pre-commit hooks, fail-fast, output modes)."""
 
+import subprocess
 from pathlib import Path
-from ralph_gold.config import GatesConfig, LlmJudgeConfig
+from ralph_gold.config import GatesConfig, GatesSmartConfig, LlmJudgeConfig
 from ralph_gold.loop import (
     _discover_precommit_hook,
     _truncate_output,
     _format_gate_results,
+    _get_changed_files,
+    _should_skip_gates,
     GateResult,
     run_gates,
 )
@@ -225,9 +228,207 @@ def test_run_gates_no_fail_fast(tmp_path: Path):
     )
     
     ok, results = run_gates(tmp_path, [str(fail_script), str(pass_script)], cfg)
-    
+
     assert not ok
     # Should have 2 results (ran both)
     assert len(results) == 2
     assert results[0].return_code != 0
     assert results[1].return_code == 0
+
+
+# ----------------------------------------------------------------------
+# Smart Gate Filtering Tests
+# ----------------------------------------------------------------------
+
+
+def test_should_skip_gates_all_match():
+    """Test that gates are skipped when all files match skip patterns."""
+    project_root = Path("/project")
+    changed_files = [project_root / "README.md", project_root / "docs/guide.md"]
+    skip_patterns = ["**/*.md"]
+
+    result = _should_skip_gates(changed_files, skip_patterns, project_root)
+    assert result is True
+
+
+def test_should_skip_gates_partial_match():
+    """Test that gates run when some files don't match skip patterns."""
+    project_root = Path("/project")
+    changed_files = [project_root / "README.md", project_root / "src/main.py"]
+    skip_patterns = ["**/*.md"]
+
+    result = _should_skip_gates(changed_files, skip_patterns, project_root)
+    assert result is False
+
+
+def test_should_skip_gates_no_match():
+    """Test that gates run when no files match skip patterns."""
+    project_root = Path("/project")
+    changed_files = [project_root / "src/main.py", project_root / "src/utils.py"]
+    skip_patterns = ["**/*.md"]
+
+    result = _should_skip_gates(changed_files, skip_patterns, project_root)
+    assert result is False
+
+
+def test_should_skip_gates_empty_patterns():
+    """Test that gates run when no skip patterns are configured."""
+    project_root = Path("/project")
+    changed_files = [project_root / "README.md"]
+    skip_patterns = []
+
+    result = _should_skip_gates(changed_files, skip_patterns, project_root)
+    assert result is False
+
+
+def test_should_skip_gates_multiple_patterns():
+    """Test that gates are skipped when files match any of multiple patterns."""
+    project_root = Path("/project")
+    changed_files = [
+        project_root / "README.md",
+        project_root / "pyproject.toml",
+        project_root / "docs/guide.md",
+    ]
+    skip_patterns = ["**/*.md", "**/*.toml"]
+
+    result = _should_skip_gates(changed_files, skip_patterns, project_root)
+    assert result is True
+
+
+def test_should_skip_gates_wildcard_pattern():
+    """Test that wildcard patterns match files in subdirectories."""
+    project_root = Path("/project")
+    changed_files = [
+        project_root / "docs/api/guide.md",
+        project_root / "src/README.md",
+    ]
+    skip_patterns = ["**/*.md"]
+
+    result = _should_skip_gates(changed_files, skip_patterns, project_root)
+    assert result is True
+
+
+def test_smart_gate_filters_with_git_repo(tmp_path: Path):
+    """Test that smart gates are skipped when only markdown files change."""
+
+    # Initialize a git repo
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True, capture_output=True)
+
+    # Create and commit a markdown file
+    readme = tmp_path / "README.md"
+    readme.write_text("# Test Project")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True, capture_output=True)
+
+    # Create a pass gate script
+    pass_script = tmp_path / "pass.sh"
+    pass_script.write_text("#!/bin/sh\necho 'gate ran'\n")
+    pass_script.chmod(0o755)
+
+    # Create config with smart gates enabled
+    cfg = GatesConfig(
+        commands=[str(pass_script)],
+        llm_judge=LlmJudgeConfig(),
+        precommit_hook=False,
+        fail_fast=True,
+        output_mode="summary",
+        max_output_lines=50,
+        smart=GatesSmartConfig(enabled=True, skip_gates_for=["**/*.md"]),
+    )
+
+    # Modify README.md (should skip gates)
+    readme.write_text("# Test Project - Updated")
+
+    ok, results = run_gates(tmp_path, [str(pass_script)], cfg)
+
+    # Gates should be skipped (True, empty results)
+    assert ok is True
+    assert len(results) == 0
+
+
+def test_smart_gate_runs_for_code_changes(tmp_path: Path):
+    """Test that gates run when code files change even with smart filtering enabled."""
+    import subprocess
+    from ralph_gold.config import GatesSmartConfig
+
+    # Initialize a git repo
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True, capture_output=True)
+
+    # Create and commit initial files
+    readme = tmp_path / "README.md"
+    readme.write_text("# Test Project")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True, capture_output=True)
+
+    # Create a pass gate script
+    pass_script = tmp_path / "pass.sh"
+    pass_script.write_text("#!/bin/sh\necho 'gate ran'\n")
+    pass_script.chmod(0o755)
+
+    # Create config with smart gates enabled
+    cfg = GatesConfig(
+        commands=[str(pass_script)],
+        llm_judge=LlmJudgeConfig(),
+        precommit_hook=False,
+        fail_fast=True,
+        output_mode="summary",
+        max_output_lines=50,
+        smart=GatesSmartConfig(enabled=True, skip_gates_for=["**/*.md"]),
+    )
+
+    # Create a Python file (should run gates)
+    main_py = tmp_path / "main.py"
+    main_py.write_text("print('hello')")
+
+    ok, results = run_gates(tmp_path, [str(pass_script)], cfg)
+
+    # Gates should run (gate should pass)
+    assert ok is True
+    assert len(results) == 1
+    assert results[0].return_code == 0
+
+
+def test_smart_gate_disabled_by_default(tmp_path: Path):
+    """Test that smart filtering is opt-in (disabled by default)."""
+    import subprocess
+
+    # Initialize a git repo
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True, capture_output=True)
+
+    # Create and commit initial files
+    readme = tmp_path / "README.md"
+    readme.write_text("# Test Project")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True, capture_output=True)
+
+    # Create a pass gate script
+    pass_script = tmp_path / "pass.sh"
+    pass_script.write_text("#!/bin/sh\necho 'gate ran'\n")
+    pass_script.chmod(0o755)
+
+    # Create config with smart gates DISABLED (default)
+    cfg = GatesConfig(
+        commands=[str(pass_script)],
+        llm_judge=LlmJudgeConfig(),
+        precommit_hook=False,
+        fail_fast=True,
+        output_mode="summary",
+        max_output_lines=50,
+        smart=GatesSmartConfig(enabled=False, skip_gates_for=["**/*.md"]),
+    )
+
+    # Modify README.md (should NOT skip gates when disabled)
+    readme.write_text("# Test Project - Updated")
+
+    ok, results = run_gates(tmp_path, [str(pass_script)], cfg)
+
+    # Gates should run (smart filtering disabled)
+    assert ok is True
+    assert len(results) == 1
+    assert results[0].return_code == 0

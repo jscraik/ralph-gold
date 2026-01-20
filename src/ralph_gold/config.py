@@ -560,9 +560,7 @@ def load_config(project_root: Path) -> Config:
             files.prd,
             [
                 ".ralph/PRD.md",
-                ".ralph/prd.json",
                 "PRD.md",
-                "prd.json",
                 "IMPLEMENTATION_PLAN.md",
             ],
         ),

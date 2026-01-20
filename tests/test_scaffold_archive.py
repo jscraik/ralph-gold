@@ -7,11 +7,11 @@ from ralph_gold.scaffold import init_project
 
 def test_init_without_force_preserves_existing_files(tmp_path: Path) -> None:
     """Test that init without --force preserves existing files."""
-    # Create existing prd.json
+    # Create existing PRD.md
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()
-    prd_file = ralph_dir / "prd.json"
-    prd_file.write_text('{"tasks": [{"id": "old-task"}]}')
+    prd_file = ralph_dir / "PRD.md"
+    prd_file.write_text("# Old PRD\n\n- [ ] old-task")
 
     # Run init without force
     archived = init_project(tmp_path, force=False)
@@ -29,18 +29,18 @@ def test_init_with_force_archives_existing_files(tmp_path: Path) -> None:
     # Create existing files
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()
-    prd_file = ralph_dir / "prd.json"
-    prd_file.write_text('{"tasks": [{"id": "old-task"}]}')
+    prd_file = ralph_dir / "PRD.md"
+    prd_file.write_text("# Old PRD\n\n- [ ] old-task")
 
     prompt_file = ralph_dir / "PROMPT.md"
     prompt_file.write_text("# Old prompt")
 
     # Run init with force
-    archived = init_project(tmp_path, force=True, format_type="json")
+    archived = init_project(tmp_path, force=True, format_type="markdown")
 
     # Should archive files
     assert len(archived) > 0
-    assert ".ralph/prd.json" in archived
+    assert ".ralph/PRD.md" in archived
     assert ".ralph/PROMPT.md" in archived
 
     # Archive directory should exist
@@ -53,7 +53,7 @@ def test_init_with_force_archives_existing_files(tmp_path: Path) -> None:
     assert archive_subdirs[0].is_dir()
 
     # Archived files should exist
-    archived_prd = archive_subdirs[0] / ".ralph" / "prd.json"
+    archived_prd = archive_subdirs[0] / ".ralph" / "PRD.md"
     assert archived_prd.exists()
     assert "old-task" in archived_prd.read_text()
 
@@ -69,8 +69,8 @@ def test_init_archives_preserve_directory_structure(tmp_path: Path) -> None:
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()
 
-    prd_file = ralph_dir / "prd.json"
-    prd_file.write_text('{"tasks": []}')
+    prd_file = ralph_dir / "PRD.md"
+    prd_file.write_text("# Old PRD")
 
     # Root-level yaml file
     yaml_file = tmp_path / "tasks.yaml"
@@ -80,7 +80,7 @@ def test_init_archives_preserve_directory_structure(tmp_path: Path) -> None:
     archived = init_project(tmp_path, force=True, format_type="yaml")
 
     # Both files should be archived
-    assert ".ralph/prd.json" in archived or "tasks.yaml" in archived
+    assert ".ralph/PRD.md" in archived or "tasks.yaml" in archived
 
     # Check archive structure
     archive_dir = ralph_dir / "archive"
@@ -98,19 +98,19 @@ def test_init_multiple_runs_create_separate_archives(tmp_path: Path) -> None:
 
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()
-    prd_file = ralph_dir / "prd.json"
+    prd_file = ralph_dir / "PRD.md"
 
     # First init with force
-    prd_file.write_text('{"version": 1}')
-    archived1 = init_project(tmp_path, force=True, format_type="json")
+    prd_file.write_text("# Version 1")
+    archived1 = init_project(tmp_path, force=True, format_type="markdown")
     assert len(archived1) > 0
 
     # Wait to ensure different timestamp
     time.sleep(1.1)
 
     # Second init with force (different content)
-    prd_file.write_text('{"version": 2}')
-    archived2 = init_project(tmp_path, force=True, format_type="json")
+    prd_file.write_text("# Version 2")
+    archived2 = init_project(tmp_path, force=True, format_type="markdown")
     assert len(archived2) > 0
 
     # Should have two separate archive directories
@@ -119,13 +119,13 @@ def test_init_multiple_runs_create_separate_archives(tmp_path: Path) -> None:
     assert len(archive_subdirs) == 2
 
     # Both archives should exist with different content
-    arch1_prd = archive_subdirs[0] / ".ralph" / "prd.json"
-    arch2_prd = archive_subdirs[1] / ".ralph" / "prd.json"
+    arch1_prd = archive_subdirs[0] / ".ralph" / "PRD.md"
+    arch2_prd = archive_subdirs[1] / ".ralph" / "PRD.md"
 
     assert arch1_prd.exists()
     assert arch2_prd.exists()
-    assert '"version": 1' in arch1_prd.read_text()
-    assert '"version": 2' in arch2_prd.read_text()
+    assert "Version 1" in arch1_prd.read_text()
+    assert "Version 2" in arch2_prd.read_text()
 
 
 def test_init_handles_missing_files_gracefully(tmp_path: Path) -> None:
@@ -137,7 +137,7 @@ def test_init_handles_missing_files_gracefully(tmp_path: Path) -> None:
     prompt_file.write_text("# Old prompt")
 
     # Run init with force
-    archived = init_project(tmp_path, force=True, format_type="json")
+    archived = init_project(tmp_path, force=True, format_type="markdown")
 
     # Should only archive the file that existed
     assert len(archived) >= 1

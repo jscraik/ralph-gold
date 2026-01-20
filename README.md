@@ -257,14 +257,6 @@ Put near the top:
 Branch: ralph/my-feature
 ```
 
-### JSON (`.ralph/prd.json`)
-
-Use:
-
-```json
-{"branchName": "ralph/my-feature", "stories": [...]}
-```
-
 If no branch is specified, a fallback branch is generated from the repo name using `branch_prefix`.
 
 ---
@@ -305,7 +297,6 @@ The `-` means "read prompt from stdin".
 Built-ins:
 
 - **Markdown tracker**: checkbox tasks in `PRD.md`
-- **JSON tracker**: `prd.json`
 - **YAML tracker**: `tasks.yaml` with parallel execution support
 
 Select via:
@@ -359,14 +350,8 @@ ralph init --format yaml
 **Convert existing PRD to YAML:**
 
 ```bash
-# From JSON
-ralph convert .ralph/prd.json tasks.yaml
-
 # From Markdown
 ralph convert .ralph/PRD.md tasks.yaml
-
-# With automatic group inference
-ralph convert .ralph/prd.json tasks.yaml --infer-groups
 ```
 
 **Benefits:**
@@ -406,34 +391,6 @@ Add a `Depends on:` line in the task's acceptance criteria with task numbers:
   - Depends on: 1, 2
   - User can create posts
   - User can view their posts
-```
-
-**JSON tracker (`prd.json`):**
-
-Add a `depends_on` array with task IDs:
-
-```json
-{
-  "stories": [
-    {
-      "id": "1",
-      "title": "Setup database schema",
-      "acceptance": ["Create users table", "Create posts table"]
-    },
-    {
-      "id": "2",
-      "title": "Implement user authentication",
-      "depends_on": ["1"],
-      "acceptance": ["User can register", "User can login"]
-    },
-    {
-      "id": "3",
-      "title": "Create post API",
-      "depends_on": ["1", "2"],
-      "acceptance": ["User can create posts"]
-    }
-  ]
-}
 ```
 
 **YAML tracker (`tasks.yaml`):**

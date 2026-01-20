@@ -69,7 +69,7 @@ def init_project(
     Args:
         project_root: Root directory of the project
         force: If True, overwrite existing files (after archiving)
-        format_type: Task tracker format ("markdown", "json", "yaml", or None for default)
+        format_type: Task tracker format ("markdown", "yaml", or None for markdown default)
         solo: If True, use the solo-optimized config template
 
     Returns:
@@ -103,16 +103,9 @@ def init_project(
     # Add task tracker files based on format
     if format_type == "yaml":
         files.append(("tasks.yaml", "tasks.yaml"))
-    elif format_type == "json":
-        files.append(("prd.json", ".ralph/prd.json"))
     else:
-        # Default to markdown, and include both for compatibility
-        files.extend(
-            [
-                ("PRD.md", ".ralph/PRD.md"),
-                ("prd.json", ".ralph/prd.json"),
-            ]
-        )
+        # Default to markdown (PRD.md)
+        files.append(("PRD.md", ".ralph/PRD.md"))
 
     # Archive existing files if force=True
     archived = []
@@ -132,8 +125,6 @@ def init_project(
                 dst.chmod(0o755)
             except Exception:
                 pass
-
-    return archived
 
     # Update ralph.toml to use the correct tracker format
     if format_type:
@@ -155,6 +146,8 @@ def init_project(
             tpl_specs_readme.read_text(encoding="utf-8"), encoding="utf-8"
         )
 
+    return archived
+
 
 def _update_config_for_format(project_root: Path, format_type: str) -> None:
     """Update ralph.toml to use the specified tracker format.
@@ -175,10 +168,7 @@ def _update_config_for_format(project_root: Path, format_type: str) -> None:
     if format_type == "yaml":
         prd_path = "tasks.yaml"
         tracker_kind = "yaml"
-    elif format_type == "json":
-        prd_path = ".ralph/prd.json"
-        tracker_kind = "json"
-    else:  # markdown
+    else:  # markdown (default)
         prd_path = ".ralph/PRD.md"
         tracker_kind = "markdown"
 

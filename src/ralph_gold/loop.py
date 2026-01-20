@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import json
 import logging
 import os
@@ -670,10 +671,100 @@ def _run_gate_command(
     )
 
 
+def _get_changed_files(project_root: Path) -> List[Path]:
+    """Get list of changed files from git diff.
+
+    Uses git diff --name-only to get changed files.
+
+    Args:
+        project_root: Project root directory
+
+    Returns:
+        List of changed file paths (absolute paths)
+    """
+    result = run_subprocess(
+        ["git", "diff", "--name-only"],
+        cwd=project_root,
+        check=False,
+    )
+    changed: List[Path] = []
+    for line in result.stdout.strip().split('\n'):
+        if line:
+            changed.append(project_root / line)
+    return changed
+
+
+def _should_skip_gates(
+    changed_files: List[Path], skip_patterns: List[str], project_root: Path
+) -> bool:
+    """Check if gates should be skipped based on changed files.
+
+    Gates are skipped only if ALL changed files match at least one
+    of the skip patterns. If any file doesn't match, gates must run.
+
+    Args:
+        changed_files: List of changed file paths (absolute paths)
+        skip_patterns: List of glob patterns (e.g., ["**/*.md", "**/*.toml"])
+        project_root: Project root directory (for path normalization)
+
+    Returns:
+        True if gates should be skipped, False otherwise
+    """
+    if not skip_patterns:
+        return False
+
+    if not changed_files:
+        return False
+
+    # Check if ALL changed files match skip patterns
+    # If ANY file doesn't match, gates must run
+    for file_path in changed_files:
+        # Convert absolute path to relative for pattern matching
+        try:
+            rel_path = file_path.relative_to(project_root)
+        except ValueError:
+            # File is outside project root, don't skip
+            return False
+
+        # Convert to string for pattern matching
+        rel_path_str = str(rel_path)
+
+        # Check if the file matches any of the skip patterns
+        matched = False
+        for pattern in skip_patterns:
+            # Handle ** patterns by converting to fnmatch-compatible pattern
+            # **/*.md -> *.md (for any file) or **/*.md (for subdirectories)
+            if "**" in pattern:
+                # For recursive patterns, check both the full path and filename
+                simple_pattern = pattern.replace("**/", "")
+                if (fnmatch.fnmatchcase(rel_path_str, simple_pattern) or
+                    fnmatch.fnmatchcase(rel_path_str, pattern) or
+                    fnmatch.fnmatchcase(rel_path.name, simple_pattern)):
+                    matched = True
+                    break
+            elif fnmatch.fnmatchcase(rel_path_str, pattern):
+                matched = True
+                break
+
+        if not matched:
+            return False  # At least one file doesn't match skip patterns
+
+    return True  # All files match skip patterns
+
+
 def run_gates(
     project_root: Path, commands: List[str], cfg: GatesConfig
 ) -> Tuple[bool, List[GateResult]]:
     """Run all configured gates with fail-fast and pre-commit hook support."""
+
+    # Smart gate filtering: skip gates when only matching files change
+    if cfg.smart.enabled and cfg.smart.skip_gates_for:
+        changed_files = _get_changed_files(project_root)
+        if changed_files and _should_skip_gates(
+            changed_files, cfg.smart.skip_gates_for, project_root
+        ):
+            # All changed files match skip patterns - skip all gates
+            return True, []
 
     all_commands = list(commands)
 
