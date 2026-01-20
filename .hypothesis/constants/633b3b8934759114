@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/doctor.py
-# hypothesis_version: 6.150.2
-
-[200, ' && ', '--help', '--version', '.husky', '.ralph', 'Cargo.toml', '[gates]', ']\n', 'a', 'actions_taken', 'bun', 'bun.lockb', 'check', 'claude', 'codex', 'commands', 'commands = [', 'commands = [\n', 'copilot', 'fail_fast = true\n', 'gh', 'git', 'go', 'go.mod', 'lint', 'make lint', 'make test', 'mypy', 'node', 'npm', 'package-lock.json', 'package.json', 'pnpm', 'pnpm-lock.yaml', 'pre-commit', 'prek', 'project_type', 'pyproject.toml', 'pytest', 'python', 'ralph.toml', 'ruff', 'rust', 'script_name', 'scripts', 'suggestions', 'test', 'tsc', 'typecheck', 'unknown', 'utf-8', 'uv', 'uv run mypy .', 'uv run pytest -q', 'uv run ruff check .', 'yarn', 'yarn.lock']

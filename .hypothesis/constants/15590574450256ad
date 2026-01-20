@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/templates.py
-# hypothesis_version: 6.150.2
-
-['## tasks', '(\\d+)', '*.json', '.ralph', '1.0', 'Feature: {title}', 'Fix: {title}', 'Refactor: {title}', 'Tests are passing', 'acceptance', 'acceptance_criteria', 'bug-fix', 'builtin', 'description', 'feature', 'high', 'id', 'json', 'kind', 'low', 'markdown', 'md', 'medium', 'metadata', 'name', 'open', 'priority', 'refactor', 'status', 'stories', 'tasks', 'templates', 'title', 'title_template', 'utf-8', 'variables', 'version', 'yaml', 'yml']

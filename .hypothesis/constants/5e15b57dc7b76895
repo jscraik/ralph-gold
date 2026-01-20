@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/diagnostics.py
-# hypothesis_version: 6.150.2
-
-[200, '-lc', '...', '.ralph', '/c', 'Check JSON syntax', 'Check command syntax', 'bash', 'cmd', 'config_exists', 'config_schema', 'diagnostics_error', 'error', 'gates_configured', 'info', 'json/yaml', 'markdown', 'nt', 'prd_exists', 'prd_format', 'prd_structure', 'ralph.toml', 'runners_configured', 'sh', 'toml_syntax', 'utf-8', 'warning']

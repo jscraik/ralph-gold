@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/health.py
-# hypothesis_version: 6.150.2
-
-['/health', 'Content-Length', 'Content-Type', 'Not Found', 'ok', 'status', 'utf-8', 'version']

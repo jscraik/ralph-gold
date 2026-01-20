@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/snapshots.py
-# hypothesis_version: 6.150.2
-
-['(stash@\\{\\d+\\})', '--', '--git-dir', '--porcelain', '-m', '-u', '.', '.ralph', ':!.ralph/', 'HEAD', '^[a-zA-Z0-9_-]+$', 'apply', 'description', 'drop', 'git', 'git_commit', 'git_stash_ref', 'list', 'name', 'push', 'rev-parse', 'snapshots', 'stash', 'state.json', 'state_backup_path', 'status', 'timestamp', 'utf-8', '{}']

@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/stats.py
-# hypothesis_version: 6.150.2
-
-[0.0, '=', 'Attempts', 'Duration Statistics:', 'Failed Iterations', 'Failures', 'Metric', 'Overall Statistics', 'Overall Statistics:', 'Per-Task Statistics', 'Success Rate', 'Successes', 'Task ID', 'Total Iterations', 'Value', 'attempts', 'blocked', 'duration_seconds', 'durations', 'failures', 'gates_ok', 'history', 'story_id', 'successes', 'task_id', 'unknown', 'utf-8', 'w']

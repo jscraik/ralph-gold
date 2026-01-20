@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/trackers/github_issues.py
-# hypothesis_version: 6.150.2
-
-[300, 999999, '&', '.ralph', '/', '2000-01-01T00:00:00', '9999-12-31T23:59:59Z', '?', 'DELETE', 'ERROR', 'GET', 'GITHUB_TOKEN', 'INFO', 'PATCH', 'POST', '^\\s*#{1,6}\\s+', '^group:(.+)$', 'a', 'blocked', 'body', 'cached_at', 'closed', 'created_at', 'default', 'gh_cli', 'github-api.log', 'github_cache.json', 'github_issues', 'issues', 'labels', 'logs', 'milestone', 'name', 'number', 'per_page=100', 'pull_request', 'r', 'ready', 'repo', 'state', 'state=open', 'title', 'w']

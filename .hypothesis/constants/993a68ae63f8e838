@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/scaffold.py
-# hypothesis_version: 6.150.2
-
-[493, '%Y%m%d-%H%M%S', '.ralph', '.ralph/AGENTS.md', '.ralph/FEEDBACK.md', '.ralph/PRD.md', '.ralph/PROMPT.md', '.ralph/loop.sh', '.ralph/prd.json', '.ralph/progress.md', '.ralph/ralph.toml', '.sh', 'AGENTS.md', 'AUDIENCE_JTBD.md', 'FEEDBACK.md', 'PRD.md', 'PROMPT.md', 'PROMPT_build.md', 'PROMPT_judge.md', 'PROMPT_plan.md', 'PROMPT_review.md', 'README.md', '[tracker]', '\\[tracker\\]', 'archive', 'attempts', 'context', 'json', 'logs', 'loop.sh', 'markdown', 'prd.json', 'prd\\s*=\\s*"[^"]*"', 'progress.md', 'ralph.toml', 'ralph_solo.toml', 'receipts', 'specs', 'specs_README.md', 'tasks.yaml', 'templates', 'utf-8', 'yaml']

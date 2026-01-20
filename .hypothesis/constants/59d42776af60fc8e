@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/completion.py
-# hypothesis_version: 6.150.2
-
-['agents', 'bug-fix', 'claude', 'codex', 'copilot', 'feature', 'formats', 'json', 'markdown', 'refactor', 'runners', 'snapshots', 'templates', 'text', 'tracker_formats', 'yaml']

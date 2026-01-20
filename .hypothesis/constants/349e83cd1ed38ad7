@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/github_auth.py
-# hypothesis_version: 6.150.2
-
-[400, 401, 403, 404, '-', '--input', '--version', '-X', '/user', '2022-11-28', 'Accept', 'Authorization', 'DELETE', 'GET', 'GITHUB_TOKEN', 'GhCliAuth()', 'PATCH', 'POST', 'TokenAuth(***)', 'Unknown error', 'User-Agent', 'X-GitHub-Api-Version', '_token', 'api', 'authentication', 'gh', 'gh_cli', 'gho_', 'ghp_', 'ghs_', 'login', 'not found', 'ralph-gold/0.7.0', 'rate limit', 'token', 'unauthorized']

@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/output.py
-# hypothesis_version: 6.150.2
-
-['RALPH_FORMAT', 'RALPH_VERBOSITY', 'error', 'json', 'normal', 'quiet', 'text', 'verbose']

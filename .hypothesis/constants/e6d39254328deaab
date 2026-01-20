@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/trackers.py
-# hypothesis_version: 6.150.2
-
-['--json', '--status', '.yaml', '.yml', ':', '^ID:\\s*(.+)$', '^Priority:\\s*(.+)$', '^Status:\\s*(.+)$', '^Title:\\s*(.+)$', 'auto', 'bd', 'beads', 'blocked', 'closed', 'comment', 'complete', 'completed', 'default', 'done', 'file', 'github', 'github_issues', 'id', 'in_progress', 'json', 'markdown', 'md', 'open', 'priority', 'ready', 'show', 'status', 'title', 'update', 'yaml', 'yml']

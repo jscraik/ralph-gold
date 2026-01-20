@@ -1,4 +1,0 @@
-# file: /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/specs.py
-# hypothesis_version: 6.150.2
-
-['*.md', 'Checked 0 spec files', 'Errors:', 'Warnings:', '^\\s*#{1,6}\\s+\\S', '^\\s*[-*]\\s+\\S', 'readme.md', 'specs', 'utf-8']
