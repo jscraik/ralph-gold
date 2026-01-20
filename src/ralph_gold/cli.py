@@ -79,11 +79,17 @@ class _RalphArgumentParser(argparse.ArgumentParser):
 def cmd_init(args: argparse.Namespace) -> int:
     root = _project_root()
     format_type = getattr(args, "format", None)
+    no_merge_config = getattr(args, "no_merge_config", False)
+    merge_strategy = getattr(args, "merge_strategy", "user_wins")
+
     archived = init_project(
         root,
         force=bool(args.force),
         format_type=format_type,
         solo=bool(getattr(args, "solo", False)),
+        merge_config=not no_merge_config,
+        merge_strategy=merge_strategy,
+        no_merge_config=no_merge_config,
     )
 
     print_output(f"Initialized Ralph files in: {root / '.ralph'}", level="quiet")
@@ -2065,6 +2071,17 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["markdown", "yaml"],
         default=None,
         help="Task tracker format (default: markdown)",
+    )
+    p_init.add_argument(
+        "--no-merge-config",
+        action="store_true",
+        help="Disable config merging on --force (overwrite instead of merge)",
+    )
+    p_init.add_argument(
+        "--merge-strategy",
+        choices=["user_wins", "template_wins", "ask"],
+        default="user_wins",
+        help="Config merge strategy when using --force (default: user_wins)",
     )
     p_init.set_defaults(func=cmd_init)
 

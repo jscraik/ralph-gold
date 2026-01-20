@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import logging
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
+
+from .config_merge import (
+    MergeConfig,
+    merge_existing_config,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _template_dir() -> Path:
@@ -62,6 +70,9 @@ def init_project(
     force: bool = False,
     format_type: str | None = None,
     solo: bool = False,
+    merge_config: bool = True,
+    merge_strategy: str = "user_wins",
+    no_merge_config: bool = False,
 ) -> list[str]:
     """
     Write default Ralph files into .ralph/ (durable memory + config).
@@ -71,6 +82,9 @@ def init_project(
         force: If True, overwrite existing files (after archiving)
         format_type: Task tracker format ("markdown", "yaml", or None for markdown default)
         solo: If True, use the solo-optimized config template
+        merge_config: If True, merge existing config with new template (default: True)
+        merge_strategy: Merge strategy - "user_wins", "template_wins", or "ask" (default: "user_wins")
+        no_merge_config: If True, disable config merging (override for --force)
 
     Returns:
         List of archived file paths (empty if nothing was archived)
@@ -119,7 +133,28 @@ def init_project(
         dst = project_root / dst_name
         if dst.exists() and not force:
             continue
-        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+        # Special handling for ralph.toml - merge instead of overwrite
+        if dst_name == ".ralph/ralph.toml" and force and dst.exists():
+            should_merge = merge_config and not no_merge_config
+            if should_merge:
+                try:
+                    # Create merge configuration
+                    merge_cfg = MergeConfig(strategy=merge_strategy)
+                    # Merge existing config with new template
+                    merged_text = merge_existing_config(project_root, src, merge_cfg)
+                    # Write merged config
+                    dst.write_text(merged_text, encoding="utf-8")
+                    logger.info(f"Merged existing config with new template (strategy: {merge_strategy})")
+                except Exception as e:
+                    logger.warning(f"Config merge failed: {e}, falling back to overwrite")
+                    dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            else:
+                # No merge - simple overwrite
+                dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            # Normal file write
+            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
         # Make convenience scripts executable (best effort).
         if dst_name.endswith(".sh"):

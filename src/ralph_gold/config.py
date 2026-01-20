@@ -365,6 +365,38 @@ class StateConfig:
 
 
 @dataclass(frozen=True)
+class InitConfig:
+    """Configuration for ralph init behavior.
+
+    Attributes:
+        merge_config_on_reinit: Whether to merge config when re-running init (default: true)
+        merge_strategy: Strategy for merging - "user_wins", "template_wins", or "ask" (default: "user_wins")
+        preserve_sections: Config sections never overwritten (user values always kept)
+        merge_sections: Config sections to merge (user values override template)
+    """
+
+    merge_config_on_reinit: bool = True
+    merge_strategy: str = "user_wins"  # user_wins|template_wins|ask
+    preserve_sections: List[str] = field(
+        default_factory=lambda: [
+            "runners.custom",
+            "tracker.github",
+            "authorization",
+        ]
+    )
+    merge_sections: List[str] = field(
+        default_factory=lambda: [
+            "loop",
+            "gates",
+            "files",
+            "prompt",
+            "state",
+            "output_control",
+        ]
+    )
+
+
+@dataclass(frozen=True)
 class Config:
     loop: LoopConfig
     files: FilesConfig
@@ -383,6 +415,7 @@ class Config:
     prompt: PromptConfig = field(default_factory=PromptConfig)
     state: StateConfig = field(default_factory=StateConfig)
     authorization: AuthorizationConfig = field(default_factory=AuthorizationConfig)
+    init: InitConfig = field(default_factory=InitConfig)
 
 
 # -------------------------
@@ -1038,6 +1071,34 @@ def load_config(project_root: Path) -> Config:
         protect_recent_hours=_coerce_int(state_raw.get("protect_recent_hours"), 1),
     )
 
+    # Parse init configuration
+    init_raw = data.get("init", {}) or {}
+    if not isinstance(init_raw, dict):
+        init_raw = {}
+
+    # Parse preserve_sections list
+    preserve_raw = init_raw.get("preserve_sections", InitConfig().preserve_sections)
+    if isinstance(preserve_raw, list):
+        preserve_sections = [str(x) for x in preserve_raw]
+    else:
+        preserve_sections = InitConfig().preserve_sections
+
+    # Parse merge_sections list
+    merge_raw = init_raw.get("merge_sections", InitConfig().merge_sections)
+    if isinstance(merge_raw, list):
+        merge_sections = [str(x) for x in merge_raw]
+    else:
+        merge_sections = InitConfig().merge_sections
+
+    init = InitConfig(
+        merge_config_on_reinit=_coerce_bool(
+            init_raw.get("merge_config_on_reinit"), True
+        ),
+        merge_strategy=str(init_raw.get("merge_strategy", "user_wins")),
+        preserve_sections=preserve_sections,
+        merge_sections=merge_sections,
+    )
+
     return Config(
         loop=loop,
         files=files,
@@ -1056,4 +1117,5 @@ def load_config(project_root: Path) -> Config:
         prompt=prompt,
         state=state,
         authorization=authorization,
+        init=init,
     )
