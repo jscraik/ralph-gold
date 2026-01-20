@@ -1,8 +1,8 @@
-# Migration Guide: v0.5 to v0.6
+# Migration Guide: v0.7.x to v0.8.0
 
-**Version:** 0.6.0
+**Version:** 0.8.0
 **Release Date:** 2026-01-20
-**Migrating From:** v0.5.x
+**Migrating From:** v0.7.x
 
 ---
 
