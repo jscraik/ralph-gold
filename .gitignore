@@ -57,3 +57,8 @@ htmlcov/
 *.log
 .env
 .env.local
+
+# AI artifacts - transient only
+/ai/tmp/
+/ai/cache/
+/ai/raw/
