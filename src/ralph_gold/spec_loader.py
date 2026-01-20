@@ -86,8 +86,8 @@ def load_specs_with_limits(
     # Check file count limit
     if len(all_specs) > max_specs_files:
         result.warnings.append(
-            f"Found {len(all_specs)} spec files (recommended: {max_specs_files}). "
-            f"Set [prompt].enable_limits = true to apply limits."
+            f"Found {len(all_specs)} spec files (limit: {max_specs_files}). "
+            f"Only the first {max_specs_files} files will be included."
         )
 
     # Load specs with limits

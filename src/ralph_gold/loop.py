@@ -415,6 +415,12 @@ def build_prompt(
         specs_inclusion_order=cfg.prompt.specs_inclusion_order,
     )
 
+    # Display spec warnings to user
+    if spec_result.warnings:
+        logger.warning(f"Spec loading warnings: {len(spec_result.warnings)}")
+        for warning in spec_result.warnings:
+            logger.warning(f"  - {warning}")
+
     # Read spec contents
     specs: List[tuple[str, str]] = []
     for spec_name, _ in spec_result.included:

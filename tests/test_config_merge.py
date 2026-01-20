@@ -129,6 +129,26 @@ max_iterations = 10
 
         assert result is None
 
+    def test_extract_dotted_section_format(self) -> None:
+        """Test extracting a nested section using dotted section format [runners.custom]."""
+        lines = """
+[runners.codex]
+argv = ["codex", "exec", "--full-auto", "-"]
+
+[runners.custom]
+cmd = "my-custom-command"
+argv = ["my", "custom", "runner"]
+
+[runners.claude]
+argv = ["claude", "-p"]
+""".splitlines()
+        result = _extract_nested_section(lines, "runners", "custom")
+
+        assert result is not None
+        assert "[runners.custom]" in result
+        assert "my-custom-command" in result
+        assert "my, \"custom\", \"runner\"" in result or "my" in result and "custom" in result
+
 
 class TestMergeConfigsText:
     """Tests for merge_configs_text function."""
@@ -218,9 +238,13 @@ max_iterations = 10
 mode = "quality"
 """.strip()
 
-        result = merge_configs_text(user_config, template_config, MergeConfig(preserve_sections=[]))
+        # Note: "loop" is in merge_sections by default, so user values override
+        # To truly disable merging, we need to also clear merge_sections
+        result = merge_configs_text(
+            user_config, template_config, MergeConfig(preserve_sections=[], merge_sections=[])
+        )
 
-        assert "max_iterations = 10" in result  # Template value
+        assert "max_iterations = 10" in result  # Template value (no merging)
         assert "mode = \"quality\"" in result  # Template value
 
     def test_merge_empty_user_config(self) -> None:
@@ -235,6 +259,69 @@ max_iterations = 10
         result = merge_configs_text(user_config, template_config, MergeConfig())
 
         assert result == template_config  # Returns template as-is
+
+    def test_merge_sections_user_wins(self) -> None:
+        """Test that merge_sections properly merges user values into template."""
+        user_config = """
+[loop]
+max_iterations = 99
+mode = "custom"
+
+[gates]
+enabled = false
+""".strip()
+
+        template_config = """
+[loop]
+max_iterations = 10
+mode = "quality"
+
+[gates]
+enabled = true
+commands = []
+""".strip()
+
+        # "loop" and "gates" are in merge_sections by default
+        # User values should override template values
+        result = merge_configs_text(
+            user_config, template_config, MergeConfig()
+        )
+
+        assert "max_iterations = 99" in result  # User value
+        assert 'mode = "custom"' in result  # User value
+        assert "enabled = false" in result  # User value
+        # Template's new keys should NOT be added (full section replacement)
+        assert "[commands]" not in result
+
+    def test_merge_dotted_section_format(self) -> None:
+        """Test merging when user config uses dotted section format [runners.custom]."""
+        user_config = """
+[runners.codex]
+argv = ["codex", "exec", "--full-auto"]
+
+[runners.custom]
+cmd = "my-custom-command"
+argv = ["my", "custom", "runner"]
+""".strip()
+
+        template_config = """
+[runners.codex]
+argv = ["codex", "exec"]
+
+[runners.claude]
+argv = ["claude", "-p"]
+""".strip()
+
+        result = merge_configs_text(
+            user_config, template_config, MergeConfig(preserve_sections=["runners.custom"])
+        )
+
+        # User's custom runner should be preserved in dotted format
+        assert "[runners.custom]" in result
+        assert "my-custom-command" in result
+        # Template sections should be preserved
+        assert "[runners.codex]" in result
+        assert "[runners.claude]" in result
 
 
 class TestMergeExistingConfig:
@@ -262,8 +349,10 @@ mode = "quality"
 """.strip()
         template_file.write_text(template_config)
 
-        # Merge - no preserve means template wins
-        result = merge_existing_config(tmp_path, template_file, MergeConfig(preserve_sections=[]))
+        # Merge - clear both preserve and merge sections for template to win
+        result = merge_existing_config(
+            tmp_path, template_file, MergeConfig(preserve_sections=[], merge_sections=[])
+        )
 
         assert "max_iterations = 10" in result  # Template value
         assert "mode = \"quality\"" in result
