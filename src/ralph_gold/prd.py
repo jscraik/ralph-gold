@@ -46,6 +46,8 @@ class MdPrd:
 
 
 _MD_TASKS_HEADING_RE = re.compile(r"^\s*##\s+tasks\b", re.IGNORECASE)
+# Match same-level (##) headings when scanning for tasks end - don't stop at ### subheadings
+_MD_SECTION_HEADING_RE = re.compile(r"^\s*##\s+\S")
 _MD_HEADING_RE = re.compile(r"^\s*#{1,6}\s+\S")
 _MD_FENCE_RE = re.compile(r"^\s*```")
 _MD_CHECKBOX_RE = re.compile(r"^(\s*[-*]\s+\[)([^\]])(\]\s+)(.+?)\s*$")
@@ -266,7 +268,8 @@ def _parse_md_prd(text: str) -> MdPrd:
             )
 
     if tasks_start is not None:
-        # End of tasks section is the next markdown heading outside fences.
+        # End of tasks section is the next ## heading outside fences.
+        # Don't stop at ### subheadings - they're allowed within tasks section.
         end = len(lines)
         for j in range(tasks_start, len(lines)):
             line = lines[j]
@@ -275,7 +278,7 @@ def _parse_md_prd(text: str) -> MdPrd:
                 continue
             if in_fence:
                 continue
-            if _MD_HEADING_RE.match(line):
+            if _MD_SECTION_HEADING_RE.match(line):
                 end = j
                 break
         in_fence = False

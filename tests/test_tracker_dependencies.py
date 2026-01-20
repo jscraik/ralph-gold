@@ -307,3 +307,72 @@ tasks:
         assert set(task.depends_on) == {"task-1", "task-2"}
     finally:
         yaml_path.unlink()
+
+
+def test_markdown_tracker_with_subsection_headings():
+    """Test that Markdown tracker handles ### subheadings within Tasks section.
+
+    This is a regression test for the bug where ### Phase: subheadings
+    caused the parser to stop scanning for tasks prematurely.
+    """
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write("""# Test PRD
+
+## Tasks
+
+### Phase: Foundation
+
+- [ ] First task
+  - Acceptance criterion 1
+- [ ] Second task
+  - Depends on: 1
+
+### Phase: Advanced
+
+- [ ] Third task
+  - Depends on: 2
+  - Acceptance criterion 3
+
+## Other Section
+This should not be parsed as tasks.
+""")
+        f.flush()
+        md_path = Path(f.name)
+
+    try:
+        tracker = FileTracker(prd_path=md_path)
+
+        # All three tasks should be found (not stopped by ### headings)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "1"
+        assert task.title == "First task"
+
+        # Mark task 1 as done
+        content = md_path.read_text()
+        content = content.replace("- [ ] First task", "- [x] First task")
+        md_path.write_text(content)
+
+        # Now task 2 should be available
+        tracker = FileTracker(prd_path=md_path)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "2"
+        assert task.title == "Second task"
+
+        # Mark task 2 as done
+        content = md_path.read_text()
+        content = content.replace("- [ ] Second task", "- [x] Second task")
+        md_path.write_text(content)
+
+        # Now task 3 should be available (it's after ### Phase: Advanced)
+        tracker = FileTracker(prd_path=md_path)
+        task = tracker.peek_next_task()
+        assert task is not None
+        assert task.id == "3"
+        assert task.title == "Third task"
+
+        # Verify acceptance criteria were captured (for task 3)
+        assert "Acceptance criterion 3" in task.acceptance
+    finally:
+        md_path.unlink()
