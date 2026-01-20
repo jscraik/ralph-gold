@@ -154,7 +154,7 @@ class BlockedTaskManager:
 
         # Load tracker if not provided
         if self.tracker is None:
-            cfg = config.load_config(self.project_root)
+            cfg = load_config(self.project_root)
             self.tracker = make_tracker(self.project_root, cfg)
 
         # Get all tasks from tracker
