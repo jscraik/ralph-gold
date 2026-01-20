@@ -22,6 +22,7 @@ from .prd import SelectedTask
 from .receipts import CommandReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
+from .state_validation import validate_state_against_prd
 from .subprocess_helper import SubprocessResult, run_subprocess
 from .trackers import make_tracker
 
@@ -2445,6 +2446,37 @@ def run_loop(
                 # Compute effective cap considering max_iterations and rate limit
                 state_path = project_root / ".ralph" / "state.json"
                 state = load_state(state_path)
+
+                # State validation (read-only, with warnings)
+                if cfg.state.validate_on_startup:
+                    prd_path = project_root / cfg.files.prd
+                    validation = validate_state_against_prd(
+                        project_root,
+                        prd_path,
+                        state_path,
+                        cfg.state.protect_recent_hours,
+                    )
+                    if validation.stale_ids:
+                        from .output import print_output
+
+                        print_output(
+                            f"State validation: found {len(validation.stale_ids)} stale task IDs",
+                            level="warning",
+                        )
+                        if validation.protected_ids:
+                            print_output(
+                                f"Protected (current/recent): {validation.protected_ids}",
+                                level="info",
+                            )
+                        if not validation.can_auto_cleanup:
+                            print_output(
+                                "Cannot auto-cleanup: current task is stale or PRD recently modified",
+                                level="warning",
+                            )
+                        print_output(
+                            f"Run 'ralph state cleanup' to remove stale task IDs",
+                            level="info",
+                        )
 
                 # Rate limit check
                 rate_limit_ok, wait_seconds = _rate_limit_ok(

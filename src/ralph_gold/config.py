@@ -346,6 +346,25 @@ class AuthorizationConfig:
 
 
 @dataclass(frozen=True)
+class StateConfig:
+    """Configuration for state validation and cleanup.
+
+    Attributes:
+        auto_cleanup_stale: Automatically remove stale task IDs (default: false for safety)
+        validate_on_startup: Validate state against PRD on startup (default: true)
+        warn_on_prd_modified: Warn if PRD modified after state (default: true)
+        protect_current_task: Always protect current task from cleanup (default: true)
+        protect_recent_hours: Protect tasks completed in last N hours (default: 1)
+    """
+
+    auto_cleanup_stale: bool = False  # CHANGED: Default false for safety
+    validate_on_startup: bool = True
+    warn_on_prd_modified: bool = True
+    protect_current_task: bool = True
+    protect_recent_hours: int = 1
+
+
+@dataclass(frozen=True)
 class Config:
     loop: LoopConfig
     files: FilesConfig
@@ -362,6 +381,7 @@ class Config:
     templates: TemplatesConfig = field(default_factory=TemplatesConfig)
     output: OutputControlConfig = field(default_factory=OutputControlConfig)
     prompt: PromptConfig = field(default_factory=PromptConfig)
+    state: StateConfig = field(default_factory=StateConfig)
     authorization: AuthorizationConfig = field(default_factory=AuthorizationConfig)
 
 
@@ -1005,6 +1025,19 @@ def load_config(project_root: Path) -> Config:
         permissions_file=str(auth_raw.get("permissions_file", ".ralph/permissions.json")),
     )
 
+    # Parse state configuration
+    state_raw = data.get("state", {}) or {}
+    if not isinstance(state_raw, dict):
+        state_raw = {}
+
+    state = StateConfig(
+        auto_cleanup_stale=_coerce_bool(state_raw.get("auto_cleanup_stale"), False),
+        validate_on_startup=_coerce_bool(state_raw.get("validate_on_startup"), True),
+        warn_on_prd_modified=_coerce_bool(state_raw.get("warn_on_prd_modified"), True),
+        protect_current_task=_coerce_bool(state_raw.get("protect_current_task"), True),
+        protect_recent_hours=_coerce_int(state_raw.get("protect_recent_hours"), 1),
+    )
+
     return Config(
         loop=loop,
         files=files,
@@ -1021,5 +1054,6 @@ def load_config(project_root: Path) -> Config:
         templates=templates,
         output=output,
         prompt=prompt,
+        state=state,
         authorization=authorization,
     )

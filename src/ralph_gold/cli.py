@@ -14,6 +14,7 @@ from pathlib import Path
 from . import __version__
 from .config import LOOP_MODE_NAMES, load_config
 from .diagnostics import run_diagnostics
+from .state_validation import cleanup_stale_task_ids, validate_state_against_prd
 from .doctor import check_tools, setup_checks
 from .json_response import build_json_response
 from .logging_config import setup_logging
@@ -661,6 +662,59 @@ def cmd_clean(args: argparse.Namespace) -> int:
         for error in all_errors:
             print_output(f"  - {error}", level="error")
         return 1
+
+    return 0
+
+
+def cmd_state_cleanup(args: argparse.Namespace) -> int:
+    """Remove stale task IDs from state.json."""
+    root = _project_root()
+    cfg = load_config(root)
+
+    prd_path = root / cfg.files.prd
+    state_path = root / ".ralph" / "state.json"
+
+    # Validate first
+    validation = validate_state_against_prd(
+        root,
+        prd_path,
+        state_path,
+        cfg.state.protect_recent_hours,
+    )
+
+    if not validation.stale_ids:
+        print_output("No stale task IDs found.", level="normal")
+        return 0
+
+    # Show what was found
+    print_output(f"Found {len(validation.stale_ids)} stale task IDs: {validation.stale_ids}", level="normal")
+    if validation.protected_ids:
+        print_output(f"Protected (current/recent): {validation.protected_ids}", level="normal")
+
+    dry_run = args.dry_run
+    if dry_run:
+        print_output("\nDRY RUN - No changes will be made", level="normal")
+
+    # Check if auto-cleanup is safe
+    if not validation.can_auto_cleanup:
+        print_output("\nCannot auto-cleanup: current task is stale or PRD was recently modified", level="warning")
+        print_output("Run 'ralph state cleanup' after fixing the PRD or completing current task", level="normal")
+        return 1
+
+    # Perform cleanup
+    removed_ids = cleanup_stale_task_ids(
+        root,
+        prd_path,
+        state_path,
+        dry_run=dry_run,
+    )
+
+    if removed_ids:
+        print_output(f"Removed {len(removed_ids)} stale task IDs: {removed_ids}", level="normal")
+        if dry_run:
+            print_output("\nRun without --dry-run to actually remove these IDs", level="normal")
+    else:
+        print_output("No task IDs were removed (all were protected)", level="normal")
 
     return 0
 
@@ -2110,6 +2164,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Preview what would be deleted without actually deleting",
     )
     p_clean.set_defaults(func=cmd_clean)
+
+    # State management subcommands
+    p_state = sub.add_parser(
+        "state",
+        help="State management commands",
+    )
+    p_state_sub = p_state.add_subparsers(
+        dest="state_subcommand",
+        title="state subcommands",
+        required=True,
+    )
+
+    p_cleanup = p_state_sub.add_parser(
+        "cleanup",
+        help="Remove stale task IDs from state.json",
+    )
+    p_cleanup.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview what would be removed without actually removing",
+    )
+    p_cleanup.set_defaults(func=cmd_state_cleanup)
 
     p_step = sub.add_parser("step", help="Run exactly one iteration")
     p_step.add_argument(
