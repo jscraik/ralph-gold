@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .atomic_file import atomic_write_json
+
 
 def iso_utc(ts: Optional[float] = None) -> str:
     import datetime as _dt
@@ -44,8 +46,44 @@ class CommandReceipt:
     notes: Dict[str, Any] = field(default_factory=dict)
 
 
-def write_receipt(path: Path, receipt: CommandReceipt) -> None:
+@dataclass(frozen=True)
+class NoFilesWrittenReceipt:
+    """Receipt emitted when agent writes no files.
+
+    This receipt is created when the agent completes execution but
+    no user files were written to the project (excluding .ralph internal files).
+
+    Attributes:
+        task_id: The task ID that was being executed
+        iteration: The iteration number when this occurred
+        started_at: ISO timestamp when agent started
+        ended_at: ISO timestamp when agent ended
+        duration_seconds: How long the agent ran
+        agent_return_code: The agent's exit code
+        possible_causes: List of possible reasons for no files written
+        remediation: Suggested remediation steps
+    """
+    task_id: str
+    iteration: int
+    started_at: str
+    ended_at: str
+    duration_seconds: float
+    agent_return_code: int
+    possible_causes: List[str] = field(default_factory=list)
+    remediation: str = ""
+
+
+def write_receipt(path: Path, receipt: CommandReceipt | NoFilesWrittenReceipt) -> None:
+    """Write receipt to file atomically.
+
+    Atomic writes prevent partial state files from being read and ensure
+    that interrupted operations don't corrupt receipt data.
+
+    Args:
+        path: Target file path for the receipt
+        receipt: Either a CommandReceipt or NoFilesWrittenReceipt to write
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = asdict(receipt)
     payload["_schema"] = "ralph_gold.receipt.v1"
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_json(path, payload)

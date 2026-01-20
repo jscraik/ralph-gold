@@ -15,11 +15,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
-from .authorization import load_authorization_checker
+from .authorization import AuthorizationError, EnforcementMode, load_authorization_checker
 from .config import Config, LoopModeConfig, RunnerConfig, load_config
 from .evidence import EvidenceReceipt, extract_evidence
 from .prd import SelectedTask
-from .receipts import CommandReceipt, hash_text, iso_utc, truncate_text, write_receipt
+from .receipts import CommandReceipt, NoFilesWrittenReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
 from .state_validation import validate_state_against_prd
@@ -1451,17 +1451,34 @@ def run_iteration(
         anchor_text = _build_anchor(task, project_root)
         anchor_path = context_dir / "ANCHOR.md"
 
-        # Authorization check (soft warning only)
-        auth_checker = load_authorization_checker(project_root, cfg.authorization.permissions_file)
+        # Authorization check (configurable enforcement mode)
+        # Convert string config to EnforcementMode enum
+        enforcement_mode = EnforcementMode(cfg.authorization.enforcement_mode.lower())
+        auth_checker = load_authorization_checker(
+            project_root,
+            cfg.authorization.permissions_file,
+            enforcement_mode=enforcement_mode,
+        )
         runner_cfg = _get_runner(cfg, agent)
-        allowed, reason = auth_checker.check_write_permission(anchor_path, runner_cfg.argv)
-        if not allowed:
-            logger.warning(f"Authorization check failed for {anchor_path}: {reason}")
-        # Continue anyway - this is soft enforcement initially
 
-        anchor_path.write_text(anchor_text + "\n", encoding="utf-8")
-        write_receipt(
-            receipts_dir / "anchor.json",
+        try:
+            allowed, reason = auth_checker.check_write_permission(anchor_path, runner_cfg.argv)
+            if not allowed:
+                # This branch is taken in warn mode when permission denied
+                logger.warning(f"Authorization check failed for {anchor_path}: {reason}")
+        except AuthorizationError as e:
+            # This is raised in block mode when permission denied
+            logger.error(f"Authorization blocked: {e}")
+            # In block mode, we don't write the anchor file
+            # Fall through to other operations but skip anchor write
+            anchor_path = None  # Mark as None to skip write below
+            # Optionally: could skip more operations or abort entirely
+
+        # Only write anchor if authorization passed (or wasn't blocked)
+        if anchor_path is not None:
+            anchor_path.write_text(anchor_text + "\n", encoding="utf-8")
+            write_receipt(
+                receipts_dir / "anchor.json",
             CommandReceipt(
                 name="anchor",
                 argv=["git", "status", "--porcelain", "&&", "git", "diff", "--stat"],
@@ -1558,6 +1575,9 @@ def run_iteration(
 
     head_before = git_head(project_root)
 
+    # Phase 3: Take snapshot BEFORE agent execution for no-files detection
+    before_files = _snapshot_project_files(project_root)
+
     # Run agent
     start = time.time()
     timed_out = False
@@ -1648,6 +1668,33 @@ def run_iteration(
             logging.getLogger(__name__).debug("Failed to force task open: %s", e)
 
     head_after_agent = git_head(project_root)
+
+    # Phase 3: No-files detection - check if agent wrote any user files
+    # This is after agent execution but before gates/judge to detect the issue early
+    no_files_receipt: Optional[NoFilesWrittenReceipt] = None
+    if head_before == head_after_agent and result.returncode == 0:
+        # No git changes despite agent returning success - possible no-files issue
+        # Take snapshot AFTER agent execution and compare with BEFORE snapshot
+        after_files = _snapshot_project_files(project_root)
+
+        # Check if any user files were written (excluding .ralph internal files)
+        if not _check_files_written(project_root, before_files, after_files):
+            # Agent wrote no files - create receipt and diagnose
+            possible_causes = _diagnose_no_files(project_root, result)
+            remediation = _suggest_remediation(possible_causes, result)
+
+            no_files_receipt = NoFilesWrittenReceipt(
+                task_id=str(story_id) if story_id else "unknown",
+                iteration=iteration,
+                started_at=iso_utc(time.time() - duration_s),
+                ended_at=iso_utc(),
+                duration_seconds=duration_s,
+                agent_return_code=result.returncode,
+                possible_causes=possible_causes,
+                remediation=remediation,
+            )
+            write_receipt(receipts_dir / "no_files_written.json", no_files_receipt)
+            _print_no_files_warning(no_files_receipt)
 
     # Optional: LLM-as-judge gate
     judge_cfg = cfg.gates.llm_judge
@@ -1892,6 +1939,19 @@ def run_iteration(
             task_done_now = tracker.is_task_done(story_id)
         except Exception:
             task_done_now = False
+
+        # Phase 3: Task completion verification
+        # After agent marks task as done, verify expected files exist
+        if task_done_now and task is not None:
+            if not _verify_task_completion(task, project_root):
+                logger.warning(
+                    f"Task {story_id} marked done but expected files not found"
+                )
+                try:
+                    tracker.force_task_open(story_id)
+                    task_done_now = False  # Update status since we forced it open
+                except Exception as e:
+                    logger.debug(f"Failed to force task open: {e}")
 
     status = (
         "DONE"
@@ -2318,6 +2378,419 @@ def run_iteration(
         task_title=task_title,
         evidence_count=evidence_count,
     )
+
+
+# ============================
+# Phase 3: No-Files Detection Helper Functions
+# ============================
+
+
+def _snapshot_project_files(project_root: Path) -> set[str]:
+    """Create snapshot of project files for comparison.
+
+    Returns a set of relative file paths from project root, excluding
+    .ralph internal files, git directory, and common ignore patterns.
+
+    Args:
+        project_root: Path to the project root directory
+
+    Returns:
+        Set of relative file paths (as strings)
+    """
+    ignore_patterns = {
+        ".git",
+        ".ralph",
+        "__pycache__",
+        "*.pyc",
+        "*.pyo",
+        ".DS_Store",
+        "*.tmp",
+        "*.swp",
+        ".pytest_cache",
+        ".hypothesis",
+        ".venv",
+        "venv",
+        "node_modules",
+    }
+
+    files: set[str] = set()
+    for item in project_root.rglob("*"):
+        if not item.is_file():
+            continue
+
+        # Skip if any parent directory matches ignore pattern
+        rel_path = item.relative_to(project_root)
+        parts = rel_path.parts
+
+        should_ignore = False
+        for part in parts:
+            if part in ignore_patterns or any(
+                fnmatch.fnmatch(part, pattern) for pattern in ignore_patterns
+            ):
+                should_ignore = True
+                break
+
+        # Also check the full path against glob patterns
+        if not should_ignore:
+            rel_str = str(rel_path)
+            for pattern in ignore_patterns:
+                if fnmatch.fnmatch(rel_str, pattern) or fnmatch.fnmatch(
+                    rel_str, f"*/{pattern}"
+                ):
+                    should_ignore = True
+                    break
+
+        if not should_ignore:
+            files.add(rel_str)
+
+    return files
+
+
+def _check_files_written(
+    project_root: Path, before: set[str], after: set[str]
+) -> bool:
+    """Check if any user files were written.
+
+    Compares before/after snapshots and returns True if any new files
+    were added or existing files were modified (by checking mtime).
+
+    Args:
+        project_root: Path to the project root
+        before: Snapshot before agent execution
+        after: Snapshot after agent execution
+
+    Returns:
+        True if files were written, False otherwise
+    """
+    # Check for new files
+    new_files = after - before
+    if new_files:
+        return True
+
+    # Check for modified files (same path but different mtime)
+    # We only check files that exist in both snapshots
+    common_files = before & after
+    now = time.time()
+    recent_threshold = 900  # 15 minutes (same as runner timeout)
+
+    for file_path in common_files:
+        full_path = project_root / file_path
+        try:
+            mtime = full_path.stat().st_mtime
+            # If file was modified in the last 15 minutes, consider it written
+            if now - mtime < recent_threshold:
+                return True
+        except (OSError, FileNotFoundError):
+            continue
+
+    return False
+
+
+def _diagnose_no_files(project_root: Path, agent_result: "SubprocessResult") -> List[str]:
+    """Diagnose why agent wrote no files.
+
+    Enhanced to detect:
+    - Timeout (exit code 124)
+    - Pre-existing gate failures
+    - Sandbox permissions issues
+
+    Args:
+        project_root: Path to the project root
+        agent_result: Result from agent subprocess execution
+
+    Returns:
+        List of possible causes (diagnostic messages)
+    """
+    causes: List[str] = []
+
+    # Check for timeout
+    if agent_result.returncode == 124 or (
+        hasattr(agent_result, "timed_out") and agent_result.timed_out
+    ):
+        causes.append("Agent timed out (exit code 124)")
+        causes.append("Task may be too complex for single iteration")
+
+    # Check for timeout but files were created
+    if agent_result.returncode == 124:
+        recent_files = _find_recently_created_files(project_root)
+        if recent_files:
+            causes.append(
+                f"Files were created before timeout: {', '.join(recent_files[:3])}"
+            )
+            causes.append("Task may be complete despite timeout - verify manually")
+
+    # Check if agent had errors
+    if agent_result.stderr:
+        error_lower = agent_result.stderr.lower()
+        if "permission denied" in error_lower:
+            causes.append("Agent encountered permission errors")
+            causes.append("Check file/directory permissions for project")
+        if "command not found" in error_lower:
+            causes.append("Agent command not found")
+            causes.append("Verify agent CLI is installed and in PATH")
+        if "no space left" in error_lower:
+            causes.append("Disk full or no space left")
+            causes.append("Free up disk space and retry")
+
+    # Check for pre-existing gate failures
+    ralph_dir = project_root / ".ralph"
+    if ralph_dir.exists():
+        # Look for recent gate failures in receipts
+        receipts_dir = ralph_dir / "receipts"
+        if receipts_dir.exists():
+            for receipt_file in receipts_dir.glob("gate_*.json"):
+                try:
+                    data = json.loads(receipt_file.read_text())
+                    if data.get("returncode", 0) != 0:
+                        causes.append("Pre-existing gate failures detected")
+                        causes.append(
+                            f"Gate '{data.get('name', 'unknown')}' is failing: "
+                            f"{data.get('cmd', 'unknown')}"
+                        )
+                        causes.append(
+                            "Fix gate failures OR document why they cannot be fixed"
+                        )
+                        break
+                except Exception:
+                    pass
+
+    # If no specific cause found, add generic message
+    if not causes:
+        causes.append("Agent completed but wrote no files")
+        causes.append("Agent may have only provided explanation without code changes")
+        causes.append("Task may require clarification or be impossible as stated")
+
+    return causes
+
+
+def _find_recently_created_files(project_root: Path) -> List[str]:
+    """Find files created in last 15 minutes.
+
+    Args:
+        project_root: Path to the project root
+
+    Returns:
+        List of file paths (relative to project root)
+    """
+    recent_files: List[str] = []
+    now = time.time()
+    recent_threshold = 900  # 15 minutes
+
+    for item in project_root.rglob("*"):
+        if not item.is_file():
+            continue
+
+        # Skip .ralph internal files
+        if ".ralph" in item.parts or ".git" in item.parts:
+            continue
+
+        try:
+            mtime = item.stat().st_mtime
+            if now - mtime < recent_threshold:
+                rel_path = str(item.relative_to(project_root))
+                recent_files.append(rel_path)
+        except OSError:
+            continue
+
+    return recent_files[:10]  # Limit to 10 most recent
+
+
+def _suggest_remediation(possible_causes: List[str], agent_result: "SubprocessResult") -> str:
+    """Suggest remediation steps based on diagnosis.
+
+    Args:
+        possible_causes: List of diagnostic causes from _diagnose_no_files
+        agent_result: Result from agent subprocess execution
+
+    Returns:
+        Remediation suggestions as a string
+    """
+    causes_lower = " ".join(possible_causes).lower()
+
+    # Timeout specific
+    if agent_result.returncode == 124:
+        return (
+            "Suggestion: Task is complex and needs more time.\n"
+            "Consider increasing runner_timeout_seconds in .ralph/ralph.toml:\n"
+            "  [loop]\n"
+            "  runner_timeout_seconds = 1800  # 30 minutes instead of 15\n\n"
+            "Also verify: Check if expected files were created despite timeout."
+        )
+
+    # Permission issues
+    if "permission" in causes_lower:
+        return (
+            "Suggestion: Fix file/directory permissions.\n"
+            "Check that the agent can write to the project directory:\n"
+            "  ls -la .\n"
+            "  chmod u+w .  # if needed"
+        )
+
+    # Gate failures
+    if "gate" in causes_lower:
+        return (
+            "Suggestion: Fix failing gates before proceeding.\n"
+            "Run gates manually to see errors:\n"
+            "  ralph gates\n\n"
+            "If gates cannot be fixed, document why in .ralph/progress.md\n"
+            "and consider adjusting gate configuration."
+        )
+
+    # Command not found
+    if "command not found" in causes_lower or "127" in str(agent_result.returncode):
+        return (
+            "Suggestion: Agent CLI is not installed or not in PATH.\n"
+            "Verify the agent is available:\n"
+            "  which claude  # or codex, copilot, etc.\n\n"
+            "Check .ralph/ralph.toml runners configuration."
+        )
+
+    # Disk space
+    if "space" in causes_lower:
+        return (
+            "Suggestion: Free up disk space.\n"
+            "Check available space:\n"
+            "  df -h ."
+        )
+
+    # Generic remediation
+    return (
+        "Suggestion: Agent may have misunderstood the task or lacks context.\n"
+        "Consider:\n"
+        "1. Review task acceptance criteria for clarity\n"
+        "2. Add more context to PRD or task description\n"
+        "3. Check agent output in .ralph/logs/ for explanations\n"
+        "4. Try simplifying the task or breaking it into smaller steps"
+    )
+
+
+def _print_no_files_warning(receipt: NoFilesWrittenReceipt) -> None:
+    """Print formatted warning box for no-files-written receipt.
+
+    Args:
+        receipt: The NoFilesWrittenReceipt to display
+    """
+    warning_box = """
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║ ⚠️  NO FILES WRITTEN DETECTED                                                  ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+Agent completed execution but wrote no user files to the project.
+
+Task ID:        {task_id}
+Iteration:      {iteration}
+Duration:        {duration:.1f} seconds
+Agent exit code: {exit_code}
+
+Possible causes:
+{causes}
+
+Remediation:
+{remediation}
+
+Receipt saved to: .ralph/receipts/no_files_written.json
+
+"""
+    cause_lines = "\n".join(f"  • {c}" for c in receipt.possible_causes)
+    remediation_lines = "\n".join(
+        f"  {line}" for line in receipt.remediation.split("\n")
+    )
+
+    print(
+        warning_box.format(
+            task_id=receipt.task_id,
+            iteration=receipt.iteration,
+            duration=receipt.duration_seconds,
+            exit_code=receipt.agent_return_code,
+            causes=cause_lines,
+            remediation=remediation_lines,
+        )
+    )
+
+
+# ============================
+# End Phase 3 Helper Functions
+# ============================
+
+
+# ============================
+# Phase 3: Task Completion Verification
+# ============================
+
+
+def _extract_files_from_criteria(criteria: List[str]) -> List[str]:
+    """Extract file paths from task acceptance criteria.
+
+    Looks for patterns like:
+    - "Create Sources/MyFile.swift"
+    - "File: src/model.py"
+    - Path-like strings with extensions
+
+    Args:
+        criteria: List of acceptance criterion strings
+
+    Returns:
+        List of extracted file paths
+    """
+    import re
+
+    files: List[str] = []
+
+    # Pattern 1: "Create X/Y/Z.ext" or similar
+    create_pattern = r'[Cc]reate\s+([A-Z][a-z]+(?:/[A-Z][a-z\d]+)+\.[a-z]+)'
+
+    # Pattern 2: "File: path/to/file.ext"
+    file_pattern = r'[Ff]ile:\s*([a-z\d_]+(?:/[a-z\d_.]+)*\.[a-z]+)'
+
+    # Pattern 3: Any path-like string with extension (catch-all)
+    path_pattern = r'(?<!\w)([A-Z][a-z]+(?:/[A-Z][a-z\d]+)+\.[a-z]+)(?!\w)'
+
+    for criterion in criteria:
+        # Try each pattern
+        for pattern in [create_pattern, file_pattern, path_pattern]:
+            matches = re.findall(pattern, criterion)
+            files.extend(matches)
+
+    return list(set(files))  # Deduplicate
+
+
+def _verify_task_completion(task: SelectedTask, project_root: Path) -> bool:
+    """Verify task completion by checking for expected files.
+
+    Parses task acceptance criteria for file mentions and verifies they exist.
+
+    Args:
+        task: The SelectedTask with acceptance criteria
+        project_root: Path to the project root
+
+    Returns:
+        True if expected files exist, False otherwise
+    """
+    if not task.acceptance:
+        # No acceptance criteria to verify against
+        return True
+
+    expected_files = _extract_files_from_criteria(task.acceptance)
+
+    if not expected_files:
+        # No files mentioned in acceptance criteria
+        return True
+
+    # Check if expected files exist
+    for file_path in expected_files:
+        full_path = project_root / file_path
+        if not full_path.exists():
+            logger.warning(
+                f"Task completion verification failed: expected file not found: {file_path}"
+            )
+            return False
+
+    return True
+
+
+# ============================
+# End Phase 3 Task Verification
+# ============================
 
 
 def run_loop(

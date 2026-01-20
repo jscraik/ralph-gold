@@ -14,6 +14,31 @@ Rules:
 - **Implement the entire solution** in one iteration. Don't design and then wait—design AND implement.
 - Your task acceptance criteria are your complete authority to proceed with file changes.
 
+## AUTHORIZATION & MODE (REQUIRED FOR TASK COMPLETION)
+
+### Required Tools
+You MUST use these tools for ALL operations:
+
+**File Operations:**
+- `Write` - Create/modify files
+- `Edit` - Edit existing files with find/replace
+- `Read` - Read file contents
+
+**Verification:**
+- `Bash` - Run commands (tests, linting, git status)
+
+### REQUIRED: Evidence of File Writes
+**CRITICAL:** You MUST write at least one file to demonstrate completion.
+- **No-files-written detection is active** - if you write nothing, the iteration fails
+- Prefer code changes over explanations
+- Include file paths and line numbers in evidence
+
+### When You Cannot Write Files
+If you absolutely cannot write files (sandbox issues, permissions):
+1. State the specific blocker: "Unable to write: <reason>"
+2. Suggest the remediation: "Fix by: <action>"
+3. Provide the complete code/changes you would write
+
 ## Evidence Discipline (REQUIRED)
 
 You MUST provide evidence for ALL changes. Format:

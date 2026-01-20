@@ -1,0 +1,92 @@
+# Gitleaks Configuration for ralph-gold
+# https://github.com/gitleaks/gitleaks
+#
+# This configuration detects secrets in code before they are committed.
+# Run: gitleaks protect --verbose --redact --staged
+# Or: gitleaks detect --source . --verbose
+
+title = "Ralph Gold Secret Scanning"
+
+# Extend default rules (GitHub, AWS, Google, etc.)
+[extend]
+useDefault = true
+
+# Allowlist for common false positives
+[allowlist]
+description = "Global allowlist for benign patterns"
+
+# Paths to exclude from scanning
+paths = [
+  # Test fixtures and mock data
+  '''tests?/.*''',
+  '''test_.*\.py''',
+  '''fixtures/.*''',
+  '''\.ralph/.*''',      # Internal Ralph state directory
+  '''\.hypothesis/.*''', # Hypothesis test cache
+
+  # Documentation and examples
+  '''docs/.*''',
+  '''examples/.*''',
+  '''README\.md''',
+  '''CONTRIBUTING\.md''',
+
+  # Dependencies and build artifacts
+  '''node_modules/.*''',
+  '''\.venv/.*''',
+  '''venv/.*''',
+  '''\.git/.*''',
+
+  # Lock files (may contain checksums that look like secrets)
+  '''.*\.lock$''',
+  '''Poetry\.lock''',
+  '''package-lock\.json''',
+]
+
+# Commits to ignore (useful for historical secrets)
+commits = [
+  # Add commit SHAs here if you need to allow historical commits
+  # Example: "99a8f27e0b72bcbd73cc348c4ac3c3bbfc58e8b0"
+]
+
+# Regex patterns to allow (content-based allowlist)
+regexes = [
+  # Test/example tokens (obviously fake)
+  '''ghp_[tT][eE][sS][tT].*''',
+  '''ghp_example[a-zA-Z0-9]{30}''',
+
+  # Documentation patterns
+  '''YOUR_API_KEY_HERE''',
+  '''<your-api-key>''',
+  '''\<API_KEY\>''',
+  '''\<TOKEN\>''',
+
+  # UUIDs (high entropy but not secrets)
+  '''[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}''',
+
+  # Git hashes (7-40 character hex strings)
+  '''[0-9a-fA-F]{7,40}''',
+]
+
+# Custom rules for common secret patterns
+# These supplement the default rules from useDefault = true
+
+# GitHub personal access tokens
+[[rules]]
+id = "github-token"
+description = "GitHub Personal Access Token"
+regex = '''ghp_[a-zA-Z0-9]{36}'''
+tags = ["github", "token"]
+
+# AWS access keys
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws", "access-key"]
+
+# Private keys (SSH, PGP, etc.) - never allow these
+[[rules]]
+id = "private-key-header"
+description = "Private Key Header"
+regex = '''-----BEGIN [A-Z]+ PRIVATE KEY-----'''
+tags = ["key", "private"]

@@ -1026,6 +1026,25 @@ ralph rollback before-experiment
 
 ---
 
+## Documentation
+
+**Core Guides:**
+- **Configuration:** `docs/CONFIGURATION.md` - Complete configuration reference
+- **Commands:** `docs/COMMANDS.md` - Complete CLI command reference
+- **Authorization:** `docs/AUTHORIZATION.md` - File write permission system
+- **Troubleshooting:** `docs/TROUBLESHOOTING.md` - Common issues and solutions
+
+**Features:**
+- **Evidence System:** `docs/EVIDENCE.md` - Evidence citations and tracking
+- **Progress:** `docs/PROGRESS.md` - Velocity, ETA, and burndown charts
+- **YAML Tracker:** `docs/YAML_TRACKER.md` - Structured task tracking
+- **Watch Mode:** README#watch-mode - File watching and auto-gates
+
+**Reference:**
+- **Project Structure:** `docs/PROJECT_STRUCTURE.md` - Directory layout and lifecycles
+- **Parallel Config:** `docs/PARALLEL_CONFIG.md` - Parallel execution guide
+- **VS Code Bridge:** `docs/VSCODE_BRIDGE_PROTOCOL.md` - Extension protocol
+
 ## Contributing
 
 See `CONTRIBUTING.md`.

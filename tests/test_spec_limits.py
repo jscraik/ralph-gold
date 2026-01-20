@@ -18,8 +18,8 @@ class TestPromptConfig:
         config = PromptConfig()
         assert config.enable_limits is False
         assert config.max_specs_files == 20
-        assert config.max_specs_chars == 50000
-        assert config.max_single_spec_chars == 10000
+        assert config.max_specs_chars == 100000  # Updated default (Phase 1)
+        assert config.max_single_spec_chars == 50000  # Updated default (Phase 1)
         assert config.truncate_long_specs is True
         assert config.specs_inclusion_order == "sorted"
 
