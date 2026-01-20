@@ -1920,6 +1920,168 @@ def cmd_bridge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_blocked(args: argparse.Namespace) -> int:
+    """Show blocked tasks with optional suggestions."""
+    root = _project_root()
+    from .unblock import BlockedTaskManager, format_blocked_table
+
+    manager = BlockedTaskManager(root)
+    blocked = manager.list_blocked_tasks()
+
+    if not blocked:
+        print_output("✅ No blocked tasks found.", level="normal")
+        return 0
+
+    if getattr(args, "format", "table") == "json":
+        import json
+        output = json.dumps([b.to_dict() for b in blocked], indent=2)
+        print_output(output, level="normal")
+    else:
+        print_output(format_blocked_table(blocked), level="normal")
+
+    # Show suggestions if requested
+    if getattr(args, "suggest", False):
+        print_output("\n📋 Unblock Suggestions:\n", level="normal")
+        for task_info in blocked[:10]:  # Limit to 10 for readability
+            suggestion = manager.suggest_unblock_strategy(task_info)
+            print_output(
+                f"Task {task_info.task_id}:\n{suggestion}\n",
+                level="normal"
+            )
+
+    # Show statistics
+    stats = manager.get_statistics()
+    print_output(
+        f"\n📊 Statistics:\n"
+        f"  Total blocked: {stats['total_blocked']}\n"
+        f"  Wasted iterations: {stats['total_wasted_iterations']}\n"
+        f"  Avg attempts: {stats['avg_attempts']:.1f}\n"
+        f"  By reason: {stats['by_reason']}\n"
+        f"  By complexity: {stats['by_complexity']}\n",
+        level="normal"
+    )
+
+    return 0
+
+
+def cmd_unblock(args: argparse.Namespace) -> int:
+    """Unblock a specific task for retry."""
+    root = _project_root()
+    from .unblock import BlockedTaskManager
+
+    manager = BlockedTaskManager(root)
+
+    # Normalize task_id (handle both "task-22" and "22" formats)
+    task_id = args.task_id
+    if not task_id.startswith("task-") and task_id.isdigit():
+        task_id = f"task-{task_id}"
+
+    # Get suggested timeout if not provided
+    if args.timeout is None:
+        blocked = manager.list_blocked_tasks()
+        task_info = next((b for b in blocked if b.task_id == task_id), None)
+        if task_info:
+            args.timeout = task_info.suggested_timeout
+        else:
+            print_output(
+                f"⚠️  Task {task_id} not found in blocked list. Using default timeout.",
+                level="warning"
+            )
+            args.timeout = 120
+
+    result = manager.unblock_task(
+        task_id=task_id,
+        reason=args.reason,
+        new_timeout=args.timeout,
+    )
+
+    if result.success:
+        print_output(
+            f"✅ {result.message}",
+            level="normal"
+        )
+        if result.new_timeout > 0:
+            print_output(
+                f"   New timeout for retry: {result.new_timeout}s ({result.new_timeout // 60} minutes)",
+                level="normal"
+            )
+        print_output(
+            f"   Previous attempts: {result.previous_attempts}",
+            level="normal"
+        )
+        return 0
+    else:
+        print_output(f"❌ {result.message}", level="error")
+        return 1
+
+
+def cmd_retry_blocked(args: argparse.Namespace) -> int:
+    """Retry all blocked tasks with increased timeouts."""
+    root = _project_root()
+    from .unblock import BlockedTaskManager
+
+    manager = BlockedTaskManager(root)
+
+    # Get filter type
+    filter_type = getattr(args, "filter", "timeout")
+
+    # Build filter parameters
+    filter_complexity = "ui_heavy" if filter_type == "ui_heavy" else None
+
+    if args.dry_run:
+        # Show what would be done without actually doing it
+        blocked = manager.list_blocked_tasks()
+
+        if filter_type == "all":
+            to_unblock = blocked
+        elif filter_complexity:
+            to_unblock = [b for b in blocked if b.complexity_level == filter_complexity]
+        else:
+            to_unblock = [b for b in blocked if b.reason == filter_type]
+
+        print_output(f"🔍 Dry run: would unblock {len(to_unblock)} tasks", level="normal")
+        print_output("Tasks to unblock:\n", level="normal")
+        for task in to_unblock[:10]:
+            new_timeout = int(task.suggested_timeout * args.timeout_multiplier)
+            print_output(
+                f"  {task.task_id}: {task.title[:50]}...",
+                level="normal"
+            )
+            print_output(
+                f"    New timeout: {new_timeout}s ({new_timeout // 60} min)\n",
+                level="normal"
+            )
+        if len(to_unblock) > 10:
+            print_output(f"  ... and {len(to_unblock) - 10} more tasks\n", level="normal")
+        return 0
+
+    # Actually perform the batch unblock
+    results = manager.batch_unblock(
+        filter_reason=None if filter_type == "all" else filter_type,
+        filter_complexity=filter_complexity,
+        min_attempts=1,
+        new_timeout_multiplier=args.timeout_multiplier,
+    )
+
+    # Report results
+    success_count = sum(1 for r in results if r.success)
+    fail_count = len(results) - success_count
+
+    if success_count > 0:
+        print_output(f"✅ Successfully unblocked {success_count} task(s)", level="normal")
+    if fail_count > 0:
+        print_output(f"⚠️  {fail_count} task(s) failed to unblock", level="warning")
+
+    # Show next steps
+    if success_count > 0:
+        print_output("\n📋 Next steps:", level="normal")
+        print_output("  1. Review unblocked tasks: ralph status", level="normal")
+        print_output("  2. Resume the loop: ralph run --agent <your-agent>", level="normal")
+        print_output("  3. Monitor: ralph status --watch", level="normal")
+
+    return 0 if fail_count == 0 else 1
+
+
 def cmd_tui(args: argparse.Namespace) -> int:
     root = _project_root()
     from .tui import run_tui
@@ -2297,6 +2459,68 @@ def build_parser() -> argparse.ArgumentParser:
         help="Display ASCII burndown chart of task completion over time",
     )
     p_status.set_defaults(func=cmd_status)
+
+    # Blocked tasks management
+    p_blocked = sub.add_parser("blocked", help="Show blocked tasks with suggestions")
+    p_blocked.add_argument(
+        "--suggest",
+        action="store_true",
+        help="Show unblock suggestions for each blocked task",
+    )
+    p_blocked.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
+    p_blocked.set_defaults(func=cmd_blocked)
+
+    p_unblock = sub.add_parser("unblock", help="Unblock a task for retry")
+    p_unblock.add_argument(
+        "task_id",
+        help="Task ID to unblock (e.g., 'task-22' or '22')",
+    )
+    p_unblock.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        help="New timeout for retry in seconds (default: suggested based on complexity)",
+    )
+    p_unblock.add_argument(
+        "--reason",
+        default="Manual unblock",
+        help="Reason for unblocking (recorded in attempt history)",
+    )
+    p_unblock.set_defaults(func=cmd_unblock)
+
+    p_retry_blocked = sub.add_parser(
+        "retry-blocked",
+        help="Retry all blocked tasks with increased timeouts"
+    )
+    p_retry_blocked.add_argument(
+        "--filter",
+        choices=["timeout", "no_files", "gate_failure", "ui_heavy", "all"],
+        default="timeout",
+        help="Only retry tasks with this block reason",
+    )
+    p_retry_blocked.add_argument(
+        "--timeout-multiplier",
+        type=float,
+        default=1.0,
+        help="Multiply suggested timeout by this factor (default: 1.0 = use suggested)",
+    )
+    p_retry_blocked.add_argument(
+        "--max-attempts",
+        type=int,
+        default=1,
+        help="Maximum number of retry attempts per task (default: 1)",
+    )
+    p_retry_blocked.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without actually unblocking",
+    )
+    p_retry_blocked.set_defaults(func=cmd_retry_blocked)
 
     p_tui = sub.add_parser("tui", help="Interactive control surface (TUI)")
     p_tui.set_defaults(func=cmd_tui)

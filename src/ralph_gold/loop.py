@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .adaptive_timeout import calculate_adaptive_timeout
 from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
 from .authorization import AuthorizationError, EnforcementMode, load_authorization_checker
@@ -1578,12 +1579,30 @@ def run_iteration(
     # Phase 3: Take snapshot BEFORE agent execution for no-files detection
     before_files = _snapshot_project_files(project_root)
 
+    # Calculate timeout (with adaptive timeout if enabled)
+    base_timeout = cfg.loop.runner_timeout_seconds if cfg.loop.runner_timeout_seconds > 0 else None
+    timeout = base_timeout
+
+    if cfg.adaptive_timeout.enabled and task is not None and base_timeout is not None:
+        # Get previous failures count for this task
+        attempts_raw = state.get("task_attempts", {}) or {}
+        task_attempt_data = attempts_raw.get(task.id, {})
+        if isinstance(task_attempt_data, dict):
+            previous_failures = task_attempt_data.get("count", 0)
+        else:
+            previous_failures = int(task_attempt_data) if task_attempt_data else 0
+
+        # Calculate adaptive timeout
+        timeout = calculate_adaptive_timeout(
+            task=task,
+            previous_failures=previous_failures,
+            config=cfg.adaptive_timeout,
+            mode_timeout=base_timeout,
+        )
+
     # Run agent
     start = time.time()
     timed_out = False
-    timeout = (
-        cfg.loop.runner_timeout_seconds if cfg.loop.runner_timeout_seconds > 0 else None
-    )
     try:
         result = run_subprocess(
             argv,

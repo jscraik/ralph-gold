@@ -41,6 +41,11 @@
       "pattern": "tests/**",
       "allow_write": true,
       "reason": "Test files"
+    },
+    {
+      "pattern": "scripts/**",
+      "allow_write": true,
+      "reason": "Scripts directory"
     }
   ]
 }

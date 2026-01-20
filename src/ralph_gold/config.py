@@ -410,6 +410,50 @@ class InitConfig:
 
 
 @dataclass(frozen=True)
+class AdaptiveTimeoutConfig:
+    """Configuration for adaptive timeout behavior.
+
+    Phase 5: Adaptive Timeout & Unblock mechanism.
+
+    Attributes:
+        enabled: Whether adaptive timeout is enabled (default: true)
+        enable_complexity_scaling: Apply complexity-based multipliers (default: true)
+        enable_failure_scaling: Increase timeout after each failure (default: true)
+        max_timeout: Absolute maximum timeout in seconds (default: 3600 = 1 hour)
+        min_timeout: Absolute minimum timeout in seconds (default: 60 = 1 minute)
+        timeout_multiplier_per_failure: 50% increase per timeout (default: 1.5)
+        default_mode_timeout: Fallback when mode timeout not available (default: 120)
+    """
+
+    enabled: bool = True
+    enable_complexity_scaling: bool = True
+    enable_failure_scaling: bool = True
+    max_timeout: int = 3600  # 1 hour
+    min_timeout: int = 60  # 1 minute
+    timeout_multiplier_per_failure: float = 1.5
+    default_mode_timeout: int = 120  # speed mode default
+
+
+@dataclass(frozen=True)
+class UnblockConfig:
+    """Configuration for unblock commands and batch operations.
+
+    Phase 5: Adaptive Timeout & Unblock mechanism.
+
+    Attributes:
+        auto_suggest: Automatically suggest unblock strategies (default: true)
+        max_auto_unblock_attempts: Maximum times to auto-unblock a task (default: 1)
+        require_reason: Require reason for unblock operations (default: true)
+        allow_batch_unblock: Allow batch unblock operations (default: true)
+    """
+
+    auto_suggest: bool = True
+    max_auto_unblock_attempts: int = 1
+    require_reason: bool = True
+    allow_batch_unblock: bool = True
+
+
+@dataclass(frozen=True)
 class Config:
     loop: LoopConfig
     files: FilesConfig
@@ -429,6 +473,8 @@ class Config:
     state: StateConfig = field(default_factory=StateConfig)
     authorization: AuthorizationConfig = field(default_factory=AuthorizationConfig)
     init: InitConfig = field(default_factory=InitConfig)
+    adaptive_timeout: AdaptiveTimeoutConfig = field(default_factory=AdaptiveTimeoutConfig)
+    unblock: UnblockConfig = field(default_factory=UnblockConfig)
 
 
 # -------------------------
@@ -1118,6 +1164,39 @@ def load_config(project_root: Path) -> Config:
         merge_sections=merge_sections,
     )
 
+    # Parse adaptive_timeout configuration
+    at_raw = data.get("adaptive_timeout", {}) or {}
+    if not isinstance(at_raw, dict):
+        at_raw = {}
+
+    adaptive_timeout = AdaptiveTimeoutConfig(
+        enabled=_coerce_bool(at_raw.get("enabled"), True),
+        enable_complexity_scaling=_coerce_bool(
+            at_raw.get("enable_complexity_scaling"), True
+        ),
+        enable_failure_scaling=_coerce_bool(at_raw.get("enable_failure_scaling"), True),
+        max_timeout=_coerce_int(at_raw.get("max_timeout"), 3600),
+        min_timeout=_coerce_int(at_raw.get("min_timeout"), 60),
+        timeout_multiplier_per_failure=float(
+            at_raw.get("timeout_multiplier_per_failure", 1.5)
+        ),
+        default_mode_timeout=_coerce_int(at_raw.get("default_mode_timeout"), 120),
+    )
+
+    # Parse unblock configuration
+    unblock_raw = data.get("unblock", {}) or {}
+    if not isinstance(unblock_raw, dict):
+        unblock_raw = {}
+
+    unblock = UnblockConfig(
+        auto_suggest=_coerce_bool(unblock_raw.get("auto_suggest"), True),
+        max_auto_unblock_attempts=_coerce_int(
+            unblock_raw.get("max_auto_unblock_attempts"), 1
+        ),
+        require_reason=_coerce_bool(unblock_raw.get("require_reason"), True),
+        allow_batch_unblock=_coerce_bool(unblock_raw.get("allow_batch_unblock"), True),
+    )
+
     return Config(
         loop=loop,
         files=files,
@@ -1137,4 +1216,6 @@ def load_config(project_root: Path) -> Config:
         state=state,
         authorization=authorization,
         init=init,
+        adaptive_timeout=adaptive_timeout,
+        unblock=unblock,
     )
