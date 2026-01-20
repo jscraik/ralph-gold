@@ -316,6 +316,27 @@ class OutputControlConfig:
 
 
 @dataclass(frozen=True)
+class PromptConfig:
+    """Configuration for prompt building and spec limits.
+
+    Attributes:
+        enable_limits: Whether to enforce spec size limits (default: false for backward compatibility)
+        max_specs_files: Maximum number of spec files to include (default: 20)
+        max_specs_chars: Maximum total characters across all specs (default: 50000)
+        max_single_spec_chars: Maximum characters for a single spec file (default: 10000)
+        truncate_long_specs: Whether to truncate oversized specs vs excluding them (default: true)
+        specs_inclusion_order: How to order specs - "sorted", "recency", or "manual" (default: "sorted")
+    """
+
+    enable_limits: bool = False
+    max_specs_files: int = 20
+    max_specs_chars: int = 50000
+    max_single_spec_chars: int = 10000
+    truncate_long_specs: bool = True
+    specs_inclusion_order: str = "sorted"  # sorted|recency|manual
+
+
+@dataclass(frozen=True)
 class AuthorizationConfig:
     """Configuration for file write authorization."""
 
@@ -340,6 +361,7 @@ class Config:
     progress: ProgressConfig = field(default_factory=ProgressConfig)
     templates: TemplatesConfig = field(default_factory=TemplatesConfig)
     output: OutputControlConfig = field(default_factory=OutputControlConfig)
+    prompt: PromptConfig = field(default_factory=PromptConfig)
     authorization: AuthorizationConfig = field(default_factory=AuthorizationConfig)
 
 
@@ -958,6 +980,20 @@ def load_config(project_root: Path) -> Config:
         format=output_format,
     )
 
+    # Parse prompt configuration
+    prompt_raw = data.get("prompt", {}) or {}
+    if not isinstance(prompt_raw, dict):
+        prompt_raw = {}
+
+    prompt = PromptConfig(
+        enable_limits=_coerce_bool(prompt_raw.get("enable_limits"), False),
+        max_specs_files=_coerce_int(prompt_raw.get("max_specs_files"), 20),
+        max_specs_chars=_coerce_int(prompt_raw.get("max_specs_chars"), 50000),
+        max_single_spec_chars=_coerce_int(prompt_raw.get("max_single_spec_chars"), 10000),
+        truncate_long_specs=_coerce_bool(prompt_raw.get("truncate_long_specs"), True),
+        specs_inclusion_order=str(prompt_raw.get("specs_inclusion_order", "sorted")),
+    )
+
     # Parse authorization configuration
     auth_raw = data.get("authorization", {}) or {}
     if not isinstance(auth_raw, dict):
@@ -984,5 +1020,6 @@ def load_config(project_root: Path) -> Config:
         progress=progress,
         templates=templates,
         output=output,
+        prompt=prompt,
         authorization=authorization,
     )

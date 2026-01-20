@@ -21,6 +21,7 @@ from .evidence import EvidenceReceipt, extract_evidence
 from .prd import SelectedTask
 from .receipts import CommandReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
+from .spec_loader import load_specs_with_limits, SpecLoadResult
 from .subprocess_helper import SubprocessResult, run_subprocess
 from .trackers import make_tracker
 
@@ -403,10 +404,23 @@ def build_prompt(
     progress = _read_text_if_exists(progress_path)
     feedback = _read_text_if_exists(feedback_path)
 
+    # Load specs with configurable limits and diagnostic warnings
+    spec_result: SpecLoadResult = load_specs_with_limits(
+        specs_dir,
+        max_specs_files=cfg.prompt.max_specs_files,
+        max_specs_chars=cfg.prompt.max_specs_chars,
+        max_single_spec_chars=cfg.prompt.max_single_spec_chars,
+        truncate_long_specs=cfg.prompt.truncate_long_specs,
+        specs_inclusion_order=cfg.prompt.specs_inclusion_order,
+    )
+
+    # Read spec contents
     specs: List[tuple[str, str]] = []
-    if specs_dir.exists() and specs_dir.is_dir():
-        for p in sorted(specs_dir.glob("*.md"))[:20]:
-            specs.append((p.name, _read_text_if_exists(p)))
+    for spec_name, _ in spec_result.included:
+        spec_path = specs_dir / spec_name
+        content = _read_text_if_exists(spec_path)
+        if content:
+            specs.append((spec_name, content))
 
     parts: List[str] = []
     if base.strip():

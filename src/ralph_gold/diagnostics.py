@@ -602,6 +602,10 @@ def run_diagnostics(
             prd_results = validate_prd(project_root, cfg)
             all_results.extend(prd_results)
 
+            # Validate spec sizes
+            spec_results = validate_specs_size(project_root, cfg)
+            all_results.extend(spec_results)
+
             # Check for circular dependencies
             dependency_results = check_dependencies(project_root, cfg)
             all_results.extend(dependency_results)
@@ -632,3 +636,74 @@ def run_diagnostics(
     exit_code = 2 if has_errors else 0
 
     return all_results, exit_code
+
+
+def validate_specs_size(project_root: Path, cfg: Config) -> List[DiagnosticResult]:
+    """Validate spec file sizes against configured limits.
+
+    Args:
+        project_root: Path to the project root directory
+        cfg: Loaded configuration
+
+    Returns:
+        List of diagnostic results for spec size validation
+    """
+    from .spec_loader import load_specs_with_limits
+
+    results: List[DiagnosticResult] = []
+    specs_dir = project_root / cfg.files.specs_dir
+
+    if not specs_dir.exists() or not specs_dir.is_dir():
+        results.append(
+            DiagnosticResult(
+                check_name="specs_dir_exists",
+                passed=True,
+                message=f"Specs directory not found: {cfg.files.specs_dir}",
+                suggestions=[
+                    f"Create specs directory at {cfg.files.specs_dir}",
+                ],
+                severity="info",
+            )
+        )
+        return results
+
+    # Run spec loading to check for issues
+    spec_result = load_specs_with_limits(
+        specs_dir,
+        max_specs_files=cfg.prompt.max_specs_files,
+        max_specs_chars=cfg.prompt.max_specs_chars,
+        max_single_spec_chars=cfg.prompt.max_single_spec_chars,
+        truncate_long_specs=cfg.prompt.truncate_long_specs,
+        specs_inclusion_order=cfg.prompt.specs_inclusion_order,
+    )
+
+    # Check for warnings
+    if spec_result.warnings:
+        suggestions = [
+            "Consider splitting large specs into smaller files",
+            f"Set [prompt].enable_limits = true in ralph.toml to enforce limits",
+            "Use [prompt].max_specs_files to reduce the number of specs loaded",
+        ]
+        results.append(
+            DiagnosticResult(
+                check_name="specs_size",
+                passed=False,
+                message=f"Spec size issues detected: {len(spec_result.warnings)} warnings",
+                suggestions=suggestions,
+                severity="warning",
+            )
+        )
+
+    # Report status if no issues
+    if not spec_result.warnings:
+        results.append(
+            DiagnosticResult(
+                check_name="specs_size",
+                passed=True,
+                message=f"Spec sizes are within limits ({len(spec_result.included)} files, {spec_result.total_chars} chars)",
+                suggestions=[],
+                severity="info",
+            )
+        )
+
+    return results
