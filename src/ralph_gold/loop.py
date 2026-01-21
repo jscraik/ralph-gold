@@ -2109,8 +2109,10 @@ def run_iteration(
                     reason = "judge failed"
                 elif not runner_ok:
                     reason = "runner failed"
+                elif not task_done_now:
+                    reason = "task not marked done (agent exited successfully but task not completed)"
                 else:
-                    reason = "unknown"
+                    reason = f"no progress made (exit_ok={runner_ok}, task_done={task_done_now}, gates_ok={gates_ok is not False})"
 
                 blocked_raw[task.id] = {
                     "blocked_at": iso_utc(),
