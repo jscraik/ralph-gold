@@ -31,6 +31,24 @@ max_iterations = 30
 no_progress_limit = 4
 runner_timeout_seconds = 300
 
+[prompt]
+# Control spec file inclusion to prevent PROJECT_MEMORY bloat
+enable_limits = true
+max_specs_files = 5           # Max number of spec files to include
+max_specs_chars = 30000       # Max total characters across all specs
+max_single_spec_chars = 15000 # Max characters for a single spec file
+truncate_long_specs = true    # Truncate oversized specs vs excluding them
+specs_inclusion_order = "sorted"  # sorted|recency|manual
+
+# Context budget settings to prevent agent timeout
+# The progress.md file grows unbounded - these settings keep context manageable
+context_total_budget = 50000        # Total character budget for all context
+context_progress_max_lines = 100     # Max progress entries to include
+context_progress_max_chars = 10000   # Max characters for progress section
+context_prune_on_build = true        # Auto-truncate progress when building prompt
+context_archive_old_entries = true   # Archive old progress entries
+context_archive_dir = "archive/progress"  # Where to store archived progress
+
 [files]
 prd = ".ralph/PRD.md"
 progress = ".ralph/progress.md"

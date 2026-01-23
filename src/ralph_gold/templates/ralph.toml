@@ -26,6 +26,15 @@ max_single_spec_chars = 15000 # Max characters for a single spec file
 truncate_long_specs = true    # Truncate oversized specs vs excluding them
 specs_inclusion_order = "sorted"  # sorted|recency|manual
 
+# Context budget settings to prevent agent timeout
+# The progress.md file grows unbounded - these settings keep context manageable
+context_total_budget = 50000        # Total character budget for all context
+context_progress_max_lines = 100     # Max progress entries to include
+context_progress_max_chars = 10000   # Max characters for progress section
+context_prune_on_build = true        # Auto-truncate progress when building prompt
+context_archive_old_entries = true   # Archive old progress entries
+context_archive_dir = "archive/progress"  # Where to store archived progress
+
 [loop.modes.speed]
 max_iterations = 20
 runner_timeout_seconds = 300

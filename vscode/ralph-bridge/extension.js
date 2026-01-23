@@ -164,7 +164,7 @@ function activate(context) {
       const done = st.done ?? 0;
       const total = st.total ?? 0;
       const running = st.running ? (st.paused ? 'paused' : 'running') : 'idle';
-      const next = st.next ? `next:${st.next.id}` : '';
+      const next = st.next ? `next:${st.next.task_id}` : '';
       statusBar.text = `Ralph: ${done}/${total} ${running} ${next}`.trim();
     } catch (_) {
       statusBar.text = 'Ralph: (status error)';

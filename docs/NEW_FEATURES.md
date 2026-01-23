@@ -141,6 +141,118 @@ Freed: 4.3 GB
 
 ---
 
+### 4. ✅ Diagnostics Command (ralph diagnose)
+
+**Status:** Implemented
+
+**What it does:**
+
+- Validates config files and PRD structure
+- Optionally tests gate commands
+- Emits structured JSON or readable text output
+
+**Usage:**
+
+```bash
+ralph diagnose
+ralph diagnose --test-gates
+```
+
+---
+
+### 5. ✅ Stats & Tracking (ralph stats)
+
+**Status:** Implemented
+
+**What it does:**
+
+- Computes loop statistics from `.ralph/state.json`
+- Supports per-task breakdown
+- Optional CSV export
+
+**Usage:**
+
+```bash
+ralph stats
+ralph stats --by-task
+ralph stats --export .ralph/stats.csv
+```
+
+---
+
+### 6. ✅ Dry-Run Mode (ralph run/step --dry-run)
+
+**Status:** Implemented
+
+**What it does:**
+
+- Validates configuration without running agents
+- Shows which tasks and gates would run
+- Leaves no repo changes
+
+**Usage:**
+
+```bash
+ralph run --agent codex --dry-run
+ralph step --agent codex --dry-run
+```
+
+---
+
+### 7. ✅ Interactive Task Selection (ralph step --interactive)
+
+**Status:** Implemented
+
+**What it does:**
+
+- Lists available tasks
+- Lets the operator pick the next task interactively
+
+**Usage:**
+
+```bash
+ralph step --interactive
+```
+
+---
+
+### 8. ✅ Snapshot & Rollback
+
+**Status:** Implemented
+
+**What it does:**
+
+- Creates named snapshots for safe rollback
+- Restores git + Ralph state together
+
+**Usage:**
+
+```bash
+ralph snapshot before-refactor --description "Before major refactoring"
+ralph rollback before-refactor
+```
+
+---
+
+### 9. ✅ Watch Mode (ralph watch)
+
+**Status:** Implemented
+
+**What it does:**
+
+- Watches configured file patterns
+- Runs gates automatically on changes
+- Optional auto-commit on success
+
+**Usage:**
+
+```bash
+ralph watch
+ralph watch --auto-commit
+```
+
+---
+
 ## Test Coverage
 
 **Total new tests:** 25 tests
@@ -168,53 +280,13 @@ These features were designed but not yet implemented. They're ready for future d
 
 ### High Priority
 
-**4. Diagnostics Command (ralph diagnose)**
-
-- Validate config files
-- Check file formats (prd.json, ralph.toml)
-- Test gate commands individually
-- Suggest fixes for common issues
-
-**5. Stats & Tracking (ralph stats)**
-
-- Track iteration duration and costs
-- Show velocity metrics
-- Identify slow tasks
-- Export to CSV for analysis
-
-### Medium Priority
-
-**6. Dry-Run Mode (ralph run --dry-run)**
-
-- Validate configuration without running agents
-- Show what tasks would be selected
-- Estimate time/cost based on history
-
-**7. Interactive Task Selection (ralph step --interactive)**
-
-- Show all available tasks
-- Let user pick which one to work on
-- Useful for urgent fixes
-
-**8. Task Dependencies**
+**10. Task Dependencies**
 
 - Extend prd.json with `depends_on` field
 - Auto-skip tasks with unmet dependencies
 - Show dependency graph
 
 ### Lower Priority
-
-**9. Snapshot & Rollback**
-
-- Create git stash + state backup
-- Rollback to named snapshots
-- Safer than manual git operations
-
-**10. Watch Mode (ralph watch)**
-
-- Auto-run gates on file save
-- Optional auto-commit if gates pass
-- Great for TDD workflows
 
 **11-15. Additional Features**
 

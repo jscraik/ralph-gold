@@ -18,6 +18,7 @@ from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
 from .authorization import AuthorizationError, EnforcementMode, load_authorization_checker
 from .config import Config, LoopModeConfig, RunnerConfig, load_config
+from .context_manager import check_context_health, load_progress_window
 from .evidence import EvidenceReceipt, extract_evidence
 from .prd import SelectedTask
 from .receipts import CommandReceipt, NoFilesWrittenReceipt, hash_text, iso_utc, truncate_text, write_receipt
@@ -403,7 +404,12 @@ def build_prompt(
 
     agents = _read_text_if_exists(agents_path)
     prd = _read_text_if_exists(prd_path)
-    progress = _read_text_if_exists(progress_path)
+    # Use sliding window for progress to prevent context overflow
+    progress, entries_loaded, total_entries = load_progress_window(
+        progress_path,
+        max_lines=cfg.prompt.context_progress_max_lines,
+        max_chars=cfg.prompt.context_progress_max_chars,
+    )
     feedback = _read_text_if_exists(feedback_path)
 
     # Load specs with configurable limits and diagnostic warnings
@@ -429,6 +435,31 @@ def build_prompt(
         content = _read_text_if_exists(spec_path)
         if content:
             specs.append((spec_name, content))
+
+    # Check context health and log warnings
+    from .context_manager import ContextConfig
+    context_config = ContextConfig(
+        total_budget_chars=cfg.prompt.context_total_budget,
+        progress_max_lines=cfg.prompt.context_progress_max_lines,
+        progress_max_chars=cfg.prompt.context_progress_max_chars,
+    )
+    spec_size = sum(len(content) for _, content in specs)
+    health = check_context_health(
+        progress_size=len(progress),
+        progress_entries=entries_loaded,
+        progress_total=total_entries,
+        spec_size=spec_size,
+        config=context_config,
+    )
+    if health.warnings:
+        logger.warning(f"Context health check: {len(health.warnings)} warnings")
+        for warning in health.warnings:
+            logger.warning(f"  - {warning}")
+    elif entries_loaded < total_entries:
+        logger.info(
+            f"Progress window: {entries_loaded}/{total_entries} entries loaded "
+            f"({len(progress)} chars)"
+        )
 
     parts: List[str] = []
     if base.strip():

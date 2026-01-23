@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.2] - 2026-01-23
+
+### Documentation
+- VS Code bridge protocol docs now use `task_id` and include pause/resume results + rate-limit error.
+
+### Fixed
+- VS Code extension status bar now reads `next.task_id` (bridge contract alignment).
+
 ## [0.8.1] - 2026-01-19
 
 ### Fixed

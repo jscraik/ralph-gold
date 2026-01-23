@@ -40,6 +40,13 @@ Errors:
 {"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"Internal error","data":{...}}}
 ```
 
+Standard error codes:
+- `-32600` Invalid Request
+- `-32601` Method not found
+- `-32602` Invalid params
+- `-32603` Internal error
+- `-32001` Rate limited
+
 Notifications (events):
 
 ```json
@@ -71,11 +78,19 @@ Result fields:
 - `cwd`
 - `prd`, `progress`, `agents`, `prompt`
 - `done`, `total`
-- `next` (nullable): `{id,title,kind}`
+- `next` (nullable): `{task_id,title,kind}`
 - `running`: boolean
 - `paused`: boolean
 - `activeRunId`: nullable
 - `last`: nullable (last iteration entry from `.ralph/state.json`)
+
+Minimum `last` fields:
+- `iteration_id`
+- `task_id`
+- `status`
+- `exit_code`
+- `started_at`
+- `finished_at`
 
 ### `step`
 Runs exactly one Ralph iteration (fresh agent invocation).
@@ -84,7 +99,7 @@ Params:
 - `agent` (optional, default: `codex`)
 
 Result:
-- `iteration`, `agent`, `story_id`
+- `iteration`, `agent`, `task_id`
 - `exit_signal`
 - `return_code`
 - `log_path`
@@ -122,6 +137,11 @@ Result:
 ### `pause` / `resume`
 Pauses/resumes an active background run.
 
+Result:
+- `ok: true|false`
+- `runId` (nullable)
+- `paused` (boolean)
+
 ---
 
 ## Events
@@ -153,13 +173,13 @@ Fields:
 ### `iteration_started`
 Fields:
 - `runId`, `iteration`, `agent`
-- `storyId` (nullable)
+- `task_id` (nullable)
 - `title` (nullable)
 
 ### `iteration_finished`
 Fields:
 - `runId`, `iteration`, `agent`
-- `storyId` (nullable)
+- `task_id` (nullable)
 - `exitSignal`
 - `returnCode`
 - `repoClean`

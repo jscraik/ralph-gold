@@ -331,6 +331,12 @@ class PromptConfig:
         max_single_spec_chars: Maximum characters for a single spec file (default: 50000)
         truncate_long_specs: Whether to truncate oversized specs vs excluding them (default: true)
         specs_inclusion_order: How to order specs - "sorted", "recency", or "manual" (default: "sorted")
+        context_total_budget: Total character budget for all context (default: 50000)
+        context_progress_max_lines: Maximum number of progress entries to include (default: 100)
+        context_progress_max_chars: Maximum characters for progress section (default: 10000)
+        context_prune_on_build: Automatically truncate progress when building prompt (default: true)
+        context_archive_old_entries: Archive old progress entries (default: true)
+        context_archive_dir: Directory for archived progress relative to .ralph/ (default: archive/progress)
     """
 
     enable_limits: bool = False
@@ -339,6 +345,13 @@ class PromptConfig:
     max_single_spec_chars: int = 50000  # Increased from 10000 (5x) for larger individual specs
     truncate_long_specs: bool = True
     specs_inclusion_order: str = "sorted"  # sorted|recency|manual
+    # Context management settings
+    context_total_budget: int = 50000
+    context_progress_max_lines: int = 100
+    context_progress_max_chars: int = 10000
+    context_prune_on_build: bool = True
+    context_archive_old_entries: bool = True
+    context_archive_dir: str = "archive/progress"
 
 
 @dataclass(frozen=True)
@@ -1104,6 +1117,13 @@ def load_config(project_root: Path) -> Config:
         max_single_spec_chars=_coerce_int(prompt_raw.get("max_single_spec_chars"), 50000),
         truncate_long_specs=_coerce_bool(prompt_raw.get("truncate_long_specs"), True),
         specs_inclusion_order=str(prompt_raw.get("specs_inclusion_order", "sorted")),
+        # Context management settings
+        context_total_budget=_coerce_int(prompt_raw.get("context_total_budget"), 50000),
+        context_progress_max_lines=_coerce_int(prompt_raw.get("context_progress_max_lines"), 100),
+        context_progress_max_chars=_coerce_int(prompt_raw.get("context_progress_max_chars"), 10000),
+        context_prune_on_build=_coerce_bool(prompt_raw.get("context_prune_on_build"), True),
+        context_archive_old_entries=_coerce_bool(prompt_raw.get("context_archive_old_entries"), True),
+        context_archive_dir=str(prompt_raw.get("context_archive_dir", "archive/progress")),
     )
 
     # Parse authorization configuration

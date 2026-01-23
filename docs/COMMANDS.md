@@ -223,6 +223,7 @@ ralph step --agent AGENT [OPTIONS]
 - `--interactive`: Interactive task selection
 - `--prompt-file PATH`: Custom prompt file
 - `--prd-file PATH`: Custom PRD file
+- `--dry-run`: Simulate without running agents
 - `--format FORMAT`: Output format
 
 **Interactive mode:**
@@ -256,9 +257,8 @@ ralph resume [OPTIONS]
 ```
 
 **Options:**
-- `--agent AGENT`: Agent to use (default: from config)
-- `--max-iterations N`: Maximum iterations to run
-- `--format FORMAT`: Output format
+- `--auto`: Resume automatically without prompting
+- `--clear`: Clear interrupted state without resuming
 
 **Behavior:**
 - Detects interrupted iterations from state.json
@@ -267,7 +267,7 @@ ralph resume [OPTIONS]
 
 **Example:**
 ```bash
-ralph resume --agent codex
+ralph resume --auto
 ```
 
 ---
@@ -605,29 +605,26 @@ ralph watch --auto-commit
 Clean old logs, archives, and other workspace artifacts.
 
 ```bash
-ralph clean <what> [OPTIONS]
+ralph clean [OPTIONS]
 ```
-
-**Arguments:**
-- `<what>`: What to clean (`logs`, `archives`, `all`)
 
 **Options:**
 - `--dry-run`: Show what would be removed without removing
-- `--force`: Remove without confirmation
+- `--logs-days N`: Remove logs older than N days
+- `--archives-days N`: Remove archives older than N days
+- `--receipts-days N`: Remove receipts older than N days
+- `--context-days N`: Remove context files older than N days
 
 **Examples:**
 ```bash
-# Clean old logs
-ralph clean logs
-
-# Clean old archives
-ralph clean archives
-
-# Clean everything
-ralph clean all
+# Clean with defaults
+ralph clean
 
 # Dry run
-ralph clean logs --dry-run
+ralph clean --dry-run
+
+# Adjust thresholds
+ralph clean --logs-days 7 --archives-days 30
 ```
 
 ---

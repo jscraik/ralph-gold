@@ -1,4 +1,4 @@
-# Integrate ralph-gold-uv v0.8.0 into ralph-gold
+# Implement Ralph Gold PRD (Solo Dev Loop) in slices
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
@@ -6,107 +6,122 @@ This repository uses `.agent/PLANS.md`. This document must be maintained in acco
 
 ## Purpose / Big Picture
 
-Bring the new v0.8.0 release features (Repo Prompt context packs, receipts-based gating, re-anchoring, and SHIP/BLOCK review gate) into `/Users/jamiecraik/dev/ralph-gold` so the CLI and loop behavior match the v0.8.0 capabilities while preserving existing repo-specific features (parallel execution, YAML and GitHub trackers). After this change, a user can run `ralph init`, `ralph step`, and `ralph run` and observe receipts, context packs, and review gating behavior in `.ralph/` as described by the v0.8.0 README, without regressions to existing commands.
+Enable a solo developer to run deterministic AI-agent loop iterations with clear exit rules, durable receipts/context artifacts, optional review gate, optional watch mode, and an optional VS Code bridge, all aligned to the finalized PRD/UX/Build Plan. A user should be able to run `ralph init`, `ralph step`, and `ralph run`, observe receipts and context snapshots, and verify status and review gating behavior in the terminal.
 
 ## Progress
 
-- [x] (2026-01-17 16:10Z) Read standards, engineering guidance, work rules, and CODESTYLE requirements.
-- [x] (2026-01-17 16:12Z) Inventory v0.8.0 package and current repo tree; capture a diff summary to scope changes.
-- [x] Update `.agent/PLANS.md` to this ExecPlan and keep it current as work proceeds.
-- [x] Add/merge v0.8.0 features into core modules (`config.py`, `loop.py`, `cli.py`, `trackers.py`, `prd.py`, `bridge.py`, `tui.py`, `scaffold.py`).
-- [x] Add new modules (`repoprompt.py`, `receipts.py`) and templates (`FEEDBACK.md`, `PROMPT_review.md`), update existing templates and `README.md`.
-- [x] Update tests to align with new behavior; run `uv run pytest -q` (via `uv run --with pytest pytest -q`) and CLI smoke checks.
-- [x] Produce verification evidence and summarize outcomes.
+- [ ] (2026-01-23 00:00Z) Read this ExecPlan end-to-end and confirm repo status and current behavior.
+- [ ] (2026-01-23 00:00Z) Validate current CLI behavior and record baseline outputs for `ralph init`, `ralph step`, and `ralph status`.
+- [ ] (2026-01-23 00:00Z) Implement or verify receipts + context snapshots for each iteration, including schema fields.
+- [ ] (2026-01-23 00:00Z) Implement or verify review gate behavior and status visibility.
+- [ ] (2026-01-23 00:00Z) Implement or verify watch mode behavior and opt-in safety.
+- [ ] (2026-01-23 00:00Z) Implement or verify VS Code bridge JSON-RPC contract alignment with API spec.
+- [ ] (2026-01-23 00:00Z) Add or update tests to cover new/verified behaviors.
+- [ ] (2026-01-23 00:00Z) Run `uv run pytest -q` and CLI smoke checks; capture evidence.
+- [ ] (2026-01-23 00:00Z) Update docs if user-visible behavior changes.
+- [ ] (2026-01-23 00:00Z) Complete Outcomes & Retrospective.
 
 ## Surprises & Discoveries
 
-- Observation: v0.8.0 sources show internal inconsistencies (loop imports for receipts/repoprompt do not match the provided modules). Evidence: `src/ralph_gold/loop.py` references `CommandReceipt` and `build_context_pack` signatures that do not exist in `receipts.py` and `repoprompt.py`.
+- None yet.
 
 ## Decision Log
 
-- Decision: Integrate v0.8.0 features into the existing repo rather than replacing the entire codebase. Rationale: the repo already contains additional supported features (parallel execution, YAML and GitHub trackers) that are not present in the v0.8.0 package, and a full overwrite would remove them and break existing tests. Date/Author: 2026-01-17 (Codex).
-- Decision: Reconcile v0.8.0 inconsistencies by aligning `loop.py` with corrected `receipts.py` and `repoprompt.py` APIs rather than copying the mismatched files verbatim. Rationale: keeps the integration functional and testable while still honoring the v0.8.0 README feature set. Date/Author: 2026-01-17 (Codex).
+- Decision: Implement in small slices aligned to PRD acceptance criteria and API spec before optimizing or refactoring.
+  Rationale: preserves deterministic behavior and reduces regressions.
+  Date/Author: 2026-01-23 (Codex).
 
 ## Outcomes & Retrospective
 
-- Pending. Will be completed after integration and validation.
+- Pending.
 
 ## Context and Orientation
 
-The target repo is `/Users/jamiecraik/dev/ralph-gold`. Source reference is `/Users/jamiecraik/Downloads/ralph-gold-uv-v0.8.0`. Core runtime is under `src/ralph_gold/` and templates live in `src/ralph_gold/templates/`. The loop orchestrator is implemented in `src/ralph_gold/loop.py` and invoked by `src/ralph_gold/cli.py`, `src/ralph_gold/tui.py`, and `src/ralph_gold/bridge.py`. Task selection and tracker IO are in `src/ralph_gold/prd.py` and `src/ralph_gold/trackers.py`, with optional trackers in `src/ralph_gold/trackers/`. The scaffolding entry point is `src/ralph_gold/scaffold.py`. Tests live under `tests/`.
+This repository is a CLI/devtools project. Core runtime lives under `src/ralph_gold/`. The loop orchestrator is in `src/ralph_gold/loop.py`, CLI entry in `src/ralph_gold/cli.py`, interactive UI in `src/ralph_gold/tui.py`, and VS Code bridge in `src/ralph_gold/bridge.py`. Templates and scaffolding live in `src/ralph_gold/templates/` and are used by `src/ralph_gold/scaffold.py`. Loop state and receipts are stored under `.ralph/` in the project root. The implementation should align with these specs:
 
-The v0.8.0 release introduces a receipts system (structured JSON artifacts stored under `.ralph/receipts/`), re-anchoring (per-iteration ANCHOR.md under `.ralph/context/`), optional Repo Prompt context packs (rp-cli integration, stored under `.ralph/context/`), and an optional SHIP/BLOCK review gate. These must be represented in config (`.ralph/ralph.toml`), templates, and runtime behavior.
+- `.spec/foundation-2026-01-23-ralph-gold-prd.md`
+- `.spec/ux-2026-01-23-ralph-gold-prd.md`
+- `.spec/build-plan-2026-01-23-ralph-gold-prd.md`
+- `.spec/foundation-2026-01-23-ralph-gold-prd-api-spec.md`
+
+Key terms:
+- "Iteration": one loop run cycle with a single agent invocation.
+- "Receipts": JSON artifacts under `.ralph/receipts/` that record command and evidence details.
+- "Context snapshot": `.ralph/context/<n>/ANCHOR.md` that captures per-iteration context.
+- "Review gate": a rule that requires a `SHIP` token to exit when enabled.
 
 ## Plan of Work
 
-Update `config.py` to add v0.8.0 configuration fields (loop attempt backstop, review gate, prek gate runner, repoprompt config, additional file paths) while preserving existing parallel and GitHub tracker configs. Add new modules `receipts.py` and `repoprompt.py` using corrected APIs that match the new loop behavior. Refactor `loop.py` to add re-anchoring, receipts, repoprompt context pack generation, review gating, and attempt-based auto-blocking; preserve existing exit-signal handling, parallel execution hooks, and repo-clean logic that ignores `.ralph/`. Update `trackers.py` and `prd.py` to support `select_next_task(exclude_ids=...)`, blocked status, and dependency-aware selection while keeping existing YAML/GitHub tracker functionality and parallel grouping.
+First, confirm the current behavior of `ralph init`, `ralph step`, and `ralph status` using the CLI to establish a baseline. Then, verify the receipts and context snapshot outputs match the required schemas from the build plan. If missing or incomplete, update the loop orchestration (`src/ralph_gold/loop.py`) and receipts writers (`src/ralph_gold/receipts.py`) to produce the required fields and paths. Next, ensure the review gate logic is enforced and visible in status outputs; update `src/ralph_gold/loop.py`, `src/ralph_gold/cli.py`, and `src/ralph_gold/status.py` if necessary.
 
-Update `cli.py`, `bridge.py`, and `tui.py` to use the new tracker selection interface and surface the new loop results without breaking existing subcommands (doctor/setup checks, GitHub auth checks, convert, serve, parallel flags). Update `scaffold.py` to include new default files (`FEEDBACK.md`, `PROMPT_review.md`) and new `.ralph/` subdirectories (`receipts/`, `context/`, `attempts/`). Update templates and docs (README + GOLDEN_LOOP) to document v0.8.0 features and keep existing repo-specific features (parallel execution, YAML/GitHub tracker sections). Update `pyproject.toml` and `__init__.py` version to 0.8.0.
+Then, validate watch mode behavior and safety: `ralph watch` should only be available when `watch.enabled = true` in `.ralph/ralph.toml`, and auto-commit must remain opt-in. Update `src/ralph_gold/watch.py` or the watch controller if behavior diverges. Next, align the VS Code bridge JSON-RPC responses to the API spec, ensuring the `status` and `step` payloads match the defined schema and that event payloads include required fields. Update `src/ralph_gold/bridge.py` to normalize field names (`task_id`) and add explicit error responses if needed.
 
-Finally, run `uv run pytest -q` and a CLI smoke check (`uv run python -m ralph_gold.cli --help`) to validate behavior. Document any skipped checks or known deviations.
+Finally, add or update tests in `tests/` to cover receipts/context outputs, review gating, and bridge schemas. Run `uv run pytest -q` and CLI smoke checks, then update docs if any user-visible behavior changes from current documentation.
 
 ## Concrete Steps
 
 Run commands from `/Users/jamiecraik/dev/ralph-gold`:
 
-    rg --files
-    diff -qr --exclude '__pycache__' --exclude '*.pyc' /Users/jamiecraik/dev/ralph-gold /Users/jamiecraik/Downloads/ralph-gold-uv-v0.8.0
+    rg "receipts" src/ralph_gold
+    rg "context" src/ralph_gold
+    rg "review" src/ralph_gold
+    uv run python -m ralph_gold.cli --help
+    ralph init
+    ralph step --agent codex
+    ralph status
 
-Apply edits to the following files, in this order, keeping changes minimal and testable:
+If receipts or context snapshots are missing or incomplete, update the following files (as needed):
 
-    src/ralph_gold/config.py
-    src/ralph_gold/receipts.py (new)
-    src/ralph_gold/repoprompt.py (new)
-    src/ralph_gold/prd.py
-    src/ralph_gold/trackers.py
     src/ralph_gold/loop.py
-    src/ralph_gold/cli.py
+    src/ralph_gold/receipts.py
+    src/ralph_gold/repoprompt.py
     src/ralph_gold/bridge.py
     src/ralph_gold/tui.py
     src/ralph_gold/scaffold.py
-    src/ralph_gold/templates/AGENTS.md
-    src/ralph_gold/templates/FEEDBACK.md (new)
-    src/ralph_gold/templates/PROMPT_build.md
-    src/ralph_gold/templates/PROMPT_review.md (new)
     src/ralph_gold/templates/ralph.toml
-    README.md
-    docs/GOLDEN_LOOP.md
-    pyproject.toml
-    src/ralph_gold/__init__.py
 
-After edits, run:
+Expected evidence examples (trimmed):
+
+    .ralph/receipts/command-<id>.json exists
+    .ralph/context/<n>/ANCHOR.md exists
+    ralph status shows current task and exit state
+
+## Validation and Acceptance
+
+Run the repo tests and CLI smoke checks:
 
     uv run pytest -q
     uv run python -m ralph_gold.cli --help
 
-Record outputs (or reasons for not running) under Artifacts and in the final response.
-
-## Validation and Acceptance
-
 Acceptance is met when:
 
-- `ralph init` creates `.ralph/` with new files (`FEEDBACK.md`, `PROMPT_review.md`) and directories (`receipts/`, `context/`, `attempts/`).
-- Running a loop iteration produces `ANCHOR.md` and receipts under `.ralph/context/` and `.ralph/receipts/` when tasks exist.
-- `gates.review` (when enabled) blocks progress unless the reviewer output ends with `SHIP`.
-- Existing features (parallel execution, YAML/GitHub trackers) remain functional and tests pass.
-- `uv run pytest -q` passes (or any failures are documented with rationale).
+- A fresh `ralph init` creates `.ralph/` scaffolding including receipts/context directories.
+- `ralph step` produces receipts and ANCHOR snapshots per iteration.
+- Review gate blocks exit unless the required token is provided.
+- `ralph status` reports current task state and exit reason clearly.
+- VS Code bridge responses match the API spec schemas.
+- `uv run pytest -q` passes or failures are documented.
 
 ## Idempotence and Recovery
 
-All edits are file-based and can be re-applied safely. If a change introduces regressions, revert the specific file to its prior version and re-apply the v0.8.0-specific edits incrementally. Avoid deleting repo-local artifacts such as `.ralph/`, `.venv/`, or `.agent/`.
+All steps are safe to repeat. If a change causes regression, revert the specific file to the last known good state and re-apply changes in smaller patches. Avoid deleting `.ralph/` unless explicitly requested; it contains state needed for verification.
 
 ## Artifacts and Notes
 
-Capture concise evidence such as `git status --short`, key test outputs, and any new file creation confirmation. Keep snippets short and focused on proving acceptance criteria.
+Record these artifacts in short form:
+
+    git status --short
+    uv run pytest -q (pass/fail summary)
+    ralph status output after a run
 
 ## Interfaces and Dependencies
 
-No new third-party Python dependencies are required. The new optional integration is the external `rp-cli` binary, which must be referenced via config (`[repoprompt].cli`) and checked by `doctor` when enabled. The following interfaces must exist after implementation:
+Key interfaces that must exist after implementation:
 
-    In src/ralph_gold/config.py, Config must include repoprompt, review gate, and attempt backstop fields.
-    In src/ralph_gold/trackers.py, Tracker must expose select_next_task(exclude_ids=None) and block_task(task_id, reason).
-    In src/ralph_gold/prd.py, selection must respect blocked tasks and optional dependencies.
-    In src/ralph_gold/loop.py, run_iteration must accept task_override and emit receipts + context anchors.
+    In src/ralph_gold/bridge.py, ensure JSON-RPC responses match `.spec/foundation-2026-01-23-ralph-gold-prd-api-spec.md` with `task_id` and defined event fields.
 
----
-Plan updated: 2026-01-17 (Codex). Replaced outdated v0.5.0 sync plan with v0.8.0 integration plan.
+    In src/ralph_gold/receipts.py, ensure receipts include attempt_id, command, status, timestamp, and citations.
+
+    In src/ralph_gold/loop.py, ensure per-iteration context snapshots are written to `.ralph/context/<n>/ANCHOR.md`.
+
+Plan change note: Created a new ExecPlan for implementing the finalized PRD/UX/Build Plan slices; archived the prior ExecPlan as `.agent/PLANS.archive-2026-01-23.md` to preserve history.
