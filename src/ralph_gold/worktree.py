@@ -80,16 +80,12 @@ class WorktreeManager:
                 )
 
         # Check if branch already exists and delete it
-        try:
-            result = subprocess.run(
-                ["git", "branch", "-D", branch_name],
-                cwd=str(self.project_root),
-                capture_output=True,
-                text=True,
-            )
-            # Ignore errors - branch might not exist
-        except subprocess.CalledProcessError:
-            pass
+        subprocess.run(
+            ["git", "branch", "-D", branch_name],
+            cwd=str(self.project_root),
+            capture_output=True,
+            text=True,
+        )
 
         try:
             # Create worktree with new branch

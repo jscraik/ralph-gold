@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import List, Optional
 
@@ -57,8 +57,6 @@ class ParallelExecutor:
             cfg: Configuration object with parallel settings
             max_tasks: Maximum number of tasks to execute (optional cap)
 
-        Raises:
-            RuntimeError: If auto_merge policy is specified but not implemented
         """
         self.project_root = project_root
         self.cfg = cfg
@@ -67,13 +65,16 @@ class ParallelExecutor:
             project_root, project_root / cfg.parallel.worktree_root
         )
         self.workers: dict[int, WorkerState] = {}
-        self.executor = ThreadPoolExecutor(max_workers=cfg.parallel.max_workers)
-
-        # Fail fast on unimplemented merge policy
         if cfg.parallel.merge_policy == "auto_merge":
-            raise RuntimeError(
-                "auto_merge policy is not yet implemented. "
-                "Use merge_policy='manual' in ralph.toml or omit parallel execution."
+            from .output import print_output
+
+            print_output(
+                "parallel.merge_policy=auto_merge is not yet implemented. "
+                "Continuing with manual merge policy.",
+                level="warning",
+            )
+            self.cfg = replace(
+                cfg, parallel=replace(cfg.parallel, merge_policy="manual")
             )
 
     def run_parallel(self, agent: str, tracker: Tracker) -> List[IterationResult]:
@@ -115,27 +116,24 @@ class ParallelExecutor:
             return []
 
         # Execute workers
-        futures = []
-        for worker_id, task in enumerate(tasks):
-            future = self.executor.submit(
-                self._run_worker, worker_id=worker_id, task=task, agent=agent
-            )
-            futures.append(future)
+        futures: dict[object, tuple[int, SelectedTask]] = {}
+        with ThreadPoolExecutor(max_workers=self.cfg.parallel.max_workers) as executor:
+            for worker_id, task in enumerate(tasks):
+                future = executor.submit(
+                    self._run_worker, worker_id=worker_id, task=task, agent=agent
+                )
+                futures[future] = (worker_id, task)
 
-        # Wait for completion and collect results
-        results = []
-        try:
+            # Wait for completion and collect results
+            results = []
             for future in as_completed(futures):
+                worker_id, task = futures[future]
                 try:
                     result = future.result()
                     results.append(result)
-                except Exception:
-                    # Worker failure is already logged in worker state
-                    # Continue collecting other results
-                    pass
-        finally:
-            # Ensure executor shutdown even on errors
-            self.executor.shutdown(wait=True)
+                except Exception as exc:
+                    self._log_worker_failure(worker_id, task, exc)
+                    results.append(self._failure_result(worker_id, task, agent))
 
         return results
 
@@ -152,11 +150,15 @@ class ParallelExecutor:
         Returns:
             IterationResult from the worker execution
 
-        Raises:
-            Exception: If worker execution fails
         """
-        # Create worktree
-        worktree_path, branch_name = self.worktree_mgr.create_worktree(task, worker_id)
+        try:
+            # Create worktree
+            worktree_path, branch_name = self.worktree_mgr.create_worktree(
+                task, worker_id
+            )
+        except Exception as exc:
+            self._log_worker_failure(worker_id, task, exc)
+            return self._failure_result(worker_id, task, agent)
 
         # Initialize worker state
         worker = WorkerState(
@@ -184,17 +186,13 @@ class ParallelExecutor:
 
             worker.status = "success" if result.gates_ok else "failed"
             worker.iteration_result = result
-
-            # Handle merge if successful and auto-merge enabled
-            if result.gates_ok and self.cfg.parallel.merge_policy == "auto_merge":
-                self._merge_worker(worker)
-
             return result
 
-        except Exception as e:
+        except Exception as exc:
             worker.status = "failed"
-            worker.error = str(e)
-            raise
+            worker.error = str(exc)
+            self._log_worker_failure(worker_id, task, exc)
+            return self._failure_result(worker_id, task, agent)
 
         finally:
             worker.completed_at = time.time()
@@ -236,19 +234,30 @@ class ParallelExecutor:
             tasks.extend(groups[group_name])
         return tasks
 
-    def _merge_worker(self, worker: WorkerState) -> None:
-        """Merge worker branch back to main (for auto_merge policy).
+    def _failure_result(
+        self, worker_id: int, task: SelectedTask, agent: str
+    ) -> IterationResult:
+        return IterationResult(
+            iteration=worker_id + 1,
+            agent=agent,
+            story_id=str(task.id),
+            exit_signal=True,
+            return_code=1,
+            log_path=None,
+            progress_made=False,
+            no_progress_streak=0,
+            gates_ok=False,
+            repo_clean=False,
+            judge_ok=None,
+            task_title=task.title,
+        )
 
-        Args:
-            worker: Worker state with branch to merge
+    def _log_worker_failure(
+        self, worker_id: int, task: SelectedTask, exc: Exception
+    ) -> None:
+        from .output import print_output
 
-        Note:
-            This is a placeholder for merge functionality.
-            Full implementation would handle merge conflicts and cleanup.
-        """
-        # TODO: Implement merge logic
-        # - Switch to base branch
-        # - Merge worker branch
-        # - Handle conflicts
-        # - Clean up worktree on success
-        pass
+        print_output(
+            f"Parallel worker {worker_id} failed for task {task.id}: {exc}",
+            level="error",
+        )
