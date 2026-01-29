@@ -1,0 +1,12 @@
+id: pr-parallel-executor-hardening-2026-01-29
+tool: claude-code
+mode: normal
+task: "Review code for bugs, bloat, and dead code; implement fixes/refactors as needed."
+constraints:
+  - "follow PR template exactly"
+  - "no secrets"
+outputs_expected:
+  - "src/ralph_gold/parallel.py"
+  - "src/ralph_gold/worktree.py"
+  - "ai/prompts/2026-01-29-parallel-executor-hardening.yaml"
+  - "ai/sessions/2026-01-29-parallel-executor-hardening.json"
