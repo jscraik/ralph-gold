@@ -7,11 +7,45 @@ include support for dynamic values like agent names and templates.
 
 from __future__ import annotations
 
+import json
+import logging
+
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from .config import Config
+
+
+def load_completion_data(completion_path: Path) -> list[dict]:
+    """Load completion data from a JSON file.
+
+    Args:
+        completion_path: Path to the completion data file
+
+    Returns:
+        List of completion entries, or empty list if loading fails
+    """
+    try:
+        completion_data = json.loads(completion_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load completion data: %s", e)
+        return []
+
+
+def save_completion_data(completion_path: Path, completion_data: list[dict]) -> None:
+    """Save completion data to a JSON file.
+
+    Args:
+        completion_path: Path to the completion data file
+        completion_data: List of completion entries to save
+    """
+    try:
+        completion_path.write_text(json.dumps(completion_data), encoding="utf-8")
+    except OSError as e:
+        logger.debug("Failed to save completion data: %s", e)
 
 
 def generate_bash_completion() -> str:
@@ -510,8 +544,8 @@ def get_dynamic_completions(
 
             templates = list_templates(project_root)
             completions = [t.name for t in templates]
-        except Exception:
-            # Fallback to built-in templates if loading fails
+        except (ImportError, OSError) as e:
+            logger.debug("Failed to load templates: %s", e)
             completions = ["bug-fix", "feature", "refactor"]
 
     elif completion_type == "snapshots":
@@ -521,9 +555,9 @@ def get_dynamic_completions(
 
             snapshots = list_snapshots(project_root)
             completions = [s.name for s in snapshots]
-        except Exception:
-            # If snapshots can't be loaded, return empty list
-            completions = []
+        except (ImportError, OSError) as e:
+            logger.debug("Failed to load snapshots: %s", e)
+            return []
 
     elif completion_type == "formats":
         # Output formats

@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ralph_gold.authorization import EnforcementMode
+else:
+    from ralph_gold.authorization import EnforcementMode
 
 try:
     import tomllib  # py>=3.11
@@ -211,11 +213,11 @@ class GitHubTrackerConfig:
     auth_method: str = "gh_cli"  # gh_cli|token
     token_env: str = "GITHUB_TOKEN"
     label_filter: str = "ready"
-    exclude_labels: List[str] = None  # type: ignore
+    exclude_labels: Optional[List[str]] = None
     close_on_done: bool = True
     comment_on_done: bool = True
-    add_labels_on_start: List[str] = None  # type: ignore
-    add_labels_on_done: List[str] = None  # type: ignore
+    add_labels_on_start: Optional[List[str]] = None
+    add_labels_on_done: Optional[List[str]] = None
     cache_ttl_seconds: int = 300
 
     def __post_init__(self) -> None:
@@ -229,16 +231,48 @@ class GitHubTrackerConfig:
 
 
 @dataclass(frozen=True)
+class WebTrackerConfig:
+    """Configuration for Web Analysis tracker.
+
+    The web analysis tracker performs reconnaissance on web applications
+    to discover and generate tasks for issues, optimizations, and areas
+    needing investigation.
+    """
+
+    base_url: str = ""
+    sitemap_url: str = ""  # default: {base_url}/sitemap.xml
+    crawl_depth: int = 2
+    max_pages: int = 100
+    api_discovery: bool = True
+    js_analysis: bool = True
+    normalize_hashes: bool = True
+    headless_nav: bool = False
+    cache_ttl_seconds: int = 3600
+    output_path: str = ".ralph/web_analysis.json"
+
+    def __post_init__(self) -> None:
+        """Initialize derived values."""
+        # If sitemap_url is not set, derive from base_url
+        if not self.sitemap_url and self.base_url:
+            # Normalize base_url and append /sitemap.xml
+            base = self.base_url.rstrip("/")
+            object.__setattr__(self, "sitemap_url", f"{base}/sitemap.xml")
+
+
+@dataclass(frozen=True)
 class TrackerConfig:
-    # auto|markdown|json|beads|yaml|github_issues
+    # auto|markdown|json|beads|yaml|github_issues|web_analysis
     kind: str = "auto"
     plugin: str = ""  # optional: module:callable
-    github: GitHubTrackerConfig = None  # type: ignore
+    github: Optional[GitHubTrackerConfig] = None
+    web: Optional[WebTrackerConfig] = None
 
     def __post_init__(self) -> None:
         """Initialize mutable default values."""
         if self.github is None:
             object.__setattr__(self, "github", GitHubTrackerConfig())
+        if self.web is None:
+            object.__setattr__(self, "web", WebTrackerConfig())
 
 
 @dataclass(frozen=True)
@@ -362,13 +396,13 @@ class AuthorizationConfig:
         enabled: Whether authorization verification is active
         fallback_to_full_auto: Skip auth when --full-auto flag present
         permissions_file: Path to permissions JSON file
-        enforcement_mode: How to handle authorization failures ("warn" or "block")
+        enforcement_mode: How to handle authorization failures (warn or block)
     """
 
     enabled: bool = False
     fallback_to_full_auto: bool = False
     permissions_file: str = ".ralph/permissions.json"
-    enforcement_mode: Literal["warn", "block"] = "warn"
+    enforcement_mode: EnforcementMode = EnforcementMode.WARN  # type: ignore[assignment]
 
 
 @dataclass(frozen=True)
@@ -407,6 +441,7 @@ class InitConfig:
         default_factory=lambda: [
             "runners.custom",
             "tracker.github",
+            "tracker.web",
             "authorization",
         ]
     )
@@ -498,7 +533,26 @@ class Config:
 def _coerce_int(value: Any, default: int) -> int:
     try:
         return int(value)
-    except Exception:
+    except (ValueError, TypeError) as e:
+        logger.debug("Coercion failed: %s", e)
+        return default
+
+
+def _parse_string_list(raw: Any, default: List[str]) -> List[str]:
+    """Parse a list configuration value with type coercion.
+
+    Args:
+        raw: Raw value from config (list, str, or other)
+        default: Default list if raw is invalid
+
+    Returns:
+        List of coerced strings
+    """
+    if isinstance(raw, list):
+        return [str(x) for x in raw]
+    elif isinstance(raw, str) and raw.strip():
+        return [raw.strip()]
+    else:
         return default
 
 
@@ -521,7 +575,8 @@ def _coerce_bool(value: Any, default: bool) -> bool:
 def _load_toml(path: Path) -> Dict[str, Any]:
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (tomli.TOMLDecodeError, OSError) as e:
+        logger.debug("Failed to load TOML: %s", e)
         return {}
 
 
@@ -925,24 +980,15 @@ def load_config(project_root: Path) -> Config:
 
     # Parse exclude_labels list
     exclude_labels_raw = github_raw.get("exclude_labels", ["blocked"])
-    if isinstance(exclude_labels_raw, list):
-        exclude_labels = [str(x) for x in exclude_labels_raw]
-    else:
-        exclude_labels = ["blocked"]
+    exclude_labels = _parse_string_list(exclude_labels_raw, ["blocked"])
 
     # Parse add_labels_on_start list
     add_labels_on_start_raw = github_raw.get("add_labels_on_start", ["in-progress"])
-    if isinstance(add_labels_on_start_raw, list):
-        add_labels_on_start = [str(x) for x in add_labels_on_start_raw]
-    else:
-        add_labels_on_start = ["in-progress"]
+    add_labels_on_start = _parse_string_list(add_labels_on_start_raw, ["in-progress"])
 
     # Parse add_labels_on_done list
     add_labels_on_done_raw = github_raw.get("add_labels_on_done", ["completed"])
-    if isinstance(add_labels_on_done_raw, list):
-        add_labels_on_done = [str(x) for x in add_labels_on_done_raw]
-    else:
-        add_labels_on_done = ["completed"]
+    add_labels_on_done = _parse_string_list(add_labels_on_done_raw, ["completed"])
 
     github_config = GitHubTrackerConfig(
         repo=str(github_raw.get("repo", "")),
@@ -957,12 +1003,31 @@ def load_config(project_root: Path) -> Config:
         cache_ttl_seconds=_coerce_int(github_raw.get("cache_ttl_seconds"), 300),
     )
 
+    # Parse Web tracker configuration
+    web_raw = tracker_raw.get("web", {}) or {}
+    if not isinstance(web_raw, dict):
+        web_raw = {}
+
+    web_config = WebTrackerConfig(
+        base_url=str(web_raw.get("base_url", "")),
+        sitemap_url=str(web_raw.get("sitemap_url", "")),
+        crawl_depth=_coerce_int(web_raw.get("crawl_depth"), 2),
+        max_pages=_coerce_int(web_raw.get("max_pages"), 100),
+        api_discovery=_coerce_bool(web_raw.get("api_discovery"), True),
+        js_analysis=_coerce_bool(web_raw.get("js_analysis"), True),
+        normalize_hashes=_coerce_bool(web_raw.get("normalize_hashes"), True),
+        headless_nav=_coerce_bool(web_raw.get("headless_nav"), False),
+        cache_ttl_seconds=_coerce_int(web_raw.get("cache_ttl_seconds"), 3600),
+        output_path=str(web_raw.get("output_path", ".ralph/web_analysis.json")),
+    )
+
     tracker = TrackerConfig(
         kind=str(tracker_raw.get("kind", TrackerConfig.kind)).strip() or "auto",
         plugin=str(
             tracker_raw.get("plugin", tracker_raw.get("plugin_path", ""))
         ).strip(),
         github=github_config,
+        web=web_config,
     )
 
     repoprompt_raw = data.get("repoprompt", data.get("repo_prompt", {})) or {}
@@ -1045,10 +1110,7 @@ def load_config(project_root: Path) -> Config:
 
     # Parse watch patterns
     patterns_raw = watch_raw.get("patterns", ["**/*.py", "**/*.md"])
-    if isinstance(patterns_raw, list):
-        watch_patterns = [str(x) for x in patterns_raw]
-    else:
-        watch_patterns = ["**/*.py", "**/*.md"]
+    watch_patterns = _parse_string_list(patterns_raw, ["**/*.py", "**/*.md"])
 
     watch = WatchConfig(
         enabled=_coerce_bool(watch_raw.get("enabled"), False),
@@ -1075,10 +1137,7 @@ def load_config(project_root: Path) -> Config:
 
     # Parse builtin templates list
     builtin_raw = templates_raw.get("builtin", ["bug-fix", "feature", "refactor"])
-    if isinstance(builtin_raw, list):
-        builtin_templates = [str(x) for x in builtin_raw]
-    else:
-        builtin_templates = ["bug-fix", "feature", "refactor"]
+    builtin_templates = _parse_string_list(builtin_raw, ["bug-fix", "feature", "refactor"])
 
     templates = TemplatesConfig(
         builtin=builtin_templates,
@@ -1131,16 +1190,21 @@ def load_config(project_root: Path) -> Config:
     if not isinstance(auth_raw, dict):
         auth_raw = {}
 
-    # Validate enforcement_mode value
+    # Import EnforcementMode for type-safe enforcement mode handling
+    from .authorization import EnforcementMode
+
+    # Validate enforcement_mode value using enum
     mode_str = str(auth_raw.get("enforcement_mode", "warn")).lower()
-    if mode_str not in ("warn", "block"):
-        mode_str = "warn"  # Default to warn if invalid
+    try:
+        enforcement_mode = EnforcementMode(mode_str)
+    except ValueError:
+        enforcement_mode = EnforcementMode.WARN  # Default to warn if invalid
 
     authorization = AuthorizationConfig(
         enabled=_coerce_bool(auth_raw.get("enabled"), False),
         fallback_to_full_auto=_coerce_bool(auth_raw.get("fallback_to_full_auto"), False),
         permissions_file=str(auth_raw.get("permissions_file", ".ralph/permissions.json")),
-        enforcement_mode=mode_str,  # type: ignore[arg-type]
+        enforcement_mode=enforcement_mode,
     )
 
     # Parse state configuration

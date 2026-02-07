@@ -1,7 +1,12 @@
-"""Cleanup utilities for Ralph workspace."""
+"""Cleanup utilities for Ralph workspace artifacts.
+
+This module provides functions to clean old files and directories
+from the .ralph workspace, including logs, archives, receipts, and context.
+"""
 
 from __future__ import annotations
 
+import logging
 import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -9,10 +14,12 @@ from pathlib import Path
 from typing import List, Tuple
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass
 class CleanupResult:
     """Result of a cleanup operation."""
-
     files_removed: int
     bytes_freed: int
     directories_removed: int
@@ -20,209 +27,296 @@ class CleanupResult:
 
 
 def _get_file_age_days(path: Path) -> float:
-    """Get the age of a file in days."""
+    """Get the age of a file in days.
+    
+    Args:
+        path: Path to the file
+        
+    Returns:
+        Age in days (0.0 if file cannot be accessed)
+    """
     try:
         mtime = path.stat().st_mtime
         age = datetime.now(timezone.utc).timestamp() - mtime
         return age / 86400.0  # Convert seconds to days
-    except Exception:
+    except OSError as e:
+        logger.debug("Failed to get mtime for %s: %s", path, e)
         return 0.0
 
 
 def _get_directory_size(path: Path) -> int:
-    """Get total size of directory in bytes."""
-    total = 0
+    """Get the total size of a directory in bytes.
+    
+    Args:
+        path: Path to the directory
+        
+    Returns:
+        Total size in bytes (0 if directory cannot be accessed)
+    """
     try:
-        for item in path.rglob("*"):
-            if item.is_file():
-                try:
+        total = 0
+        for item in path.iterdir():
+            try:
+                if item.is_file():
                     total += item.stat().st_size
-                except Exception:
-                    pass
-    except Exception:
-        pass
-    return total
+            except OSError as e:
+                logger.debug("Failed to get size for %s: %s", item, e)
+                continue
+        return total
+    except OSError as e:
+        logger.debug("Failed to calculate directory size for %s: %s", path, e)
+        return 0
+
+
+def _cleanup_files_by_age(
+    project_root: Path,
+    subdir: str,
+    pattern: str,
+    older_than_days: int,
+    dry_run: bool,
+    remove_dirs: bool = False,
+) -> CleanupResult:
+    """Generic cleanup function for files or directories by age.
+    
+    Args:
+        project_root: Root directory of the project
+        subdir: Subdirectory under .ralph/ to clean (e.g., 'logs', 'archives')
+        pattern: Glob pattern for files to clean (e.g., '*.json', '*.tar.gz')
+        older_than_days: Remove files older than this many days
+        dry_run: If True, don't actually delete files
+        remove_dirs: If True, remove directories as well as files
+        
+    Returns:
+        CleanupResult with statistics on files removed and bytes freed
+    """
+    target_dir = project_root / ".ralph" / subdir
+    
+    if not target_dir.exists():
+        return CleanupResult(files_removed=0, bytes_freed=0, directories_removed=0, errors=[])
+    
+    # Scan for files matching pattern
+    try:
+        if remove_dirs:
+            items = list(target_dir.iterdir())
+        else:
+            items = list(target_dir.glob(pattern))
+    except OSError as e:
+        logger.debug("Failed to scan %s: %s", target_dir, e)
+        return CleanupResult(files_removed=0, bytes_freed=0, directories_removed=0, errors=[])
+    
+    removed_count = 0
+    total_size = 0
+    directories_removed = 0
+    errors: List[str] = []
+    cutoff_time = datetime.now(timezone.utc).timestamp() - (older_than_days * 86400)
+    
+    for item_path in items:
+        # Skip if not the right type
+        if remove_dirs and not item_path.is_dir():
+            continue
+        if not remove_dirs and not item_path.is_file():
+            continue
+        
+        try:
+            item_mtime = item_path.stat().st_mtime
+        except OSError as e:
+            logger.debug("Failed to get mtime for %s: %s", item_path, e)
+            continue
+        
+        # Skip if newer than cutoff
+        if item_mtime > cutoff_time:
+            continue
+        
+        # Remove file or directory
+        try:
+            item_size = item_path.stat().st_size
+            if remove_dirs and item_path.is_dir():
+                # For directories, calculate total size and file count
+                dir_size = _get_directory_size(item_path)
+                file_count = sum(1 for _ in item_path.rglob("*") if _.is_file())
+                
+                if not dry_run:
+                    shutil.rmtree(item_path)
+                
+                total_size += dir_size
+                removed_count += file_count
+                directories_removed += 1
+            else:
+                if not dry_run:
+                    item_path.unlink()
+                total_size += item_size
+                removed_count += 1
+        except OSError as e:
+            logger.debug("Failed to remove %s: %s", item_path, e)
+            continue
+    
+    return CleanupResult(
+        files_removed=removed_count,
+        bytes_freed=total_size,
+        directories_removed=directories_removed,
+        errors=errors
+    )
 
 
 def clean_logs(
-    project_root: Path, older_than_days: int = 30, dry_run: bool = False
+    project_root: Path,
+    older_than_days: int = 30,
+    dry_run: bool = False,
 ) -> CleanupResult:
     """Clean old log files from .ralph/logs/.
 
+    Removes log files older than the specified number of days.
+    This helps manage disk usage by removing old execution logs.
+
     Args:
         project_root: Root directory of the project
-        older_than_days: Remove logs older than this many days
-        dry_run: If True, don't actually delete files
+        older_than_days: Remove logs older than this many days (default: 30)
+        dry_run: If True, scan and report but don't delete (default: False)
 
     Returns:
-        CleanupResult with statistics
+        CleanupResult with statistics on files removed and bytes freed
+
+    Raises:
+        ValueError: If older_than_days is negative
     """
-    logs_dir = project_root / ".ralph" / "logs"
-    if not logs_dir.exists():
-        return CleanupResult(0, 0, 0, [])
+    if older_than_days < 0:
+        raise ValueError("older_than_days must be non-negative")
 
-    files_removed = 0
-    bytes_freed = 0
-    errors: List[str] = []
+    if dry_run:
+        logger.info("Dry run: would clean logs older than %d days", older_than_days)
 
-    try:
-        for log_file in logs_dir.glob("*.log"):
-            if not log_file.is_file():
-                continue
-
-            age = _get_file_age_days(log_file)
-            if age > older_than_days:
-                try:
-                    size = log_file.stat().st_size
-                    if not dry_run:
-                        log_file.unlink()
-                    files_removed += 1
-                    bytes_freed += size
-                except Exception as e:
-                    errors.append(f"Failed to remove {log_file.name}: {e}")
-    except Exception as e:
-        errors.append(f"Failed to scan logs directory: {e}")
-
-    return CleanupResult(files_removed, bytes_freed, 0, errors)
+    return _cleanup_files_by_age(
+        project_root=project_root,
+        subdir="logs",
+        pattern="*",
+        older_than_days=older_than_days,
+        dry_run=dry_run,
+        remove_dirs=False,
+    )
 
 
 def clean_archives(
-    project_root: Path, older_than_days: int = 90, dry_run: bool = False
+    project_root: Path,
+    older_than_days: int = 90,
+    dry_run: bool = False,
 ) -> CleanupResult:
-    """Clean old archive directories from .ralph/archive/.
+    """Clean old archive files from .ralph/archive/.
+
+    Removes archive files older than the specified number of days.
+    Archives are compressed backups of old attempts.
 
     Args:
         project_root: Root directory of the project
-        older_than_days: Remove archives older than this many days
-        dry_run: If True, don't actually delete directories
+        older_than_days: Remove archives older than this many days (default: 90)
+        dry_run: If True, scan and report but don't delete (default: False)
 
     Returns:
-        CleanupResult with statistics
+        CleanupResult with statistics on files removed and bytes freed
+
+    Raises:
+        ValueError: If older_than_days is negative
     """
-    archive_dir = project_root / ".ralph" / "archive"
-    if not archive_dir.exists():
-        return CleanupResult(0, 0, 0, [])
+    if older_than_days < 0:
+        raise ValueError("older_than_days must be non-negative")
 
-    files_removed = 0
-    bytes_freed = 0
-    directories_removed = 0
-    errors: List[str] = []
+    if dry_run:
+        logger.info("Dry run: would clean archives older than %d days", older_than_days)
 
-    try:
-        for archive_subdir in archive_dir.iterdir():
-            if not archive_subdir.is_dir():
-                continue
-
-            age = _get_file_age_days(archive_subdir)
-            if age > older_than_days:
-                try:
-                    size = _get_directory_size(archive_subdir)
-                    file_count = sum(
-                        1 for _ in archive_subdir.rglob("*") if _.is_file()
-                    )
-
-                    if not dry_run:
-                        shutil.rmtree(archive_subdir)
-
-                    files_removed += file_count
-                    bytes_freed += size
-                    directories_removed += 1
-                except Exception as e:
-                    errors.append(f"Failed to remove {archive_subdir.name}: {e}")
-    except Exception as e:
-        errors.append(f"Failed to scan archive directory: {e}")
-
-    return CleanupResult(files_removed, bytes_freed, directories_removed, errors)
+    return _cleanup_files_by_age(
+        project_root=project_root,
+        subdir="archive",
+        pattern="*.tar.gz",
+        older_than_days=older_than_days,
+        dry_run=dry_run,
+        remove_dirs=False,
+    )
 
 
 def clean_receipts(
-    project_root: Path, older_than_days: int = 60, dry_run: bool = False
+    project_root: Path,
+    older_than_days: int = 90,
+    dry_run: bool = False,
 ) -> CleanupResult:
     """Clean old receipt files from .ralph/receipts/.
 
+    Removes receipt files older than the specified number of days.
+    Receipts track completed iterations and are useful for debugging.
+
     Args:
         project_root: Root directory of the project
-        older_than_days: Remove receipts older than this many days
-        dry_run: If True, don't actually delete files
+        older_than_days: Remove receipts older than this many days (default: 90)
+        dry_run: If True, scan and report but don't delete (default: False)
 
     Returns:
-        CleanupResult with statistics
+        CleanupResult with statistics on files removed and bytes freed
+
+    Raises:
+        ValueError: If older_than_days is negative
     """
-    receipts_dir = project_root / ".ralph" / "receipts"
-    if not receipts_dir.exists():
-        return CleanupResult(0, 0, 0, [])
+    if older_than_days < 0:
+        raise ValueError("older_than_days must be non-negative")
 
-    files_removed = 0
-    bytes_freed = 0
-    errors: List[str] = []
+    if dry_run:
+        logger.info("Dry run: would clean receipts older than %d days", older_than_days)
 
-    try:
-        for receipt_file in receipts_dir.rglob("*.json"):
-            if not receipt_file.is_file():
-                continue
-
-            age = _get_file_age_days(receipt_file)
-            if age > older_than_days:
-                try:
-                    size = receipt_file.stat().st_size
-                    if not dry_run:
-                        receipt_file.unlink()
-                    files_removed += 1
-                    bytes_freed += size
-                except Exception as e:
-                    errors.append(f"Failed to remove {receipt_file.name}: {e}")
-    except Exception as e:
-        errors.append(f"Failed to scan receipts directory: {e}")
-
-    return CleanupResult(files_removed, bytes_freed, 0, errors)
+    return _cleanup_files_by_age(
+        project_root=project_root,
+        subdir="receipts",
+        pattern="*.json",
+        older_than_days=older_than_days,
+        dry_run=dry_run,
+        remove_dirs=False,
+    )
 
 
-def clean_context(
-    project_root: Path, older_than_days: int = 60, dry_run: bool = False
+def clean_contexts(
+    project_root: Path,
+    older_than_days: int = 90,
+    dry_run: bool = False,
 ) -> CleanupResult:
     """Clean old context snapshots from .ralph/context/.
 
+    Removes context directories older than the specified number of days.
+    Context snapshots preserve LLM conversation history between iterations.
+
     Args:
         project_root: Root directory of the project
-        older_than_days: Remove context files older than this many days
-        dry_run: If True, don't actually delete files
+        older_than_days: Remove contexts older than this many days (default: 90)
+        dry_run: If True, scan and report but don't delete (default: False)
 
     Returns:
-        CleanupResult with statistics
+        CleanupResult with statistics on files removed and bytes freed
+
+    Raises:
+        ValueError: If older_than_days is negative
     """
-    context_dir = project_root / ".ralph" / "context"
-    if not context_dir.exists():
-        return CleanupResult(0, 0, 0, [])
+    if older_than_days < 0:
+        raise ValueError("older_than_days must be non-negative")
 
-    files_removed = 0
-    bytes_freed = 0
-    errors: List[str] = []
+    if dry_run:
+        logger.info("Dry run: would clean contexts older than %d days", older_than_days)
 
-    try:
-        for context_file in context_dir.rglob("*"):
-            if not context_file.is_file():
-                continue
-
-            age = _get_file_age_days(context_file)
-            if age > older_than_days:
-                try:
-                    size = context_file.stat().st_size
-                    if not dry_run:
-                        context_file.unlink()
-                    files_removed += 1
-                    bytes_freed += size
-                except Exception as e:
-                    errors.append(f"Failed to remove {context_file.name}: {e}")
-    except Exception as e:
-        errors.append(f"Failed to scan context directory: {e}")
-
-    return CleanupResult(files_removed, bytes_freed, 0, errors)
+    return _cleanup_files_by_age(
+        project_root=project_root,
+        subdir="context",
+        pattern="*",
+        older_than_days=older_than_days,
+        dry_run=dry_run,
+        remove_dirs=True,
+    )
 
 
 def format_bytes(bytes_count: int) -> str:
-    """Format bytes as human-readable string."""
+    """Format bytes as human-readable string.
+    
+    Args:
+        bytes_count: Number of bytes
+        
+    Returns:
+        Formatted string (e.g., "1.5 KB", "2.3 MB")
+    """
     for unit in ["B", "KB", "MB", "GB"]:
-        if bytes_count < 1024.0:
+        if abs(bytes_count) < 1024.0:
             return f"{bytes_count:.1f} {unit}"
         bytes_count /= 1024.0
     return f"{bytes_count:.1f} TB"
@@ -232,8 +326,8 @@ def clean_all(
     project_root: Path,
     logs_days: int = 30,
     archives_days: int = 90,
-    receipts_days: int = 60,
-    context_days: int = 60,
+    receipts_days: int = 90,
+    context_days: int = 90,
     dry_run: bool = False,
 ) -> Tuple[CleanupResult, CleanupResult, CleanupResult, CleanupResult]:
     """Clean all Ralph workspace artifacts.
@@ -247,11 +341,11 @@ def clean_all(
         dry_run: If True, don't actually delete anything
 
     Returns:
-        Tuple of (logs_result, archives_result, receipts_result, context_result)
+        Tuple of (logs_result, archives_result, receipts_result, contexts_result)
     """
     logs_result = clean_logs(project_root, logs_days, dry_run)
     archives_result = clean_archives(project_root, archives_days, dry_run)
     receipts_result = clean_receipts(project_root, receipts_days, dry_run)
-    context_result = clean_context(project_root, context_days, dry_run)
+    contexts_result = clean_contexts(project_root, context_days, dry_run)
 
-    return logs_result, archives_result, receipts_result, context_result
+    return logs_result, archives_result, receipts_result, contexts_result

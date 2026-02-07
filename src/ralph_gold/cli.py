@@ -270,8 +270,9 @@ def _doctor_check_github(project_root: Path, args: argparse.Namespace) -> int:
                     f"       User: {user_data.get('login', 'unknown')}",
                     level="normal",
                 )
-            except Exception:
-                pass
+            except OSError as e:
+                logger.debug("State load failed: %s", e)
+                state = {}
 
             return 0
         else:
@@ -823,11 +824,13 @@ def cmd_step(args: argparse.Namespace) -> int:
 
         state = load_state(state_path)
 
-        blocked_ids = set()
+        # Build blocked task IDs set for task selection
+        blocked_ids: set[str] = set()
         if cfg.loop.skip_blocked_tasks:
             blocked_raw = state.get("blocked_tasks", {}) or {}
             if isinstance(blocked_raw, dict):
-                blocked_ids = set(str(k) for k in blocked_raw.keys())
+                # Convert keys to strings for type safety
+                blocked_ids = {str(k) for k in blocked_raw.keys()}
 
         # Get all available tasks
         available_tasks = []
@@ -849,11 +852,11 @@ def cmd_step(args: argparse.Namespace) -> int:
             else:
                 # Fallback: try to select tasks one by one
                 # This is a workaround for trackers without list_tasks
-                temp_excluded = set(blocked_ids)
+                temp_excluded: set[str] = set(blocked_ids)
                 for _ in range(20):  # Limit to 20 tasks to avoid infinite loop
                     try:
                         if hasattr(tracker, "select_next_task"):
-                            task = tracker.select_next_task(exclude_ids=temp_excluded)  # type: ignore[arg-type]
+                            task = tracker.select_next_task(exclude_ids=temp_excluded)
                         else:
                             break
 
@@ -869,9 +872,11 @@ def cmd_step(args: argparse.Namespace) -> int:
                         )
                         available_tasks.append(task_choice)
                         temp_excluded.add(task.id)
-                    except Exception:
-                        break
-        except Exception as e:
+                    except (AttributeError, NotImplementedError, OSError) as e:
+                        logger.debug("Task selection failed: %s", e)
+                        task = None
+        except (AttributeError, NotImplementedError, OSError) as e:
+            logger.debug("Failed to list tasks for interactive selection: %s", e)
             print_output(
                 f"Error loading tasks for interactive selection: {e}", level="error"
             )
@@ -1103,10 +1108,10 @@ def cmd_status(args: argparse.Namespace) -> int:
 
     try:
         done, total = tracker.counts()
-    except Exception:
+    except (OSError, ValueError) as e:
+        logger.debug("Tracker operation failed: %s", e)
         done, total = 0, 0
 
-    # Get detailed status counts for accurate progress reporting
     blocked = 0
     open_count = 0
     try:
@@ -1118,17 +1123,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         if total_from_prd > 0:
             total = total_from_prd
             done = done_detailed
-    except Exception:
-        pass  # Fall back to simple counts if status_counts fails
-
-    try:
-        next_task = tracker.select_next_task()
-    except Exception:
-        next_task = None
-
-    # Load state for progress metrics
-    state_path = root / ".ralph" / "state.json"
-    last_iteration = None
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load PRD status counts: %s", e)
     state = {}
     if state_path.exists():
         try:
@@ -1138,12 +1134,8 @@ def cmd_status(args: argparse.Namespace) -> int:
                 last = history[-1]
                 if isinstance(last, dict):
                     last_iteration = last
-        except Exception:
-            pass
-
-    # Handle --detailed flag for progress metrics
-    if getattr(args, "detailed", False):
-        from .progress import calculate_progress, format_progress_bar
+        except (OSError, ValueError) as e:
+            logger.debug("Operation failed: %s", e)
 
         try:
             # Pass PRD path for accurate blocked task counting
@@ -1189,8 +1181,8 @@ def cmd_status(args: argparse.Namespace) -> int:
                 print_output("  Velocity:          (insufficient data)", level="normal")
 
             return 0
-        except Exception as e:
-            print_output(f"Error calculating progress metrics: {e}", level="error")
+        except (OSError, ValueError) as e:
+            logger.debug("Progress calculation failed: %s", e)
             return 1
 
     # JSON output for cmd_status
@@ -1472,14 +1464,10 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
         try:
             sc = check_specs(root, specs_dir=str(args.specs_dir or cfg.files.specs_dir))
             specs_report = format_specs_check(sc)
-        except Exception:
-            specs_report = ""
+        except (OSError, ValueError) as e:
+            logger.debug("Operation failed: %s", e)
 
     prompt_text = _regen_plan_prompt(root, prd_filename, specs_report)
-
-    state_dir = root / ".ralph"
-    logs_dir = state_dir / "logs"
-    state_dir.mkdir(exist_ok=True)
     logs_dir.mkdir(exist_ok=True)
 
     agent = args.agent
@@ -1821,8 +1809,8 @@ def cmd_task_add(args: argparse.Namespace) -> int:
     except TemplateError as e:
         print_output(f"Error: {e}", level="error")
         return 2
-    except Exception as e:
-        print_output(f"Unexpected error: {e}", level="error")
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("JSON parse failed: %s", e)
         return 2
 
 
@@ -2738,12 +2726,9 @@ def main(argv: list[str] | None = None) -> int:
         logger = logging.getLogger(__name__)
         logger.debug(f"Ralph Gold v{__version__} starting")
         logger.debug(f"Command: {getattr(args, 'cmd', 'unknown')}")
-    except Exception:
-        # If config loading fails, fall back to defaults (quiet/normal/verbose from env)
-        setup_logging(verbose=False, quiet=False)
 
-    return int(args.func(args))
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+        return int(args.func(args))
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error("%s", e)
+        return 1

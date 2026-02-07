@@ -160,8 +160,9 @@ class BlockedTaskManager:
         # Get all tasks from tracker
         try:
             all_tasks = list(self.tracker.all_tasks())
-        except Exception:
-            return blocked
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load blocked tasks: %s", e)
+        return []
 
         for task_id, block_info in blocked_tasks_raw.items():
             task = next((t for t in all_tasks if str(t.id) == task_id), None)
@@ -349,8 +350,9 @@ class BlockedTaskManager:
         try:
             self.tracker.force_task_open(task_id)
         except Exception as e:
-            return UnblockResult(
-                success=False,
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load blocked tasks: %s", e)
+        return []
                 task_id=task_id,
                 previous_attempts=previous_attempts,
                 new_timeout=new_timeout or 0,

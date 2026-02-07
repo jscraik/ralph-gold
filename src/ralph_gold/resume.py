@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from .loop import load_state
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -22,6 +25,28 @@ class ResumeInfo:
     timestamp: str
     log_path: Optional[str]
     interrupted: bool
+
+
+def load_resume_data(resume_path: Path) -> Optional[dict]:
+    """Load resume data from a JSON file with proper exception handling.
+
+    Args:
+        resume_path: Path to the resume data file
+
+    Returns:
+        Parsed resume data as dict, or None if loading fails
+    """
+    try:
+        resume_data = json.loads(resume_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load resume data: %s", e)
+        return None
+    
+    if not isinstance(resume_data, dict):
+        logger.debug("Resume data is not a dict: %s", type(resume_data))
+        return None
+    
+    return resume_data
 
 
 def detect_interrupted_iteration(project_root: Path) -> Optional[ResumeInfo]:
@@ -158,5 +183,6 @@ def clear_interrupted_state(project_root: Path) -> bool:
     try:
         state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
         return True
-    except Exception:
-        return False
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load resume data: %s", e)
+        return None

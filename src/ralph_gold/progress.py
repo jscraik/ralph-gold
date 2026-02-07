@@ -63,8 +63,9 @@ def calculate_progress(
             # In progress is an estimate - assume 1 if any incomplete tasks
             incomplete = total - completed
             in_progress_tasks = 1 if (open_count > 0 and incomplete > 0) else 0
-        except Exception:
-            # Fallback to simple calculation if status_counts fails
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to get PRD status: %s", e)
+            # Fallback to simple calculation
             incomplete = total - completed
             in_progress_tasks = 1 if incomplete > 0 else 0
             blocked_tasks = 0

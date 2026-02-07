@@ -7,6 +7,7 @@ backends for task tracking:
 - BeadsTracker: Tracker backed by Beads CLI
 - YamlTracker: YAML-based tracker with native parallel grouping support
 - GitHubIssuesTracker: GitHub Issues-based tracker
+- WebTracker: Web Analysis tracker for discovering web-related tasks
 
 All trackers implement the Tracker protocol defined in the parent module.
 """
@@ -38,8 +39,8 @@ def _load_trackers_module() -> ModuleType:
 
 
 if TYPE_CHECKING:
-    from ralph_gold.trackers import BeadsTracker, FileTracker, Tracker  # type: ignore[assignment]
-    from ralph_gold.trackers import make_tracker  # type: ignore[assignment]
+    from ralph_gold.trackers import BeadsTracker, FileTracker, Tracker
+    from ralph_gold.trackers import make_tracker
 else:
     _mod = _load_trackers_module()
     Tracker = _mod.Tracker

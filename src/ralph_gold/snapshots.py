@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -218,7 +221,8 @@ def create_snapshot(project_root: Path, name: str, description: str = "") -> Sna
     )
 
     # Save snapshot metadata to state.json
-    _save_snapshot_metadata(project_root, snapshot)
+    if not _save_snapshot_metadata(project_root, snapshot):
+        raise RuntimeError("Failed to save snapshot metadata")
 
     return snapshot
 
@@ -255,7 +259,8 @@ def list_snapshots(project_root: Path) -> List[Snapshot]:
                 )
 
         return snapshots
-    except Exception:
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load snapshot: %s", e)
         return []
 
 
@@ -359,20 +364,24 @@ def cleanup_old_snapshots(project_root: Path, keep_count: int = 10) -> int:
             # Remove state backup
             state_backup_path = project_root / snapshot.state_backup_path
             if state_backup_path.exists():
-                state_backup_path.unlink()
+                try:
+                    state_backup_path.unlink()
+                except OSError as e:
+                    logger.debug("Failed to remove snapshot: %s", e)
+                    # Continue to next snapshot
 
             # Remove from metadata
             _remove_snapshot_metadata(project_root, snapshot.name)
 
             removed_count += 1
-        except Exception:
-            # Continue removing other snapshots even if one fails
-            pass
+        except (subprocess.SubprocessError, OSError) as e:
+            logger.debug("Failed to remove snapshot %s: %s", snapshot.name, e)
+            # Continue with next snapshot
 
     return removed_count
 
 
-def _save_snapshot_metadata(project_root: Path, snapshot: Snapshot) -> None:
+def _save_snapshot_metadata(project_root: Path, snapshot: Snapshot) -> bool:
     """Save snapshot metadata to state.json.
 
     Args:
@@ -385,7 +394,8 @@ def _save_snapshot_metadata(project_root: Path, snapshot: Snapshot) -> None:
     if state_path.exists():
         try:
             state = json.loads(state_path.read_text(encoding="utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, OSError) as e:
+            logger.debug("Failed to load state: %s", e)
             state = {}
     else:
         state = {}
@@ -409,8 +419,11 @@ def _save_snapshot_metadata(project_root: Path, snapshot: Snapshot) -> None:
     # Save state
     try:
         state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
-    except Exception as e:
-        raise RuntimeError(f"Failed to save snapshot metadata: {e}")
+    except OSError as e:
+        logger.debug("Failed to update metadata: %s", e)
+        return False
+    
+    return True
 
 
 def _remove_snapshot_metadata(project_root: Path, name: str) -> None:
@@ -433,5 +446,5 @@ def _remove_snapshot_metadata(project_root: Path, name: str) -> None:
 
         # Save state
         state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
-    except Exception:
-        pass
+    except OSError as e:
+        logger.debug("Failed to update metadata: %s", e)

@@ -95,12 +95,13 @@ class WorktreeManager:
                 check=True,
                 capture_output=True,
                 text=True,
+                timeout=60,
             )
 
             return worktree_path, branch_name
 
-        except subprocess.CalledProcessError as e:
-            error_msg = f"Failed to create worktree: {e.stderr}"
+        except (subprocess.SubprocessError, OSError) as e:
+            error_msg = f"Failed to create worktree: {getattr(e, 'stderr', str(e))}"
             raise WorktreeCreationError(error_msg) from e
 
     def remove_worktree(self, worktree_path: Path) -> None:
@@ -177,7 +178,8 @@ class WorktreeManager:
                     try:
                         shutil.rmtree(worktree_path)
                         cleaned += 1
-                    except Exception:
+                    except OSError as e:
+                        logger.debug("Failed to remove worktree: %s", e)
                         # If we can't remove it, skip it
                         pass
 

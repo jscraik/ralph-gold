@@ -12,11 +12,14 @@ It supports:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
+
+logger = logging.getLogger(__name__)
 
 from ..github_auth import GitHubAuth, GitHubAuthError, create_auth
 from ..prd import SelectedTask, TaskId
@@ -446,7 +449,8 @@ class GitHubIssuesTracker:
         """Best-effort: label the issue as blocked."""
         try:
             return self._add_labels(str(task_id), ["blocked"])
-        except Exception:
+        except (GitHubAuthError, RuntimeError, OSError) as e:
+            logger.error("Failed to block task %s: %s", task_id, e)
             return False
 
     def branch_name(self) -> Optional[str]:
@@ -526,9 +530,6 @@ class GitHubIssuesTracker:
         success = True
         issue_number = str(task_id)
 
-        # Setup logging
-        self._setup_api_logging()
-
         try:
             # Close the issue if requested
             if close_issue:
@@ -552,32 +553,24 @@ class GitHubIssuesTracker:
 
             return success
 
-        except Exception as e:
-            self._log_api_call("ERROR", f"mark_task_done failed: {e}")
+        except (GitHubAuthError, json.JSONDecodeError, OSError, RuntimeError) as e:
+            logger.error("Failed to mark task %s as done: %s", task_id, e)
             return False
 
-    def _setup_api_logging(self) -> None:
-        """Setup API logging directory and file (already done in __init__)."""
-        # This method is kept for backwards compatibility but does nothing
-        # since logging is now setup in __init__
-        pass
-
     def _log_api_call(self, level: str, message: str) -> None:
-        """Log API call to github-api.log.
-
-        Args:
-            level: Log level (INFO, WARNING, ERROR)
-            message: Log message
-        """
-        timestamp = datetime.now().isoformat()
-        log_entry = f"[{timestamp}] {level}: {message}\n"
-
+        """Log an API call to a file for debugging."""
+        if not self.api_log_path:
+            return
         try:
-            with open(self.api_log_path, "a") as f:
-                f.write(log_entry)
-        except Exception:
-            # If logging fails, don't crash
-            pass
+            log_entry = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "method": level,
+                "message": message,
+            }
+            with open(self.api_log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry) + "\n")
+        except OSError as e:
+            logger.debug("Failed to write API call log: %s", e)
 
     def _close_issue(self, issue_number: str) -> bool:
         """Close a GitHub issue.

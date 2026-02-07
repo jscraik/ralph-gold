@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import importlib
 import json
+import logging
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
+
+logger = logging.getLogger(__name__)
 
 from .config import Config
 from .prd import SelectedTask, TaskId, get_prd_branch_name, is_markdown_prd
@@ -23,7 +26,10 @@ class Tracker(Protocol):
     """Abstraction over different task tracking backends.
 
     The default is file-based trackers (Markdown/JSON). Optionally, Beads can be
-    used via the `bd` CLI.
+    used via the `bd` CLI. Other trackers include:
+    - GitHub Issues tracker (kind="github_issues")
+    - Web Analysis tracker (kind="web_analysis")
+    - YAML tracker (kind="yaml")
     """
 
     kind: str
@@ -106,9 +112,9 @@ class FileTracker:
             task = self.peek_next_task()
             if task:
                 tasks.append(task)
-        except Exception:
-            # If we can't peek (file doesn't exist, etc.), return empty
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            logger.debug("Failed to load tracker config: %s", e)
+            return None
         return {"default": tasks}
 
 
@@ -146,7 +152,8 @@ class BeadsTracker:
             if isinstance(obj, list):
                 return [x for x in obj if isinstance(x, dict)]
             return None
-        except Exception:
+        except (json.JSONDecodeError, OSError) as e:
+            logger.debug("Failed to load tracker config: %s", e)
             return None
 
     def _ready_text(self) -> List[Dict[str, Any]]:
@@ -237,7 +244,11 @@ class BeadsTracker:
     def counts(self) -> Tuple[int, int]:
         # Beads doesn't have a single "counts" API; keep this lightweight.
         # Users can rely on `bd stats` for deeper insights.
-        return 0, 0
+        try:
+            return 0, 0
+        except (AttributeError, NotImplementedError, OSError) as e:
+            logger.debug("Tracker counts failed: %s", e)
+            return 0, 0
 
     def all_done(self) -> bool:
         # Unknown without a project-level query.
@@ -257,9 +268,9 @@ class BeadsTracker:
             if isinstance(obj, dict):
                 status = str(obj.get("status", "")).lower()
                 return status in {"done", "closed", "complete", "completed"}
-        except Exception:
+        except (json.JSONDecodeError, OSError) as e:
+            logger.debug("Tracker operation failed: %s", e)
             return False
-        return False
 
     def force_task_open(self, task_id: TaskId) -> bool:
         # No direct equivalent. We attempt to reopen.
@@ -267,11 +278,15 @@ class BeadsTracker:
         return cp.returncode == 0
 
     def block_task(self, task_id: TaskId, reason: str) -> bool:
-        cp = self._run(["bd", "update", str(task_id), "--status", "blocked", "--json"])
-        if cp.returncode != 0:
+        try:
+            cp = self._run(["bd", "update", str(task_id), "--status", "blocked", "--json"])
+            if cp.returncode != 0:
+                return False
+            self._run(["bd", "comment", str(task_id), reason])
+            return True
+        except (AttributeError, NotImplementedError, OSError) as e:
+            logger.debug("Task blocking failed: %s", e)
             return False
-        self._run(["bd", "comment", str(task_id), reason])
-        return True
 
     def branch_name(self) -> Optional[str]:
         return None
@@ -285,9 +300,8 @@ class BeadsTracker:
             task = self.peek_next_task()
             if task:
                 tasks.append(task)
-        except Exception:
-            # If we can't peek (bd not available, etc.), return empty
-            pass
+        except (OSError, subprocess.SubprocessError) as e:
+            logger.debug("Subprocess failed: %s", e)
         return {"default": tasks}
 
 
@@ -303,7 +317,11 @@ def _load_plugin(path: str, cfg: Config, project_root: Path) -> Tracker:
     mod_name, attr = path.split(":", 1)
     mod = importlib.import_module(mod_name)
     fn = getattr(mod, attr)
-    tracker = fn(cfg=cfg, project_root=project_root)
+    try:
+        tracker = fn(cfg=cfg, project_root=project_root)
+    except (AttributeError, NotImplementedError, OSError, TypeError) as e:
+        logger.debug("Tracker initialization failed: %s", e)
+        return None  # type: ignore[return-value]
     return tracker  # type: ignore[return-value]
 
 
@@ -359,6 +377,31 @@ def make_tracker(project_root: Path, cfg: Config) -> Tracker:
             # Fallback: require repo to be set somehow
             raise ValueError(
                 "GitHub Issues tracker requires [tracker.github] configuration in ralph.toml"
+            )
+
+    if kind in {"web_analysis", "web"}:
+        # Import WebTracker from trackers package
+        from .trackers.web_analysis import WebTracker
+
+        # Get web config
+        web_cfg = getattr(cfg.tracker, "web", None)
+        if web_cfg and web_cfg.base_url:
+            return WebTracker(
+                project_root=project_root,
+                base_url=web_cfg.base_url,
+                sitemap_url=web_cfg.sitemap_url,
+                crawl_depth=web_cfg.crawl_depth,
+                max_pages=web_cfg.max_pages,
+                api_discovery=web_cfg.api_discovery,
+                js_analysis=web_cfg.js_analysis,
+                normalize_hashes=web_cfg.normalize_hashes,
+                headless_nav=web_cfg.headless_nav,
+                cache_ttl_seconds=web_cfg.cache_ttl_seconds,
+                output_path=web_cfg.output_path,
+            )
+        else:
+            raise ValueError(
+                "Web Analysis tracker requires [tracker.web.base_url] configuration in ralph.toml"
             )
 
     raise ValueError(f"Unknown tracker kind: {cfg.tracker.kind}")

@@ -13,6 +13,7 @@ This module implements:
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -256,8 +257,8 @@ def archive_old_progress(
     # Create archive directory
     try:
         archive_dir.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        logger.warning(f"Failed to create archive directory {archive_dir}: {e}")
+    except OSError as e:
+        logger.debug("Failed to create context directory: %s", e)
         return 0
 
     # Write archive file with today's date
@@ -288,6 +289,29 @@ def archive_old_progress(
     except Exception as e:
         logger.warning(f"Failed to archive progress entries: {e}")
         return 0
+
+
+def load_context_metadata(
+    metadata_path: Path,
+) -> dict:
+    """Load context metadata from a JSON file.
+
+    Args:
+        metadata_path: Path to metadata JSON file
+
+    Returns:
+        Dictionary containing metadata (empty dict if file doesn't exist or fails to load)
+    """
+    if not metadata_path.exists() or not metadata_path.is_file():
+        return {}
+
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load context metadata: %s", e)
+        metadata = {}
+
+    return metadata
 
 
 def check_context_health(
@@ -380,14 +404,16 @@ def build_context_with_budget(
     # Read agents (usually small)
     try:
         agents = agents_path.read_text(encoding="utf-8") if agents_path.exists() else ""
-    except Exception:
+    except OSError as e:
+        logger.debug("Failed to read agents file: %s", e)
         agents = ""
     result["agents"] = agents
 
     # Read PRD (medium size)
     try:
         prd = prd_path.read_text(encoding="utf-8") if prd_path.exists() else ""
-    except Exception:
+    except OSError as e:
+        logger.debug("Failed to read PRD: %s", e)
         prd = ""
     result["prd"] = prd
 
@@ -413,6 +439,6 @@ def build_context_with_budget(
             logger.info(f"Archived {archived} old progress entries")
 
     # Specs are loaded separately by spec_loader.py
-    result["specs"] = []  # type: ignore[assignment]  # Will be populated by caller
+    result["specs"] = []  # Will be populated by caller
 
     return result

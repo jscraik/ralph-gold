@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -31,8 +32,9 @@ def _version(cmd: List[str]) -> Optional[str]:
             # first line only
             return text.splitlines()[0][:200]
         return None
-    except Exception:
-        return None
+    except (subprocess.SubprocessError, OSError) as e:
+        logger.debug("Command failed: %s", e)
+        return False
 
 
 def check_tools(cfg: Optional[Config] = None) -> List[ToolStatus]:
@@ -110,9 +112,9 @@ def _get_check_commands(project_type: str, project_root: Path) -> Tuple[List[str
                 data = json.loads(package_json.read_text(encoding="utf-8"))
                 scripts = data.get("scripts", {})
                 existing_scripts = list(scripts.keys())
-            except Exception:
-                pass
-        
+            except (subprocess.SubprocessError, OSError) as e:
+                    logger.debug("Command failed: %s", e)
+                    return False
         # Build check command from common patterns
         commands = []
         if "typecheck" in existing_scripts:
@@ -207,8 +209,7 @@ def setup_checks(project_root: Path, dry_run: bool = False) -> dict:
                     suggestions.append(f"Script '{script_name}' already exists in package.json")
             except Exception as e:
                 suggestions.append(f"Could not update package.json: {e}")
-    
-    # 2) Update .ralph/ralph.toml
+
     ralph_toml = project_root / ".ralph" / "ralph.toml"
     if ralph_toml.exists():
         try:
@@ -247,8 +248,8 @@ def setup_checks(project_root: Path, dry_run: bool = False) -> dict:
         except Exception as e:
             suggestions.append(f"Could not update .ralph/ralph.toml: {e}")
     else:
-        suggestions.append(".ralph/ralph.toml not found - run 'ralph init' first")
-    
+        pass
+
     # 3) Suggest Husky setup (Node projects)
     if project_type == "node":
         husky_dir = project_root / ".husky"

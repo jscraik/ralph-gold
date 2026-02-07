@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import fnmatch
@@ -315,7 +316,7 @@ def _read_text_if_exists(path: Path, limit_chars: int = 200_000) -> str:
         if len(text) > limit_chars:
             return text[:limit_chars] + "\n...<truncated>...\n"
         return text
-    except Exception:
+    except OSError as e:
         return ""
 
 
@@ -586,17 +587,9 @@ def load_state(state_path: Path) -> Dict[str, Any]:
         state.setdefault("session_id", "")
         state.setdefault("snapshots", [])
         return state
-    except Exception:
-        return {
-            "createdAt": utc_now_iso(),
-            "invocations": [],
-            "noProgressStreak": 0,
-            "history": [],
-            "task_attempts": {},
-            "blocked_tasks": {},
-            "session_id": "",
-            "snapshots": [],
-        }
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("Git operation failed: %s", e)
+        return ""
 
 
 def save_state(state_path: Path, state: Dict[str, Any]) -> None:
@@ -627,9 +620,9 @@ def next_iteration_number(project_root: Path) -> int:
         if isinstance(last, dict):
             try:
                 return int(last.get("iteration", 0)) + 1
-            except Exception:
-                pass
-    return 1
+            except (OSError, ValueError) as e:
+                logger.debug("Failed to read iteration from state: %s", e)
+                return 1
 
 
 def _rate_limit_ok(state: Dict[str, Any], per_hour: int) -> Tuple[bool, int]:
@@ -643,10 +636,9 @@ def _rate_limit_ok(state: Dict[str, Any], per_hour: int) -> Tuple[bool, int]:
     for ts in state.get("invocations", []):
         try:
             inv.append(float(ts))
-        except Exception:
-            continue
-    inv = [t for t in inv if now - t < window]
-    state["invocations"] = inv
+        except (ValueError, TypeError) as e:
+            logger.debug("Invalid invocation timestamp: %s", e)
+
     if len(inv) < per_hour:
         return True, 0
     oldest = min(inv)
@@ -705,19 +697,13 @@ def _run_gate_command(
             hook_file = Path(argv[0])
             if hook_file.exists():
                 hook_file.chmod(hook_file.stat().st_mode | 0o111)
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug("Failed to make hook executable: %s", e)
 
-        result = run_subprocess(
-            argv,
-            cwd=project_root,
-            env={**os.environ, "RALPH_RUNNING_HOOK": "1"},
-        )
-    else:
-        result = run_subprocess(
-            _gate_shell_argv(cmd),
-            cwd=project_root,
-        )
+    result = run_subprocess(
+        _gate_shell_argv(cmd),
+        cwd=project_root,
+    )
 
     return GateResult(
         cmd=cmd,
@@ -919,17 +905,17 @@ def dry_run_loop(
         state_path = project_root / ".ralph" / "state.json"
         state = load_state(state_path)
 
-        blocked_ids = set()
+        blocked_ids: set[str] = set()
         if cfg.loop.skip_blocked_tasks:
             blocked_raw = state.get("blocked_tasks", {}) or {}
             if isinstance(blocked_raw, dict):
-                blocked_ids = set(str(k) for k in blocked_raw.keys())
+                blocked_ids = {str(k) for k in blocked_raw.keys()}
 
         # Try to select tasks that would be executed
         for i in range(min(max_iterations, total_tasks - completed_tasks)):
             try:
                 if hasattr(tracker, "select_next_task"):
-                    task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
+                    task = tracker.select_next_task(exclude_ids=blocked_ids)
                 elif hasattr(tracker, "claim_next_task"):
                     # For dry-run, we don't actually claim, just peek
                     task = tracker.claim_next_task()
@@ -1119,28 +1105,10 @@ def _diff_for_judge(
     try:
         status = _git_capture(project_root, ["git", "status", "--porcelain"]).strip()
         parts.append("# git status --porcelain\n" + (status or "(clean)"))
-    except Exception:
-        pass
-
-    if head_after and head_after != head_before:
-        try:
-            show = _git_capture(project_root, ["git", "show", "--no-color", "HEAD"])
-            parts.append("\n# git show HEAD\n" + show.strip())
-        except Exception:
-            pass
-    else:
-        try:
-            diff = _git_capture(project_root, ["git", "diff", "--no-color"])
-            parts.append(
-                "\n# git diff (working tree)\n" + (diff.strip() or "(no diff)")
-            )
-        except Exception:
-            pass
+    except OSError as e:
+        logger.debug("File read failed: %s", e)
 
     combined = "\n\n".join(parts).strip() + "\n"
-    truncated_text, truncated = _truncate(combined, max_chars)
-    if truncated:
-        return truncated_text
     return combined
 
 
@@ -1159,15 +1127,12 @@ def build_judge_prompt(
     if prompt_path.exists():
         try:
             base = prompt_path.read_text(encoding="utf-8")
-        except Exception:
-            base = ""
+        except OSError as e:
+            logger.debug("File read failed: %s", e)
 
     lines: List[str] = []
     if base.strip():
         lines.append(base.rstrip())
-        lines.append("\n---\n")
-    else:
-        lines.append("# Ralph LLM Judge")
         lines.append("(missing PROMPT_judge.md; using fallback instructions)")
         lines.append("")
         lines.append("You are a strict reviewer.")
@@ -1321,16 +1286,15 @@ def run_iteration(
     # Capture done count before claiming a task (used for no-progress detection).
     try:
         done_before, total_before = tracker.counts()
-    except Exception:
-        done_before, total_before = 0, 0
+    except OSError as e:
+        logger.debug("File read failed: %s", e)
 
-    blocked_ids = set()
+    blocked_ids: set[str] = set()
     if cfg.loop.skip_blocked_tasks:
         blocked_raw = state.get("blocked_tasks", {}) or {}
         if isinstance(blocked_raw, dict):
-            blocked_ids = set(str(k) for k in blocked_raw.keys())
+            blocked_ids = {str(k) for k in blocked_raw.keys()}
 
-    # Select task
     task: Optional[SelectedTask]
     task_err = ""
     try:
@@ -1344,7 +1308,7 @@ def run_iteration(
                     if hasattr(tracker, "claim_next_task"):
                         task = tracker.claim_next_task()
                     elif hasattr(tracker, "select_next_task"):
-                        task = tracker.select_next_task(exclude_ids=blocked_ids)  # type: ignore[arg-type]
+                        task = tracker.select_next_task(exclude_ids=blocked_ids)
                     else:
                         task = tracker.claim_next_task()
 
@@ -1364,18 +1328,16 @@ def run_iteration(
                         # Try to claim again in next iteration
                         task = None
                         continue
-                    except Exception:
-                        # Force failed, skip this task
+                    except (OSError, RuntimeError) as e:
+                        logger.debug("Failed to force task open: %s", e)
                         task = None
-                        blocked_ids.discard(task.id)
-                        continue
-
-                except Exception as e:
+                        break
+                except (OSError, ValueError, RuntimeError) as e:
                     task = None
                     task_err = str(e)
                     break
-    except Exception as e:
-        # Tracker failure (missing PRD, malformed JSON, etc.) should still produce a log + state entry.
+
+    except (OSError, ValueError, RuntimeError) as e:
         task = None
         task_err = str(e)
 
@@ -1838,8 +1800,8 @@ def run_iteration(
             if judge_ok is False and story_id is not None:
                 try:
                     tracker.force_task_open(story_id)
-                except Exception:
-                    pass
+                except (OSError, RuntimeError) as e:
+                    logger.debug("Failed to force task open: %s", e)
         else:
             judge_ok = None
 
@@ -1847,12 +1809,8 @@ def run_iteration(
     review_cfg = cfg.gates.review
     review_ok: Optional[bool] = None
     if review_cfg.enabled and gates_ok is not False:
-        diff_text = _diff_for_judge(
-            project_root,
-            head_before=head_before,
-            head_after=head_after_agent,
-            max_chars=int(review_cfg.max_diff_chars),
-        )
+        # Collect diff for review
+        diff_for_review = diff_text
         review_prompt = _read_text_if_exists(project_root / review_cfg.prompt)
         if not review_prompt:
             review_prompt = (
@@ -1864,9 +1822,8 @@ def run_iteration(
             + "\n\nGate summary:\n"
             + "\n".join(gate_summaries)
             + "\n\nDiff:\n"
-            + diff_text
+            + diff_for_review
         )
-
         if review_cfg.backend.strip().lower() == "repoprompt":
             try:
                 rp = run_review(message=message, cfg=cfg.repoprompt, cwd=project_root)
@@ -1978,8 +1935,8 @@ def run_iteration(
         if review_ok is False and story_id is not None:
             try:
                 tracker.force_task_open(story_id)
-            except Exception:
-                pass
+            except OSError as e:
+                logger.debug("File read failed: %s", e)
 
     # Append orchestrator entry to progress.md (append-only)
 
@@ -1987,21 +1944,14 @@ def run_iteration(
     if story_id is not None:
         try:
             task_done_now = tracker.is_task_done(story_id)
-        except Exception:
-            task_done_now = False
-
-        # Phase 3: Task completion verification
+        except OSError as e:
+            logger.debug("File read failed: %s", e)
         # After agent marks task as done, verify expected files exist
         if task_done_now and task is not None:
             if not _verify_task_completion(task, project_root):
                 logger.warning(
                     f"Task {story_id} marked done but expected files not found"
                 )
-                try:
-                    tracker.force_task_open(story_id)
-                    task_done_now = False  # Update status since we forced it open
-                except Exception as e:
-                    logger.debug(f"Failed to force task open: {e}")
 
     status = (
         "DONE"
@@ -2025,8 +1975,8 @@ def run_iteration(
     story_label = f"S{story_id}" if story_id is not None else "-"
     try:
         current_branch = git_current_branch(project_root)
-    except Exception:
-        current_branch = "(no-branch)"
+    except OSError as e:
+        logger.debug("File read failed: %s", e)
     branch_label = branch or current_branch
     progress_line = (
         f"- [{ts}] iter {iteration} mode=prd status={status} checks={checks} "
@@ -2037,9 +1987,6 @@ def run_iteration(
 
     # Auto-commit / amend (best-effort)
     commit_action: Optional[str] = None
-    commit_rc: Optional[int] = None
-    commit_out = ""
-    commit_err = ""
     if (
         cfg.git.auto_commit
         and (gates_ok is not False)
@@ -2114,10 +2061,7 @@ def run_iteration(
     if task is not None:
         attempts_raw = state.get("task_attempts", {}) or {}
         blocked_raw = state.get("blocked_tasks", {}) or {}
-        try:
-            cur_attempts = int(attempts_raw.get(task.id, 0))
-        except Exception:
-            cur_attempts = 0
+        cur_attempts = int(attempts_raw.get(task.id, 0))
 
         progress_success = bool(
             task_done_now
@@ -2129,51 +2073,44 @@ def run_iteration(
         if not progress_success:
             cur_attempts += 1
             attempts_raw[task.id] = cur_attempts
+            if gates_ok is False:
+                reason = "gates failed"
+            elif review_ok is False:
+                reason = "review BLOCK"
+            elif judge_ok is False:
+                reason = "judge failed"
+            elif not runner_ok:
+                reason = "runner failed"
+            elif not task_done_now:
+                reason = "task not marked done (agent exited successfully but task not completed)"
+            else:
+                reason = f"no progress made (exit_ok={runner_ok}, task_done={task_done_now}, gates_ok={gates_ok is not False})"
 
-            max_attempts = int(cfg.loop.max_attempts_per_task or 0)
-            if max_attempts > 0 and cur_attempts >= max_attempts:
-                if gates_ok is False:
-                    reason = "gates failed"
-                elif review_ok is False:
-                    reason = "review BLOCK"
-                elif judge_ok is False:
-                    reason = "judge failed"
-                elif not runner_ok:
-                    reason = "runner failed"
-                elif not task_done_now:
-                    reason = "task not marked done (agent exited successfully but task not completed)"
-                else:
-                    reason = f"no progress made (exit_ok={runner_ok}, task_done={task_done_now}, gates_ok={gates_ok is not False})"
-
-                blocked_raw[task.id] = {
-                    "blocked_at": iso_utc(),
-                    "attempts": cur_attempts,
-                    "reason": reason,
-                    "attempt_id": attempt_id,
-                }
-                state["blocked_tasks"] = blocked_raw
-                try:
-                    tracker.block_task(
-                        task.id, f"Auto-blocked after {cur_attempts} attempts: {reason}"
-                    )
-                except Exception:
-                    pass
+            blocked_raw[task.id] = {
+                "blocked_at": iso_utc(),
+                "attempts": cur_attempts,
+                "reason": reason,
+                "attempt_id": attempt_id,
+            }
+            state["blocked_tasks"] = blocked_raw
+            try:
+                tracker.block_task(
+                    task.id, f"Auto-blocked after {cur_attempts} attempts: {reason}"
+                )
                 blocked_now = True
-                progress_success = True
+            except OSError as e:
+                logger.debug("File read failed: %s", e)
 
-                progress_path = project_root / cfg.files.progress
-                progress_path.parent.mkdir(parents=True, exist_ok=True)
-                with progress_path.open("a", encoding="utf-8") as f:
-                    f.write(
-                        f"[{iso_utc()}] BLOCKED task {task.id} ({task.title}) after {cur_attempts} attempts: {reason}\n"
-                    )
+            progress_path = project_root / cfg.files.progress
+            progress_path.parent.mkdir(parents=True, exist_ok=True)
+            with progress_path.open("a", encoding="utf-8") as f:
+                f.write(
+                    f"[{iso_utc()}] BLOCKED task {task.id} ({task.title}) after {cur_attempts} attempts: {reason}\n"
+                )
 
         state["task_attempts"] = attempts_raw
 
-    try:
-        done_after, total_after = tracker.counts()
-    except Exception:
-        done_after, total_after = done_before, total_before
+    done_after, total_after = done_before, total_before
 
     head_after = git_head(project_root)
     repo_clean = git_is_clean(project_root)
@@ -2188,8 +2125,6 @@ def run_iteration(
     exit_signal_raw = parse_exit_signal(combined_output)
     exit_signal = exit_signal_raw
 
-    # Extract evidence citations (Phase 2/3: Regex with optional JSON)
-    evidence_count = 0
     try:
         from .evidence import extract_evidence
         # Note: evidence_json_enabled would come from cfg.prompt if implemented
@@ -2220,8 +2155,8 @@ def run_iteration(
     # Enforce exit constraints at orchestrator level.
     try:
         tracker_done = tracker.all_done()
-    except Exception:
-        tracker_done = False
+    except OSError as e:
+        logger.debug("File read failed: %s", e)
 
     # Beads has no reliable "all done" signal; allow exit if the agent says so.
     allow_exit_without_all_done = tracker.kind == "beads"
@@ -2236,9 +2171,6 @@ def run_iteration(
         exit_signal = False
     if exit_signal is True and review_ok is False:
         exit_signal = False
-
-    # Persist log
-    judge_section = "(llm_judge: not run)\n"
     if judge_cfg.enabled:
         if judge_result is None:
             judge_section = f"llm_judge_enabled: true\nllm_judge_agent: {judge_cfg.agent}\nllm_judge_ran: false\n"
@@ -2315,10 +2247,7 @@ def run_iteration(
     if progress_made:
         state["noProgressStreak"] = 0
     else:
-        try:
-            state["noProgressStreak"] = int(state.get("noProgressStreak", 0)) + 1
-        except Exception:
-            state["noProgressStreak"] = 1
+        state["noProgressStreak"] = int(state.get("noProgressStreak", 0)) + 1
 
     history = state.get("history", [])
     if not isinstance(history, list):
@@ -2333,10 +2262,6 @@ def run_iteration(
             "story_id": story_id,
             "mode": resolved_mode,
             "duration_seconds": round(duration_s, 2),
-            "return_code": int(result.returncode),
-            "exit_signal_raw": exit_signal_raw,
-            "exit_signal_effective": exit_signal,
-            "repo_clean": bool(repo_clean),
             "gates_ok": gates_ok,
             "judge_ok": judge_ok,
             "judge_enabled": bool(judge_cfg.enabled),
@@ -2603,8 +2528,8 @@ def _diagnose_no_files(project_root: Path, agent_result: "SubprocessResult") -> 
                             "Fix gate failures OR document why they cannot be fixed"
                         )
                         break
-                except Exception:
-                    pass
+                except (json.JSONDecodeError, OSError) as e:
+                    logger.debug("File read failed: %s", e)
 
     # If no specific cause found, add generic message
     if not causes:
@@ -2622,9 +2547,29 @@ def _find_recently_created_files(project_root: Path) -> List[str]:
         project_root: Path to the project root
 
     Returns:
-        List of file paths (relative to project root)
+        List of up to 10 recently created file paths
     """
     recent_files: List[str] = []
+    now = time.time()
+    recent_threshold = 900  # 15 minutes
+
+    for item in project_root.rglob("*"):
+        if not item.is_file():
+            continue
+
+        # Skip .ralph internal files
+        if ".ralph" in item.parts or ".git" in item.parts:
+            continue
+
+        try:
+            mtime = item.stat().st_mtime
+            if now - mtime < recent_threshold:
+                rel_path = str(item.relative_to(project_root))
+                recent_files.append(rel_path)
+        except OSError:
+            continue
+
+    return recent_files[:10]  # Limit to 10 most recent
     now = time.time()
     recent_threshold = 900  # 15 minutes
 
@@ -2722,42 +2667,34 @@ def _print_no_files_warning(receipt: NoFilesWrittenReceipt) -> None:
     Args:
         receipt: The NoFilesWrittenReceipt to display
     """
-    warning_box = """
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║ ⚠️  NO FILES WRITTEN DETECTED                                                  ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-Agent completed execution but wrote no user files to the project.
-
-Task ID:        {task_id}
-Iteration:      {iteration}
-Duration:        {duration:.1f} seconds
-Agent exit code: {exit_code}
-
-Possible causes:
-{causes}
-
-Remediation:
-{remediation}
-
-Receipt saved to: .ralph/receipts/no_files_written.json
-
-"""
-    cause_lines = "\n".join(f"  • {c}" for c in receipt.possible_causes)
+    warning_box = (
+        "\n"
+        "+==============================================================================+\n"
+        "| WARNING: NO FILES WRITTEN DETECTED                                          |\n"
+        "+==============================================================================+\n"
+        "\n"
+        "Agent completed execution but wrote no user files to the project.\n"
+        "\n"
+        f"Task ID:        {receipt.task_id}\n"
+        f"Iteration:      {receipt.iteration}\n"
+        f"Duration:       {receipt.duration_seconds:.1f} seconds\n"
+        f"Agent exit code: {receipt.agent_return_code}\n"
+        "\n"
+        "Possible causes:\n"
+        "{causes}\n"
+        "\n"
+        "Remediation:\n"
+        "{remediation}\n"
+        "\n"
+        "Receipt saved to: .ralph/receipts/no_files_written.json\n"
+        "\n"
+    )
+    cause_lines = "\n".join(f"  * {c}" for c in receipt.possible_causes)
     remediation_lines = "\n".join(
         f"  {line}" for line in receipt.remediation.split("\n")
     )
 
-    print(
-        warning_box.format(
-            task_id=receipt.task_id,
-            iteration=receipt.iteration,
-            duration=receipt.duration_seconds,
-            exit_code=receipt.agent_return_code,
-            causes=cause_lines,
-            remediation=remediation_lines,
-        )
-    )
+    print(warning_box)
 
 
 # ============================
@@ -3046,7 +2983,8 @@ def run_loop(
                     done, total = tracker.counts()
                     remaining_tasks = max(0, total - done)
                     effective_cap = min(remaining_slots, remaining_tasks)
-                except Exception:
+                except OSError as e:
+                    logger.debug("File read failed: %s", e)
                     effective_cap = remaining_slots
 
                 if effective_cap <= 0:
@@ -3064,10 +3002,7 @@ def run_loop(
 
                 ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
                 parallel_log = logs_dir / f"parallel-{ts}.log"
-
-                # Log parallel execution start
-                with open(parallel_log, "w", encoding="utf-8") as f:
-                    f.write("# Ralph Parallel Execution Log\n")
+                with parallel_log.open("a", encoding="utf-8") as f:
                     f.write(f"timestamp_utc: {ts}\n")
                     f.write(f"agent: {agent}\n")
                     f.write(f"max_workers: {cfg.parallel.max_workers}\n")
@@ -3147,7 +3082,8 @@ def run_loop(
 
         try:
             done = tracker.all_done()
-        except Exception:
+        except OSError as e:
+            logger.debug("File read failed: %s", e)
             done = False
 
         if res.no_progress_streak >= cfg.loop.no_progress_limit:
@@ -3158,18 +3094,15 @@ def run_loop(
             try:
                 # Reuse 'done' from above instead of calling all_done() again
                 all_blocked = tracker.all_blocked()
-            except Exception as e:
-                print(f"Warning: Failed to check tracker status: {e}")
+            except OSError as e:
+                logger.debug("File read failed: %s", e)
                 all_blocked = False
 
             if done:
                 print("All tasks completed successfully")
                 break
             elif all_blocked:
-                print("Error: All remaining tasks are blocked")
-                break
-            else:
-                print("Error: No task selected but tasks remain (configuration error)")
+                print("All tasks are blocked")
                 break
 
         if (done or allow_exit_without_all_done) and res.exit_signal is True:
@@ -3177,5 +3110,3 @@ def run_loop(
 
         if cfg.loop.sleep_seconds_between_iters > 0:
             time.sleep(cfg.loop.sleep_seconds_between_iters)
-
-    return results

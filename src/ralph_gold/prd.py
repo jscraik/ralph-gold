@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
-PrdKind = Literal["json", "md", "beads"]
+PrdKind = Literal["json", "md", "beads", "web_analysis", "yaml", "github_issues"]
 
 
 TaskId = str
@@ -96,10 +99,15 @@ def is_markdown_prd(path: Path) -> bool:
     return path.suffix.lower() in {".md", ".markdown"}
 
 
-def _load_json_prd(path: Path) -> Dict[str, Any]:
+def _load_json_prd(path: Path) -> Optional[Dict[str, Any]]:
     if not path.exists():
         raise FileNotFoundError(f"Missing PRD file: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        prd_data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load PRD: %s", e)
+        return None
+    return prd_data
 
 
 def _save_json_prd(path: Path, prd: Dict[str, Any]) -> None:
@@ -134,8 +142,9 @@ def _deps_satisfied(deps: List[str], done_ids: Set[str]) -> bool:
 def _story_priority(story: Dict[str, Any]) -> int:
     try:
         return int(story.get("priority", 10_000))
-    except Exception:
-        return 10_000
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load JSON PRD: %s", e)
+        return None
 
 
 def _select_next_story(
@@ -382,6 +391,8 @@ def select_next_task(
         return None
 
     prd = _load_json_prd(prd_path)
+    if prd is None:
+        return None
     story = _select_next_story(prd, exclude_ids=exclude_ids)
     if not story:
         return None
@@ -414,6 +425,8 @@ def task_counts(prd_path: Path) -> Tuple[int, int]:
         return done, total
 
     prd = _load_json_prd(prd_path)
+    if prd is None:
+        return 0, 0
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
         return 0, 0
@@ -440,6 +453,8 @@ def status_counts(prd_path: Path) -> Tuple[int, int, int, int]:
         return done, blocked, open_count, total
 
     prd = _load_json_prd(prd_path)
+    if prd is None:
+        return 0, 0, 0, 0
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
         return 0, 0, 0, 0
@@ -454,7 +469,10 @@ def status_counts(prd_path: Path) -> Tuple[int, int, int, int]:
 def all_done(prd_path: Path) -> bool:
     if is_markdown_prd(prd_path):
         return _md_all_done(_load_md_prd(prd_path))
-    return _json_all_done(_load_json_prd(prd_path))
+    prd = _load_json_prd(prd_path)
+    if prd is None:
+        return False
+    return _json_all_done(prd)
 
 
 def all_blocked(prd_path: Path) -> bool:
@@ -466,7 +484,10 @@ def all_blocked(prd_path: Path) -> bool:
     """
     if is_markdown_prd(prd_path):
         return _md_all_blocked(_load_md_prd(prd_path))
-    return _json_all_blocked(_load_json_prd(prd_path))
+    prd = _load_json_prd(prd_path)
+    if prd is None:
+        return False
+    return _json_all_blocked(prd)
 
 
 def _md_all_blocked(prd: MdPrd) -> bool:
@@ -509,6 +530,8 @@ def force_task_open(prd_path: Path, task_id: TaskId) -> bool:
         return changed
 
     prd = _load_json_prd(prd_path)
+    if prd is None:
+        return False
     changed = _json_force_story_open(prd, str(task_id))
     if changed:
         _save_json_prd(prd_path, prd)
@@ -526,6 +549,8 @@ def is_task_done(prd_path: Path, task_id: TaskId) -> bool:
         return False
 
     prd = _load_json_prd(prd_path)
+    if prd is None:
+        return False
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
         return False
@@ -562,6 +587,8 @@ def block_task(prd_path: Path, task_id: TaskId, reason: str) -> bool:
         return changed
 
     prd = _load_json_prd(prd_path)
+    if prd is None:
+        return False
     stories = prd.get("stories", [])
     if not isinstance(stories, list):
         return False
@@ -607,6 +634,8 @@ def get_prd_branch_name(prd_path: Path) -> Optional[str]:
             return None
 
         prd = _load_json_prd(prd_path)
+        if prd is None:
+            return None
         for k in [
             "branchName",
             "branch",
@@ -618,7 +647,8 @@ def get_prd_branch_name(prd_path: Path) -> Optional[str]:
             if isinstance(v, str) and v.strip():
                 return v.strip()
         return None
-    except Exception:
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load PRD: %s", e)
         return None
 
 
@@ -644,6 +674,8 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                 )
         else:
             prd = _load_json_prd(prd_path)
+            if prd is None:
+                return tasks
             stories = prd.get("stories", [])
             if isinstance(stories, list):
                 for s in stories:
@@ -667,7 +699,7 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                             "depends_on": depends,
                         }
                     )
-    except Exception:
-        pass
-
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load JSON PRD: %s", e)
+        return None
     return tasks

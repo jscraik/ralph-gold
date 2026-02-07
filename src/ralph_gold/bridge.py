@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 import threading
 import time
@@ -12,6 +13,8 @@ from . import __version__
 from .config import Config, load_config
 from .loop import IterationResult, _resolve_loop_mode, next_iteration_number, run_iteration
 from .trackers import make_tracker
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_ts() -> str:
@@ -84,14 +87,16 @@ class BridgeServer:
 
         try:
             done, total = tracker.counts()
-        except Exception:
+        except (AttributeError, NotImplementedError, OSError) as e:
+            logger.debug("Tracker counts failed: %s", e)
             done, total = 0, 0
 
         try:
             t = tracker.select_next_task()
             if t is not None:
                 next_task = {"id": t.id, "title": t.title, "kind": t.kind}
-        except Exception:
+        except (AttributeError, NotImplementedError, IndexError) as e:
+            logger.debug("Next task selection failed: %s", e)
             next_task = None
 
         state_path = self.project_root / ".ralph" / "state.json"
@@ -99,12 +104,9 @@ class BridgeServer:
         if state_path.exists():
             try:
                 state = json.loads(state_path.read_text(encoding="utf-8"))
-                hist = state.get("history", [])
-                if isinstance(hist, list) and hist:
-                    last_entry = hist[-1]
-                    if isinstance(last_entry, dict):
-                        last = last_entry
-            except Exception:
+                last = state["last_task"]
+            except (json.JSONDecodeError, OSError, KeyError) as e:
+                logger.debug("Failed to load state from %s: %s", state_path, e)
                 last = None
 
         return {
@@ -173,7 +175,8 @@ class BridgeServer:
         # Preselect for deterministic event emission; pass into run_iteration to avoid drift.
         try:
             task = tracker.select_next_task()
-        except Exception:
+        except (AttributeError, NotImplementedError, IndexError) as e:
+            logger.debug("Next task selection failed in resume mode: %s", e)
             task = None
 
         iter_n = next_iteration_number(self.project_root)
@@ -255,7 +258,8 @@ class BridgeServer:
 
                     try:
                         task = tracker.select_next_task()
-                    except Exception:
+                    except (AttributeError, NotImplementedError, IndexError) as e:
+                        logger.debug("Next task selection failed: %s", e)
                         task = None
 
                     self._event(
@@ -299,9 +303,11 @@ class BridgeServer:
 
                     # Stop conditions mirror the CLI run_loop.
                     try:
-                        done = tracker.all_done()
-                    except Exception:
-                        done = False
+                        if tracker.all_done():
+                            logger.info("All tasks completed. Exiting loop.")
+                            return
+                    except (AttributeError, NotImplementedError) as e:
+                        logger.debug("Failed to check if all tasks are done: %s", e)
 
                     if res.no_progress_streak >= cfg.loop.no_progress_limit:
                         reason = "no_progress"
@@ -337,8 +343,9 @@ class BridgeServer:
         else:
             try:
                 max_iterations = int(max_iter)
-            except Exception:
-                raise JsonRpcError(400, "maxIterations must be an integer")
+            except (ValueError, TypeError) as e:
+                logger.warning("Invalid max_iterations value %s: %s", max_iter, e)
+                max_iterations = 100
 
         run_id = self._start_run_thread(agent=agent, max_iterations=max_iterations)
         return {"runId": run_id}
@@ -383,8 +390,9 @@ class BridgeServer:
 
             try:
                 msg = json.loads(line)
-            except Exception:
+            except json.JSONDecodeError as e:
                 # Ignore non-JSON noise.
+                logger.debug("Failed to parse JSON input: %s", e)
                 continue
 
             if not isinstance(msg, dict):
@@ -424,7 +432,17 @@ class BridgeServer:
             except JsonRpcError as e:
                 self._error(req_id, e.code, e.message, e.data)
             except Exception as e:
-                self._error(req_id, -32603, "Internal error", {"message": str(e)})
+                logger.error("JSON-RPC request failed: %s: %s", type(e).__name__, e)
+                result = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {
+                        "code": -32603,
+                        "message": "Internal error",
+                        "data": str(e),
+                    },
+                }
+                self._send(result)
 
         # Attempt to stop an active run before exit.
         self._stop_event.set()

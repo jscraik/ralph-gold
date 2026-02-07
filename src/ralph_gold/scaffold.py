@@ -58,8 +58,8 @@ def _archive_existing_files(
         try:
             shutil.copy2(src_file, archive_dest)
             archived.append(str(rel_path))
-        except Exception:
-            # Best effort - continue even if one file fails
+        except OSError as e:
+            logger.debug("Directory creation failed: %s", e)
             pass
 
     return archived
@@ -146,21 +146,29 @@ def init_project(
                     # Write merged config
                     dst.write_text(merged_text, encoding="utf-8")
                     logger.info(f"Merged existing config with new template (strategy: {merge_strategy})")
-                except Exception as e:
-                    logger.warning(f"Config merge failed: {e}, falling back to overwrite")
-                    dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+                except (OSError, ValueError) as e:
+                    logger.debug("Config merge failed: %s", e)
+                    # Fall through to normal write below
             else:
                 # No merge - simple overwrite
                 dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        else:
-            # Normal file write
-            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+                continue
+
+        # Normal file write
+        try:
+            template_path = src
+            content = template_path.read_text(encoding="utf-8")
+            dst.write_text(content, encoding="utf-8")
+        except OSError as e:
+            logger.debug("Failed to write template: %s", e)
+            # Continue with other files even if this one fails
+            continue
 
         # Make convenience scripts executable (best effort).
         if dst_name.endswith(".sh"):
             try:
                 dst.chmod(0o755)
-            except Exception:
+            except OSError:
                 pass
 
     # Update ralph.toml to use the correct tracker format
@@ -175,7 +183,11 @@ def init_project(
 
     # Specs dir (requirements live here; used by PROMPT_plan.md)
     specs_dir = project_root / ".ralph" / "specs"
-    specs_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        specs_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        logger.debug("Failed to create scaffold directory: %s", e)
+        # Continue even if directory creation fails
     specs_readme = specs_dir / "README.md"
     tpl_specs_readme = tdir / "specs_README.md"
     if tpl_specs_readme.exists() and (force or not specs_readme.exists()):

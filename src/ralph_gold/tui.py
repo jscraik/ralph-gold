@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import curses
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ from typing import Optional
 from .config import load_config
 from .loop import IterationResult, _resolve_loop_mode, next_iteration_number, run_iteration
 from .trackers import make_tracker
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,8 +38,8 @@ def _read_last_history(project_root: Path) -> dict:
                 last = hist[-1]
                 if isinstance(last, dict):
                     return last
-    except Exception:
-        return {}
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Failed to load TUI config: %s", e)
     return {}
 
 
@@ -47,7 +50,8 @@ def _tail_text(path: Path, max_lines: int = 20) -> str:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         tail = lines[-max_lines:]
         return "\n".join(tail)
-    except Exception:
+    except OSError as e:
+        logger.debug("Failed to read log file: %s", e)
         return ""
 
 
@@ -108,11 +112,13 @@ def run_tui(project_root: Path) -> int:
             tracker = make_tracker(project_root, cfg)
             try:
                 done, total = tracker.counts()
-            except Exception:
+            except (OSError, ValueError) as e:
+                logger.debug("Failed to get tracker counts: %s", e)
                 done, total = 0, 0
             try:
                 next_task = tracker.select_next_task()
-            except Exception:
+            except (OSError, ValueError) as e:
+                logger.debug("Failed to select next task: %s", e)
                 next_task = None
 
             last_hist = _read_last_history(project_root)
@@ -129,8 +135,8 @@ def run_tui(project_root: Path) -> int:
                 clipped = text[: max(0, w - 1)]
                 try:
                     stdscr.addstr(y, 0, clipped)
-                except Exception:
-                    pass
+                except (OSError, curses.error) as e:
+                    logger.debug("Screen addstr failed: %s", e)
 
             add_line(0, f"ralph-gold TUI  |  root: {project_root}")
             add_line(1, f"agent: {state.agent}  |  tracker: {cfg.tracker.kind}  |  prd: {cfg.files.prd}")
@@ -168,11 +174,15 @@ def run_tui(project_root: Path) -> int:
                     for i, line in enumerate(tail.splitlines()[: max(0, h - 14)], start=14):
                         add_line(i, line)
 
-            stdscr.refresh()
+            try:
+                stdscr.refresh()
+            except (OSError, curses.error) as e:
+                logger.debug("Screen refresh failed: %s", e)
 
             try:
                 ch = stdscr.getch()
-            except Exception:
+            except (OSError, curses.error) as e:
+                logger.debug("Getch failed: %s", e)
                 ch = -1
 
             if ch == -1:
@@ -184,7 +194,10 @@ def run_tui(project_root: Path) -> int:
                 stop_flag.set()
                 if t and t.is_alive():
                     # Wait briefly; can't interrupt a running iteration.
-                    t.join(timeout=0.5)
+                    try:
+                        t.join(timeout=0.5)
+                    except RuntimeError as e:
+                        logger.debug("Thread join failed: %s", e)
                 return 0
 
             if key.lower() == "a":

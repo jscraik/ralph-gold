@@ -17,8 +17,12 @@ Common Attack Patterns Prevented:
 
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 from typing import Union
+
+logger = logging.getLogger(__name__)
 
 
 def validate_project_path(
@@ -54,8 +58,9 @@ def validate_project_path(
     # Use resolve() with strict=False for non-existent paths
     try:
         resolved = (project_root / user_path).resolve(strict=False)
-    except Exception:
+    except OSError as e:
         # If resolve fails for any reason, try absolute path
+        logger.debug("Path resolution failed: %s", e)
         resolved = (project_root / user_path).absolute()
 
     # Verify path is within project_root
