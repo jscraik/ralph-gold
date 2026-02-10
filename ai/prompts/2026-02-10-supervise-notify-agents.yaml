@@ -1,0 +1,28 @@
+id: pr-supervise-notify-agents-2026-02-10
+tool: claude-code
+mode: normal
+task: "Add `ralph supervise` (supervisor/heartbeat loop) with OS notifications enabled by default; add first-class runner support for `claude-kimi` and `claude-zai` alongside `codex` (templates, completions, doctor checks, invocation logic)."
+constraints:
+  - "no new dependencies"
+  - "notifications enabled by default for `ralph supervise`"
+  - "no shell injection (notifications use argv lists; sanitize/escape payloads)"
+  - "follow PR template exactly"
+  - "no secrets"
+outputs_expected:
+  - "src/ralph_gold/cli.py"
+  - "src/ralph_gold/supervisor.py"
+  - "src/ralph_gold/notify.py"
+  - "src/ralph_gold/agents.py"
+  - "src/ralph_gold/doctor.py"
+  - "src/ralph_gold/completion.py"
+  - "src/ralph_gold/templates/ralph.toml"
+  - "docs/COMMANDS.md"
+  - "docs/CONFIGURATION.md"
+  - "README.md"
+  - "tests/test_supervisor.py"
+  - "tests/test_notify.py"
+  - "tests/test_agents_claude_variants.py"
+  - "tests/test_agents_generic_stdin.py"
+  - "ai/prompts/2026-02-10-supervise-notify-agents.yaml"
+  - "ai/sessions/2026-02-10-supervise-notify-agents.json"
+

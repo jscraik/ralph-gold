@@ -150,6 +150,18 @@ patterns = ["**/*.py", "**/*.md"]
 debounce_ms = 500
 auto_commit = false
 
+[supervisor]
+# Long-running outer loop. Used by `ralph supervise`.
+# heartbeat_seconds = 60
+# sleep_seconds_between_runs = 5
+# max_runtime_seconds = 0                # 0 = unlimited
+# on_no_progress_limit = "stop"          # stop|continue
+# on_rate_limit = "wait"                # wait|stop
+# notify_enabled = true
+# notify_events = ["complete", "stopped", "error"]
+# notify_backend = "auto"               # auto|macos|linux|windows|command|none
+# notify_command_argv = []
+
 [progress]
 # Progress visualization settings
 show_velocity = true
@@ -171,6 +183,12 @@ argv = ["codex", "exec", "--full-auto", "-"]
 
 [runners.claude]
 argv = ["claude", "-p"]
+
+[runners.claude-zai]
+argv = ["claude-zai"]
+
+[runners.claude-kimi]
+argv = ["claude-kimi"]
 
 [runners.copilot]
 argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]

@@ -66,6 +66,20 @@ def _normalize_cli_mode(value: str | None) -> str | None:
     return mode
 
 
+def _default_planner_agent(cfg) -> str:
+    """Pick the best available planning/review agent from configured runners."""
+
+    preferred = ["claude-zai", "claude-kimi", "claude", "codex"]
+    for name in preferred:
+        if hasattr(cfg, "runners") and cfg.runners and name in cfg.runners:
+            return name
+    # Fallback: first configured runner name, else codex.
+    try:
+        return next(iter(cfg.runners.keys()))
+    except Exception:
+        return "codex"
+
+
 class _RalphArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
         self.exit(2, f"Error: {message}\n")
@@ -1055,6 +1069,97 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_supervise(args: argparse.Namespace) -> int:
+    """Run a long-lived supervisor loop with heartbeat + notifications."""
+
+    root = _project_root()
+    agent = args.agent
+    try:
+        cfg = load_config(root)
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+
+    try:
+        mode_override = _normalize_cli_mode(getattr(args, "mode", None))
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+    if mode_override:
+        cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
+
+    # Resolve supervisor defaults from config, overridden by flags when provided.
+    sup = cfg.supervisor
+    max_runtime_seconds = (
+        args.max_runtime_seconds
+        if args.max_runtime_seconds is not None
+        else sup.max_runtime_seconds
+    )
+    heartbeat_seconds = (
+        args.heartbeat_seconds if args.heartbeat_seconds is not None else sup.heartbeat_seconds
+    )
+    sleep_seconds_between_runs = (
+        args.sleep_seconds_between_runs
+        if args.sleep_seconds_between_runs is not None
+        else sup.sleep_seconds_between_runs
+    )
+    on_no_progress_limit = (
+        args.on_no_progress_limit
+        if args.on_no_progress_limit is not None
+        else sup.on_no_progress_limit
+    )
+    on_rate_limit = (
+        args.on_rate_limit if args.on_rate_limit is not None else sup.on_rate_limit
+    )
+
+    # Notifications (best-effort)
+    notify_enabled: bool
+    if getattr(args, "notify", None) is True:
+        notify_enabled = True
+    elif getattr(args, "no_notify", None) is True:
+        notify_enabled = False
+    else:
+        notify_enabled = bool(sup.notify_enabled)
+
+    notify_backend = (
+        args.notify_backend if args.notify_backend is not None else sup.notify_backend
+    )
+    notify_command_argv = (
+        args.notify_command if args.notify_command is not None else list(sup.notify_command_argv)
+    )
+
+    from .supervisor import run_supervisor, supervise_to_stdout_json
+
+    res = run_supervisor(
+        root,
+        agent=agent,
+        cfg=cfg,
+        max_runtime_seconds=int(max_runtime_seconds),
+        heartbeat_seconds=int(heartbeat_seconds),
+        sleep_seconds_between_runs=int(sleep_seconds_between_runs),
+        on_no_progress_limit=str(on_no_progress_limit),
+        on_rate_limit=str(on_rate_limit),
+        notify_enabled=notify_enabled,
+        notify_events=list(sup.notify_events),
+        notify_backend=str(notify_backend),
+        notify_command_argv=list(notify_command_argv or []),
+    )
+
+    # JSON mode emits exactly one JSON payload and suppresses heartbeat text
+    supervise_to_stdout_json(res)
+
+    if get_output_config().format != "json":
+        print_output(
+            f"Supervise finished: exit_code={res.exit_code} reason={res.reason} "
+            f"iterations={res.iterations_run}",
+            level="normal",
+        )
+        if res.last_log_path:
+            print_output(f"Last log: {res.last_log_path}", level="quiet")
+
+    return int(res.exit_code)
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     root = _project_root()
     cfg = load_config(root)
@@ -1396,7 +1501,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
     state_dir.mkdir(exist_ok=True)
     logs_dir.mkdir(exist_ok=True)
 
-    agent = args.agent
+    agent = str(args.agent).strip() if args.agent else _default_planner_agent(cfg)
     runner = cfg.runners.get(agent)
     if runner is None:
         available = ", ".join(sorted(cfg.runners.keys()))
@@ -1470,7 +1575,7 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
     prompt_text = _regen_plan_prompt(root, prd_filename, specs_report)
     logs_dir.mkdir(exist_ok=True)
 
-    agent = args.agent
+    agent = str(args.agent).strip() if args.agent else _default_planner_agent(cfg)
     runner = cfg.runners.get(agent)
     if runner is None:
         available = ", ".join(sorted(cfg.runners.keys()))
@@ -2428,6 +2533,76 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_run.set_defaults(func=cmd_run)
 
+    p_supervise = sub.add_parser(
+        "supervise",
+        help="Run a long-lived supervisor loop (heartbeat + policy stops + notifications).",
+    )
+    p_supervise.add_argument(
+        "--agent",
+        default="codex",
+        help="Runner to use for execution iterations (default: codex)",
+    )
+    p_supervise.add_argument(
+        "--mode",
+        choices=LOOP_MODE_NAMES,
+        help="Override loop.mode (speed|quality|exploration)",
+    )
+    p_supervise.add_argument(
+        "--max-runtime-seconds",
+        type=int,
+        default=None,
+        help="Stop after N seconds (0/unset = unlimited)",
+    )
+    p_supervise.add_argument(
+        "--heartbeat-seconds",
+        type=int,
+        default=None,
+        help="Print a heartbeat every N seconds (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--sleep-seconds-between-runs",
+        type=int,
+        default=None,
+        help="Sleep N seconds between iterations (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--on-no-progress-limit",
+        choices=["stop", "continue"],
+        default=None,
+        help="Policy when no-progress limit is reached (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--on-rate-limit",
+        choices=["wait", "stop"],
+        default=None,
+        help="Policy when rate limit is reached (default: from supervisor config)",
+    )
+
+    notify_group = p_supervise.add_mutually_exclusive_group()
+    notify_group.add_argument(
+        "--notify",
+        action="store_true",
+        help="Enable OS notifications (default: enabled)",
+    )
+    notify_group.add_argument(
+        "--no-notify",
+        action="store_true",
+        help="Disable OS notifications",
+    )
+    p_supervise.add_argument(
+        "--notify-backend",
+        choices=["auto", "macos", "linux", "windows", "command", "none"],
+        default=None,
+        help="Notification backend (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--notify-command",
+        nargs="+",
+        default=None,
+        help="Command argv to invoke for notifications when backend=command (appends title + message)",
+    )
+    p_supervise.set_defaults(func=cmd_supervise)
+
     p_status = sub.add_parser(
         "status", help="Show PRD progress + last iteration summary"
     )
@@ -2542,8 +2717,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_plan.add_argument(
         "--agent",
-        default="codex",
-        help="Runner to use (codex|claude|copilot or custom)",
+        default=None,
+        help="Runner to use (defaults to claude-zai/claude-kimi/claude/codex if configured)",
     )
     p_plan.add_argument("--desc", default=None, help="Short description text")
     p_plan.add_argument(
@@ -2563,7 +2738,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate IMPLEMENTATION_PLAN.md from specs/* + codebase gap analysis",
     )
     p_regen.add_argument(
-        "--agent", default="claude", help="Runner to use (default: claude)"
+        "--agent",
+        default=None,
+        help="Runner to use (defaults to claude-zai/claude-kimi/claude/codex if configured)",
     )
     p_regen.add_argument(
         "--prd-file", default=None, help="Target plan file (defaults to files.prd)"
@@ -2732,3 +2909,7 @@ def main(argv: list[str] | None = None) -> int:
         logger = logging.getLogger(__name__)
         logger.error("%s", e)
         return 1
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

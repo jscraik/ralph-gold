@@ -1,0 +1,41 @@
+{
+  "tool": "claude-code",
+  "started_at": "2026-02-10T17:05:00Z",
+  "ended_at": "2026-02-10T17:53:00Z",
+  "files_touched": [
+    ".gitignore",
+    "README.md",
+    "docs/COMMANDS.md",
+    "docs/CONFIGURATION.md",
+    "src/ralph_gold/agents.py",
+    "src/ralph_gold/clean.py",
+    "src/ralph_gold/cli.py",
+    "src/ralph_gold/completion.py",
+    "src/ralph_gold/config.py",
+    "src/ralph_gold/diagnostics.py",
+    "src/ralph_gold/doctor.py",
+    "src/ralph_gold/loop.py",
+    "src/ralph_gold/notify.py",
+    "src/ralph_gold/state_validation.py",
+    "src/ralph_gold/supervisor.py",
+    "src/ralph_gold/templates/ralph.toml",
+    "src/ralph_gold/worktree.py",
+    "tests/test_agents_claude_variants.py",
+    "tests/test_agents_generic_stdin.py",
+    "tests/test_clean.py",
+    "tests/test_completion.py",
+    "tests/test_doctor_runners.py",
+    "tests/test_notify.py",
+    "tests/test_supervisor.py",
+    "ai/prompts/2026-02-10-supervise-notify-agents.yaml",
+    "ai/sessions/2026-02-10-supervise-notify-agents.json"
+  ],
+  "tests_run": [
+    "uv run pytest -q",
+    "uv run pytest -q tests/test_loop_progress.py::test_no_progress_streak_ignores_ralph_artifacts",
+    "uv run pytest -q tests/test_diagnostics_properties.py::test_property_gate_execution_fidelity"
+  ],
+  "human_verification": "Ran the full pytest suite; spot-checked CLI default agent selection and `ralph supervise` flag wiring; reviewed notification backend escaping and non-shell execution.",
+  "notes": "Implemented a new supervisor/heartbeat command with policy-based stopping and default OS notifications; added claude-kimi/claude-zai as Claude-style runners; updated templates/docs/completions/doctor; hardened loop bookkeeping and progress detection to satisfy existing invariants."
+}
+

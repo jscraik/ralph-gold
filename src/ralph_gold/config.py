@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +17,8 @@ try:
     import tomllib  # py>=3.11
 except ModuleNotFoundError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 
 # -------------------------
@@ -328,6 +331,34 @@ class WatchConfig:
 
 
 @dataclass(frozen=True)
+class SupervisorConfig:
+    """Configuration for long-running supervisor/heartbeat mode.
+
+    This config is used by `ralph supervise`. It is intentionally conservative:
+    - Notifications are enabled by default (best-effort).
+    - No new dependencies are required; backends are selected based on what is installed.
+    """
+
+    heartbeat_seconds: int = 60
+    sleep_seconds_between_runs: int = 5
+    max_runtime_seconds: int = 0  # 0 = unlimited
+
+    # stop|continue
+    on_no_progress_limit: str = "stop"
+
+    # wait|stop
+    on_rate_limit: str = "wait"
+
+    # Notifications
+    notify_enabled: bool = True
+    notify_events: List[str] = field(
+        default_factory=lambda: ["complete", "stopped", "error"]
+    )
+    notify_backend: str = "auto"  # auto|macos|linux|windows|command|none
+    notify_command_argv: List[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class ProgressConfig:
     """Configuration for progress visualization."""
 
@@ -514,6 +545,7 @@ class Config:
     diagnostics: DiagnosticsConfig = field(default_factory=DiagnosticsConfig)
     stats: StatsConfig = field(default_factory=StatsConfig)
     watch: WatchConfig = field(default_factory=WatchConfig)
+    supervisor: SupervisorConfig = field(default_factory=SupervisorConfig)
     progress: ProgressConfig = field(default_factory=ProgressConfig)
     templates: TemplatesConfig = field(default_factory=TemplatesConfig)
     output: OutputControlConfig = field(default_factory=OutputControlConfig)
@@ -710,6 +742,7 @@ def load_config(project_root: Path) -> Config:
     git_raw = data.get("git", {}) or {}
     tracker_raw = data.get("tracker", {}) or {}
     parallel_raw = data.get("parallel", {}) or {}
+    supervisor_raw = data.get("supervisor", {}) or {}
 
     mode_name = _normalize_mode_name(loop_raw.get("mode"), "speed")
 
@@ -1119,6 +1152,40 @@ def load_config(project_root: Path) -> Config:
         auto_commit=_coerce_bool(watch_raw.get("auto_commit"), False),
     )
 
+    # Parse supervisor configuration (used by `ralph supervise`)
+    if not isinstance(supervisor_raw, dict):
+        supervisor_raw = {}
+
+    on_no_prog = str(supervisor_raw.get("on_no_progress_limit", "stop")).strip().lower()
+    if on_no_prog not in {"stop", "continue"}:
+        on_no_prog = "stop"
+
+    on_rate = str(supervisor_raw.get("on_rate_limit", "wait")).strip().lower()
+    if on_rate not in {"wait", "stop"}:
+        on_rate = "wait"
+
+    notify_backend = str(supervisor_raw.get("notify_backend", "auto")).strip().lower()
+    if notify_backend not in {"auto", "macos", "linux", "windows", "command", "none"}:
+        notify_backend = "auto"
+
+    supervisor = SupervisorConfig(
+        heartbeat_seconds=_coerce_int(supervisor_raw.get("heartbeat_seconds"), 60),
+        sleep_seconds_between_runs=_coerce_int(
+            supervisor_raw.get("sleep_seconds_between_runs"), 5
+        ),
+        max_runtime_seconds=_coerce_int(supervisor_raw.get("max_runtime_seconds"), 0),
+        on_no_progress_limit=on_no_prog,
+        on_rate_limit=on_rate,
+        notify_enabled=_coerce_bool(supervisor_raw.get("notify_enabled"), True),
+        notify_events=_parse_string_list(
+            supervisor_raw.get("notify_events"), ["complete", "stopped", "error"]
+        ),
+        notify_backend=notify_backend,
+        notify_command_argv=_parse_string_list(
+            supervisor_raw.get("notify_command_argv"), []
+        ),
+    )
+
     # Parse progress configuration
     progress_raw = data.get("progress", {}) or {}
     if not isinstance(progress_raw, dict):
@@ -1293,6 +1360,7 @@ def load_config(project_root: Path) -> Config:
         diagnostics=diagnostics,
         stats=stats,
         watch=watch,
+        supervisor=supervisor,
         progress=progress,
         templates=templates,
         output=output,

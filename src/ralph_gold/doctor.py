@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import json
 import shutil
 import subprocess
@@ -9,6 +10,8 @@ from typing import List, Optional, Tuple
 
 from .config import Config
 from .subprocess_helper import check_command_available, run_subprocess
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -34,11 +37,11 @@ def _version(cmd: List[str]) -> Optional[str]:
         return None
     except (subprocess.SubprocessError, OSError) as e:
         logger.debug("Command failed: %s", e)
-        return False
+        return None
 
 
 def check_tools(cfg: Optional[Config] = None) -> List[ToolStatus]:
-    checks = [
+    checks: List[Tuple[str, List[str], str]] = [
         ("git", ["git", "--version"], "Install git and run `git init` in your project."),
         ("uv", ["uv", "--version"], "Install uv (https://docs.astral.sh/uv/)."),
         ("codex", ["codex", "--version"], "Install the Codex CLI (see OpenAI Codex docs)."),
@@ -48,6 +51,26 @@ def check_tools(cfg: Optional[Config] = None) -> List[ToolStatus]:
     ]
 
     if cfg is not None:
+        # If the repo config defines custom runners, validate that their binaries exist.
+        # We intentionally check only argv[0] as the "tool", since the rest are flags.
+        seen_bins: set[str] = {name for (name, _cmd, _hint) in checks}
+        for runner in (cfg.runners or {}).values():
+            if not runner.argv:
+                continue
+            bin_name = str(runner.argv[0]).strip()
+            if not bin_name:
+                continue
+            if bin_name in seen_bins:
+                continue
+            seen_bins.add(bin_name)
+            checks.append(
+                (
+                    bin_name,
+                    [bin_name, "--version"],
+                    f"Install '{bin_name}' or adjust [runners.*].argv in ralph.toml.",
+                )
+            )
+
         if cfg.repoprompt.enabled or cfg.repoprompt.required:
             checks.append(
                 (
@@ -248,7 +271,7 @@ def setup_checks(project_root: Path, dry_run: bool = False) -> dict:
         except Exception as e:
             suggestions.append(f"Could not update .ralph/ralph.toml: {e}")
     else:
-        pass
+        suggestions.append("Run `ralph init` to create .ralph/ralph.toml, then re-run `ralph doctor --setup-checks`.")
 
     # 3) Suggest Husky setup (Node projects)
     if project_type == "node":

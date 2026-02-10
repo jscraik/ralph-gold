@@ -71,7 +71,7 @@ _ralph_completion() {
     _init_completion || return
 
     # Main commands
-    local commands="init doctor diagnose stats resume clean step run status tui serve specs plan regen-plan snapshot rollback watch task bridge convert completion"
+    local commands="init doctor diagnose stats resume clean step run supervise status tui serve specs plan regen-plan snapshot rollback watch task bridge convert completion"
     
     # Global flags
     local global_flags="--version --quiet --verbose --format"
@@ -85,6 +85,7 @@ _ralph_completion() {
     local clean_flags="--logs-days --archives-days --receipts-days --context-days --dry-run"
     local step_flags="--agent --mode --prompt-file --prd-file --dry-run --interactive"
     local run_flags="--agent --mode --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run"
+    local supervise_flags="--agent --mode --max-runtime-seconds --heartbeat-seconds --sleep-seconds-between-runs --on-no-progress-limit --on-rate-limit --notify --no-notify --notify-backend --notify-command"
     local status_flags="--graph --detailed --chart"
     local serve_flags="--host --port"
     local plan_flags="--agent --desc --desc-file --prd-file"
@@ -99,7 +100,7 @@ _ralph_completion() {
     local convert_flags="--infer-groups"
     
     # Agent names for --agent flag
-    local agents="codex claude copilot"
+    local agents="codex claude claude-zai claude-kimi copilot"
     local modes="speed quality exploration"
     
     # Format values for --format flag
@@ -183,7 +184,7 @@ _ralph_completion() {
             COMPREPLY=( $(compgen -f -- "$cur") )
             return 0
             ;;
-        --logs-days|--archives-days|--receipts-days|--context-days|--max-iterations|--max-workers|--port)
+        --logs-days|--archives-days|--receipts-days|--context-days|--max-iterations|--max-workers|--port|--max-runtime-seconds|--heartbeat-seconds|--sleep-seconds-between-runs)
             # Numeric completion - no suggestions
             return 0
             ;;
@@ -225,6 +226,9 @@ _ralph_completion() {
             ;;
         run)
             COMPREPLY=( $(compgen -W "$run_flags" -- "$cur") )
+            ;;
+        supervise)
+            COMPREPLY=( $(compgen -W "$supervise_flags" -- "$cur") )
             ;;
         status)
             COMPREPLY=( $(compgen -W "$status_flags" -- "$cur") )
@@ -295,6 +299,7 @@ _ralph() {
         'clean:Clean old logs, archives, and other workspace artifacts'
         'step:Run exactly one iteration'
         'run:Run the loop for N iterations'
+        'supervise:Run supervisor loop (heartbeat + notifications)'
         'status:Show PRD progress + last iteration summary'
         'tui:Interactive control surface (TUI)'
         'serve:Serve a minimal HTTP health endpoint'
@@ -360,7 +365,7 @@ _ralph() {
                     ;;
                 step)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--mode[Override loop.mode]:mode:(speed quality exploration)' \
                         '--prompt-file[Override files.prompt]:file:_files' \
                         '--prd-file[Override files.prd]:file:_files' \
@@ -369,7 +374,7 @@ _ralph() {
                     ;;
                 run)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--mode[Override loop.mode]:mode:(speed quality exploration)' \
                         '--max-iterations[Override loop.max_iterations]:iterations:' \
                         '--prompt-file[Override files.prompt]:file:_files' \
@@ -377,6 +382,20 @@ _ralph() {
                         '--parallel[Enable parallel execution with git worktrees]' \
                         '--max-workers[Number of parallel workers]:workers:' \
                         '--dry-run[Simulate execution without running agents]'
+                    ;;
+                supervise)
+                    _arguments \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
+                        '--mode[Override loop.mode]:mode:(speed quality exploration)' \
+                        '--max-runtime-seconds[Stop after N seconds]:seconds:' \
+                        '--heartbeat-seconds[Heartbeat interval seconds]:seconds:' \
+                        '--sleep-seconds-between-runs[Sleep between iterations]:seconds:' \
+                        '--on-no-progress-limit[Policy when no-progress limit hit]:policy:(stop continue)' \
+                        '--on-rate-limit[Policy when rate limit hit]:policy:(wait stop)' \
+                        '--notify[Enable OS notifications]' \
+                        '--no-notify[Disable OS notifications]' \
+                        '--notify-backend[Notification backend]:backend:(auto macos linux windows command none)' \
+                        '--notify-command[Command argv when backend=command]:command:_files'
                     ;;
                 status)
                     _arguments \
@@ -415,14 +434,14 @@ _ralph() {
                     ;;
                 plan)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--desc[Short description text]:description:' \
                         '--desc-file[Path to description file]:file:_files' \
                         '--prd-file[Target file to write]:file:_files'
                     ;;
                 regen-plan)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--prd-file[Target plan file]:file:_files' \
                         '--specs-dir[Specs directory]:dir:_directories' \
                         '--no-specs-check[Do not run specs check before generating]'
@@ -529,7 +548,7 @@ def get_dynamic_completions(
     if completion_type == "agents":
         # Get configured agent names
         # Default agents
-        completions = ["codex", "claude", "copilot"]
+        completions = ["codex", "claude", "claude-zai", "claude-kimi", "copilot"]
 
         # Add custom runners from config if available
         if hasattr(cfg, "runners") and cfg.runners:

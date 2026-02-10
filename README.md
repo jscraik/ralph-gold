@@ -141,6 +141,18 @@ Receipts and context snapshots (anchor + optional RepoPrompt pack) live under:
 
 ---
 
+## Keep agents alive (supervisor)
+
+For unattended runs (with a periodic heartbeat and best-effort OS notifications), use:
+
+```bash
+ralph supervise --agent codex
+```
+
+For long sessions, we still recommend running under `tmux` so the process survives terminal disconnects.
+
+---
+
 ## TUI (interactive control surface)
 
 ```bash

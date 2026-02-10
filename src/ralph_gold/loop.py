@@ -623,6 +623,7 @@ def next_iteration_number(project_root: Path) -> int:
             except (OSError, ValueError) as e:
                 logger.debug("Failed to read iteration from state: %s", e)
                 return 1
+    return 1
 
 
 def _rate_limit_ok(state: Dict[str, Any], per_hour: int) -> Tuple[bool, int]:
@@ -1446,8 +1447,12 @@ def run_iteration(
         anchor_path = context_dir / "ANCHOR.md"
 
         # Authorization check (configurable enforcement mode)
-        # Convert string config to EnforcementMode enum
-        enforcement_mode = EnforcementMode(cfg.authorization.enforcement_mode.lower())
+        # Config may store enforcement_mode as an enum already.
+        raw_mode = cfg.authorization.enforcement_mode
+        if isinstance(raw_mode, EnforcementMode):
+            enforcement_mode = raw_mode
+        else:
+            enforcement_mode = EnforcementMode(str(raw_mode).lower())
         auth_checker = load_authorization_checker(
             project_root,
             cfg.authorization.permissions_file,
@@ -1987,6 +1992,11 @@ def run_iteration(
 
     # Auto-commit / amend (best-effort)
     commit_action: Optional[str] = None
+    # These are logged unconditionally below; ensure they're always defined even
+    # when auto-commit is disabled or skipped.
+    commit_rc = 0
+    commit_out = ""
+    commit_err = ""
     if (
         cfg.git.auto_commit
         and (gates_ok is not False)
@@ -2110,14 +2120,17 @@ def run_iteration(
 
         state["task_attempts"] = attempts_raw
 
+    # Capture done count after the run (used for no-progress detection).
     done_after, total_after = done_before, total_before
+    try:
+        done_after, total_after = tracker.counts()
+    except OSError as e:
+        logger.debug("File read failed: %s", e)
 
     head_after = git_head(project_root)
     repo_clean = git_is_clean(project_root)
     done_delta = (done_after > done_before) and (total_after >= done_before)
-    progress_made = (
-        done_delta or (head_after != head_before) or (not repo_clean) or blocked_now
-    )
+    progress_made = done_delta or (head_after != head_before) or (not repo_clean)
 
     stdout_text = _coerce_text(result.stdout)
     stderr_text = _coerce_text(result.stderr)
@@ -2157,6 +2170,7 @@ def run_iteration(
         tracker_done = tracker.all_done()
     except OSError as e:
         logger.debug("File read failed: %s", e)
+        tracker_done = False
 
     # Beads has no reliable "all done" signal; allow exit if the agent says so.
     allow_exit_without_all_done = tracker.kind == "beads"
@@ -2171,6 +2185,8 @@ def run_iteration(
         exit_signal = False
     if exit_signal is True and review_ok is False:
         exit_signal = False
+
+    judge_section = "llm_judge_enabled: false\n"
     if judge_cfg.enabled:
         if judge_result is None:
             judge_section = f"llm_judge_enabled: true\nllm_judge_agent: {judge_cfg.agent}\nllm_judge_ran: false\n"
@@ -2983,7 +2999,7 @@ def run_loop(
                     done, total = tracker.counts()
                     remaining_tasks = max(0, total - done)
                     effective_cap = min(remaining_slots, remaining_tasks)
-                except OSError as e:
+                except (OSError, ValueError, TypeError) as e:
                     logger.debug("File read failed: %s", e)
                     effective_cap = remaining_slots
 
@@ -3110,3 +3126,5 @@ def run_loop(
 
         if cfg.loop.sleep_seconds_between_iters > 0:
             time.sleep(cfg.loop.sleep_seconds_between_iters)
+
+    return results

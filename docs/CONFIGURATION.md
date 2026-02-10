@@ -46,6 +46,7 @@ All configuration files are merged (deep merge) with later values taking precede
 | `[parallel]` | Parallel execution settings | No |
 | `[authorization]` | File write permissions | No |
 | `[watch]` | File watching and auto-gates | No |
+| `[supervisor]` | Long-running outer loop (`ralph supervise`) | No |
 | `[output]` | Verbosity and format control | No |
 | `[state]` | State validation and cleanup | No |
 | `[init]` | Re-initialization behavior | No |
@@ -149,6 +150,12 @@ argv = ["codex", "exec", "--full-auto", "-"]
 
 [runners.claude]
 argv = ["claude", "-p"]
+
+[runners.claude-zai]
+argv = ["claude-zai"]
+
+[runners.claude-kimi]
+argv = ["claude-kimi"]
 
 [runners.copilot]
 argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]
@@ -375,6 +382,27 @@ auto_commit = false
 | `patterns` | array | `["**/*.py", "**/*.md"]` | File patterns to watch |
 | `debounce_ms` | int | `500` | Debounce delay in milliseconds |
 | `auto_commit` | bool | `false` | Auto-commit when gates pass |
+
+---
+
+### `[supervisor]` - Supervisor / Heartbeat (`ralph supervise`)
+
+Long-running outer loop that repeatedly runs `ralph step` logic with a periodic heartbeat,
+policy-based stopping, and best-effort OS notifications.
+
+```toml
+[supervisor]
+heartbeat_seconds = 60
+sleep_seconds_between_runs = 5
+max_runtime_seconds = 0          # 0 = unlimited
+on_no_progress_limit = "stop"    # stop|continue
+on_rate_limit = "wait"           # wait|stop
+
+notify_enabled = true
+notify_events = ["complete", "stopped", "error"]
+notify_backend = "auto"          # auto|macos|linux|windows|command|none
+notify_command_argv = []         # when notify_backend = "command"
+```
 
 ---
 

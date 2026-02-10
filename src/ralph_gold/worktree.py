@@ -6,12 +6,15 @@ cleaning up git worktrees used for isolated parallel task execution.
 
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Tuple
 
 from .prd import SelectedTask
+
+logger = logging.getLogger(__name__)
 
 
 class WorktreeError(Exception):
@@ -79,13 +82,20 @@ class WorktreeManager:
                     self.worktree_root / f"worker-{worker_id}-{task.id}-retry"
                 )
 
-        # Check if branch already exists and delete it
-        subprocess.run(
-            ["git", "branch", "-D", branch_name],
-            cwd=str(self.project_root),
-            capture_output=True,
-            text=True,
-        )
+        # Check if branch already exists and delete it (best-effort).
+        # We intentionally do not use check=True here because:
+        # - branch may not exist
+        # - we want creation to proceed regardless
+        try:
+            subprocess.run(
+                ["git", "branch", "-D", branch_name],
+                cwd=str(self.project_root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except subprocess.CalledProcessError as e:
+            logger.debug("Branch delete failed (ignored): %s", e)
 
         try:
             # Create worktree with new branch

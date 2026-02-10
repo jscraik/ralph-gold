@@ -210,6 +210,38 @@ ralph run --agent codex --dry-run
 
 ---
 
+### `ralph supervise`
+
+Run a long-lived supervisor loop (heartbeat + policy stops + OS notifications by default).
+
+```bash
+ralph supervise --agent AGENT [OPTIONS]
+```
+
+**Options:**
+- `--agent AGENT`: Agent to use for execution iterations (default: `codex`)
+- `--mode MODE`: Loop mode (`speed`, `quality`, `exploration`)
+- `--max-runtime-seconds N`: Stop after N seconds (0/unset = unlimited)
+- `--heartbeat-seconds N`: Print heartbeat every N seconds
+- `--sleep-seconds-between-runs N`: Sleep between iterations
+- `--on-no-progress-limit stop|continue`: Policy when no-progress limit is hit
+- `--on-rate-limit wait|stop`: Policy when rate limit is hit
+- `--notify/--no-notify`: Enable/disable OS notifications
+- `--notify-backend auto|macos|linux|windows|command|none`: Notification backend
+- `--notify-command ...`: Command argv when backend is `command` (appends title + message)
+
+**Exit codes:**
+- `0`: Completed successfully
+- `1`: Stopped/incomplete (policy stop)
+- `2`: Error
+
+**Example:**
+```bash
+ralph supervise --agent codex
+```
+
+---
+
 ### `ralph step`
 
 Run exactly one iteration.
