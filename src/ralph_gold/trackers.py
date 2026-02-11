@@ -12,7 +12,14 @@ from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
 logger = logging.getLogger(__name__)
 
 from .config import Config
-from .prd import SelectedTask, TaskId, get_prd_branch_name, is_markdown_prd
+from .prd import (
+    SelectedTask,
+    TaskId,
+    get_prd_branch_name,
+    is_markdown_prd,
+    select_task_by_id as prd_select_by_id,
+    task_status_by_id as prd_task_status_by_id,
+)
 from .prd import all_blocked as prd_all_blocked
 from .prd import all_done as prd_all_done
 from .prd import block_task as prd_block_task
@@ -50,6 +57,10 @@ class Tracker(Protocol):
     def force_task_open(self, task_id: TaskId) -> bool: ...
 
     def block_task(self, task_id: TaskId, reason: str) -> bool: ...
+
+    def get_task_by_id(self, task_id: TaskId) -> Optional[SelectedTask]: ...
+
+    def get_task_status(self, task_id: TaskId) -> str: ...
 
     def branch_name(self) -> Optional[str]: ...
 
@@ -99,6 +110,12 @@ class FileTracker:
 
     def block_task(self, task_id: TaskId, reason: str) -> bool:
         return prd_block_task(self.prd_path, task_id, reason=reason)
+
+    def get_task_by_id(self, task_id: TaskId) -> Optional[SelectedTask]:
+        return prd_select_by_id(self.prd_path, task_id)
+
+    def get_task_status(self, task_id: TaskId) -> str:
+        return prd_task_status_by_id(self.prd_path, task_id)
 
     def branch_name(self) -> Optional[str]:
         return get_prd_branch_name(self.prd_path)
@@ -287,6 +304,37 @@ class BeadsTracker:
         except (AttributeError, NotImplementedError, OSError) as e:
             logger.debug("Task blocking failed: %s", e)
             return False
+
+    def get_task_by_id(self, task_id: TaskId) -> Optional[SelectedTask]:
+        cp = self._run(["bd", "show", str(task_id), "--json"])
+        if cp.returncode != 0:
+            return None
+        try:
+            obj = json.loads((cp.stdout or "").strip())
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(obj, dict):
+            return None
+        return self._issue_to_task(obj)
+
+    def get_task_status(self, task_id: TaskId) -> str:
+        cp = self._run(["bd", "show", str(task_id), "--json"])
+        if cp.returncode != 0:
+            return "missing"
+        try:
+            obj = json.loads((cp.stdout or "").strip())
+        except json.JSONDecodeError:
+            return "missing"
+        if not isinstance(obj, dict):
+            return "missing"
+        status = str(obj.get("status", "")).strip().lower()
+        if status in {"done", "closed", "complete", "completed"}:
+            return "done"
+        if status == "blocked":
+            return "blocked"
+        if status:
+            return "open"
+        return "missing"
 
     def branch_name(self) -> Optional[str]:
         return None

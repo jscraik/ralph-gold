@@ -331,6 +331,38 @@ class WatchConfig:
 
 
 @dataclass(frozen=True)
+class HarnessReplayConfig:
+    """Configuration for harness replay behavior."""
+
+    default_isolation: str = "worktree"  # worktree|snapshot
+    max_case_timeout_seconds: int = 900
+
+
+@dataclass(frozen=True)
+class HarnessRetentionConfig:
+    """Configuration for harness artifact retention."""
+
+    cases_days: int = 30
+    runs_days: int = 30
+    keep_last_runs: int = 20
+
+
+@dataclass(frozen=True)
+class HarnessConfig:
+    """Configuration for harness dataset/evaluation commands."""
+
+    enabled: bool = False
+    owner: str = "engineering"
+    dataset_path: str = ".ralph/harness/cases.json"
+    runs_dir: str = ".ralph/harness/runs"
+    default_days: int = 30
+    default_limit: int = 200
+    regression_threshold: float = 0.05
+    replay: HarnessReplayConfig = field(default_factory=HarnessReplayConfig)
+    retention: HarnessRetentionConfig = field(default_factory=HarnessRetentionConfig)
+
+
+@dataclass(frozen=True)
 class SupervisorConfig:
     """Configuration for long-running supervisor/heartbeat mode.
 
@@ -545,6 +577,7 @@ class Config:
     diagnostics: DiagnosticsConfig = field(default_factory=DiagnosticsConfig)
     stats: StatsConfig = field(default_factory=StatsConfig)
     watch: WatchConfig = field(default_factory=WatchConfig)
+    harness: HarnessConfig = field(default_factory=HarnessConfig)
     supervisor: SupervisorConfig = field(default_factory=SupervisorConfig)
     progress: ProgressConfig = field(default_factory=ProgressConfig)
     templates: TemplatesConfig = field(default_factory=TemplatesConfig)
@@ -742,6 +775,7 @@ def load_config(project_root: Path) -> Config:
     git_raw = data.get("git", {}) or {}
     tracker_raw = data.get("tracker", {}) or {}
     parallel_raw = data.get("parallel", {}) or {}
+    harness_raw = data.get("harness", {}) or {}
     supervisor_raw = data.get("supervisor", {}) or {}
 
     mode_name = _normalize_mode_name(loop_raw.get("mode"), "speed")
@@ -1152,6 +1186,57 @@ def load_config(project_root: Path) -> Config:
         auto_commit=_coerce_bool(watch_raw.get("auto_commit"), False),
     )
 
+    # Parse harness configuration
+    if not isinstance(harness_raw, dict):
+        harness_raw = {}
+    harness_replay_raw = harness_raw.get("replay", {}) or {}
+    if not isinstance(harness_replay_raw, dict):
+        harness_replay_raw = {}
+    harness_retention_raw = harness_raw.get("retention", {}) or {}
+    if not isinstance(harness_retention_raw, dict):
+        harness_retention_raw = {}
+
+    replay_isolation = str(
+        harness_replay_raw.get("default_isolation", "worktree")
+    ).strip().lower()
+    if replay_isolation not in {"worktree", "snapshot"}:
+        replay_isolation = "worktree"
+
+    regression_threshold_raw = harness_raw.get("regression_threshold", 0.05)
+    try:
+        regression_threshold = float(regression_threshold_raw)
+    except (TypeError, ValueError):
+        regression_threshold = 0.05
+    if regression_threshold < 0:
+        regression_threshold = 0.0
+    if regression_threshold > 1:
+        regression_threshold = 1.0
+
+    harness = HarnessConfig(
+        enabled=_coerce_bool(harness_raw.get("enabled"), False),
+        owner=str(harness_raw.get("owner", "engineering")).strip() or "engineering",
+        dataset_path=str(
+            harness_raw.get("dataset_path", ".ralph/harness/cases.json")
+        ),
+        runs_dir=str(harness_raw.get("runs_dir", ".ralph/harness/runs")),
+        default_days=_coerce_int(harness_raw.get("default_days"), 30),
+        default_limit=_coerce_int(harness_raw.get("default_limit"), 200),
+        regression_threshold=regression_threshold,
+        replay=HarnessReplayConfig(
+            default_isolation=replay_isolation,
+            max_case_timeout_seconds=_coerce_int(
+                harness_replay_raw.get("max_case_timeout_seconds"), 900
+            ),
+        ),
+        retention=HarnessRetentionConfig(
+            cases_days=_coerce_int(harness_retention_raw.get("cases_days"), 30),
+            runs_days=_coerce_int(harness_retention_raw.get("runs_days"), 30),
+            keep_last_runs=_coerce_int(
+                harness_retention_raw.get("keep_last_runs"), 20
+            ),
+        ),
+    )
+
     # Parse supervisor configuration (used by `ralph supervise`)
     if not isinstance(supervisor_raw, dict):
         supervisor_raw = {}
@@ -1360,6 +1445,7 @@ def load_config(project_root: Path) -> Config:
         diagnostics=diagnostics,
         stats=stats,
         watch=watch,
+        harness=harness,
         supervisor=supervisor,
         progress=progress,
         templates=templates,

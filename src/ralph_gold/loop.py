@@ -21,7 +21,7 @@ from .authorization import AuthorizationError, EnforcementMode, load_authorizati
 from .config import Config, LoopModeConfig, RunnerConfig, load_config
 from .context_manager import check_context_health, load_progress_window
 from .evidence import EvidenceReceipt, extract_evidence
-from .prd import SelectedTask
+from .prd import SelectedTask, select_task_by_id, task_status_by_id
 from .receipts import CommandReceipt, NoFilesWrittenReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
@@ -89,6 +89,10 @@ class IterationResult:
     context_dir: Optional[str] = None
     task_title: Optional[str] = None
     evidence_count: int = 0  # Number of evidence citations extracted
+    target_task_id: Optional[str] = None
+    target_status: Optional[str] = None
+    target_failure_reason: Optional[str] = None
+    targeting_policy: Optional[str] = None
 
 
 @dataclass
@@ -306,6 +310,57 @@ def _safe_task_dirname(task_id: str) -> str:
 def _ensure_dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _targeting_policy_label(
+    target_task_id: Optional[str],
+    allow_done_target: bool,
+    allow_blocked_target: bool,
+    reopen_if_needed: bool,
+) -> Optional[str]:
+    if not target_task_id:
+        return None
+    if allow_done_target or allow_blocked_target or reopen_if_needed:
+        return "override"
+    return "strict"
+
+
+def _resolve_target_task(
+    *,
+    project_root: Path,
+    cfg: Config,
+    tracker: Any,
+    target_task_id: str,
+) -> Tuple[Optional[SelectedTask], str]:
+    """Resolve task + status for explicit task targeting."""
+    task: Optional[SelectedTask] = None
+    status = "missing"
+
+    try:
+        if hasattr(tracker, "get_task_by_id"):
+            task = tracker.get_task_by_id(target_task_id)
+    except Exception as e:
+        logger.debug("Tracker get_task_by_id failed: %s", e)
+
+    try:
+        if hasattr(tracker, "get_task_status"):
+            status_candidate = str(tracker.get_task_status(target_task_id))
+            if status_candidate in {"open", "done", "blocked", "missing"}:
+                status = status_candidate
+    except Exception as e:
+        logger.debug("Tracker get_task_status failed: %s", e)
+
+    # File-based fallback for trackers that do not support explicit lookup.
+    if task is None or status == "missing":
+        try:
+            prd_path = (project_root / cfg.files.prd).resolve()
+            if task is None:
+                task = select_task_by_id(prd_path, target_task_id)
+            status = task_status_by_id(prd_path, target_task_id)
+        except Exception as e:
+            logger.debug("PRD fallback target resolution failed: %s", e)
+
+    return task, status
 
 
 def _read_text_if_exists(path: Path, limit_chars: int = 200_000) -> str:
@@ -1258,6 +1313,10 @@ def run_iteration(
     cfg: Optional[Config] = None,
     iteration: int = 1,
     task_override: Optional[SelectedTask] = None,
+    target_task_id: Optional[str] = None,
+    allow_done_target: bool = False,
+    allow_blocked_target: bool = False,
+    reopen_if_needed: bool = False,
 ) -> IterationResult:
     cfg = cfg or load_config(project_root)
     cfg, resolved_mode = _resolve_loop_mode(cfg)
@@ -1296,11 +1355,138 @@ def run_iteration(
         if isinstance(blocked_raw, dict):
             blocked_ids = {str(k) for k in blocked_raw.keys()}
 
+    requested_target = (
+        str(target_task_id).strip() if target_task_id is not None else ""
+    )
+    target_task_id_effective = requested_target or None
+    target_status: Optional[str] = None
+    target_failure_reason: Optional[str] = None
+    targeting_policy = _targeting_policy_label(
+        target_task_id=target_task_id_effective,
+        allow_done_target=allow_done_target,
+        allow_blocked_target=allow_blocked_target,
+        reopen_if_needed=reopen_if_needed,
+    )
+
     task: Optional[SelectedTask]
     task_err = ""
     try:
         if task_override is not None:
             task = task_override
+            if target_task_id_effective and task.id == target_task_id_effective:
+                target_status = "open"
+        elif target_task_id_effective is not None:
+            task, target_status = _resolve_target_task(
+                project_root=project_root,
+                cfg=cfg,
+                tracker=tracker,
+                target_task_id=target_task_id_effective,
+            )
+
+            if reopen_if_needed and target_status in {"done", "blocked"}:
+                reopened = False
+                try:
+                    reopened = bool(tracker.force_task_open(target_task_id_effective))
+                except Exception as e:
+                    logger.debug("Target reopen failed: %s", e)
+                    reopened = False
+
+                audit = state.get("target_reopen_audit", [])
+                if not isinstance(audit, list):
+                    audit = []
+                audit.append(
+                    {
+                        "ts": utc_now_iso(),
+                        "iteration": iteration,
+                        "task_id": target_task_id_effective,
+                        "result": "success" if reopened else "failure",
+                        "reason": "reopen_target",
+                    }
+                )
+                state["target_reopen_audit"] = audit[-200:]
+
+                task, target_status = _resolve_target_task(
+                    project_root=project_root,
+                    cfg=cfg,
+                    tracker=tracker,
+                    target_task_id=target_task_id_effective,
+                )
+
+            if target_status == "missing":
+                target_failure_reason = "missing_target"
+            elif target_status == "done" and not allow_done_target:
+                target_failure_reason = "target_done"
+            elif target_status == "blocked" and not allow_blocked_target:
+                target_failure_reason = "target_blocked"
+            elif task is None:
+                target_failure_reason = "target_resolution_error"
+
+            if target_failure_reason is not None:
+                ts_target = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                target_log = logs_dir / f"{ts_target}-iter{iteration:04d}-{agent}.log"
+                target_log.write_text(
+                    (
+                        f"iteration: {iteration}\n"
+                        f"agent: {agent}\n"
+                        f"target_task_id: {target_task_id_effective}\n"
+                        f"target_status: {target_status}\n"
+                        f"target_failure_reason: {target_failure_reason}\n"
+                        f"targeting_policy: {targeting_policy}\n"
+                    ),
+                    encoding="utf-8",
+                )
+
+                invocations = state.get("invocations", [])
+                if not isinstance(invocations, list):
+                    invocations = []
+                invocations.append(time.time())
+                state["invocations"] = invocations
+                state["noProgressStreak"] = int(state.get("noProgressStreak", 0)) + 1
+
+                history = state.get("history", [])
+                if not isinstance(history, list):
+                    history = []
+                history.append(
+                    {
+                        "ts": utc_now_iso(),
+                        "iteration": iteration,
+                        "agent": agent,
+                        "loop_mode": resolved_mode,
+                        "mode": resolved_mode,
+                        "story_id": target_task_id_effective,
+                        "duration_seconds": round(time.time() - iter_started, 2),
+                        "gates_ok": None,
+                        "judge_ok": None,
+                        "review_ok": None,
+                        "blocked": False,
+                        "return_code": 2,
+                        "target_task_id": target_task_id_effective,
+                        "target_status": target_status,
+                        "target_failure_reason": target_failure_reason,
+                        "targeting_policy": targeting_policy,
+                        "log": str(target_log.name),
+                    }
+                )
+                state["history"] = history[-200:]
+                save_state(state_path, state)
+
+                return IterationResult(
+                    iteration=iteration,
+                    agent=agent,
+                    story_id=target_task_id_effective,
+                    exit_signal=True,
+                    return_code=2,
+                    log_path=target_log,
+                    progress_made=False,
+                    no_progress_streak=int(state.get("noProgressStreak", 0)),
+                    gates_ok=None,
+                    repo_clean=True,
+                    judge_ok=None,
+                    target_task_id=target_task_id_effective,
+                    target_status=target_status,
+                    target_failure_reason=target_failure_reason,
+                    targeting_policy=targeting_policy,
+                )
         else:
             # Try to claim a task, looping around blocked ones
             max_attempts = 10  # Prevent infinite loops
@@ -2226,6 +2412,10 @@ def run_iteration(
         f"agent: {agent}\n"
         f"branch: {branch_label}\n"
         f"story_id: {story_id}\n"
+        f"target_task_id: {target_task_id_effective}\n"
+        f"target_status: {target_status}\n"
+        f"target_failure_reason: {target_failure_reason}\n"
+        f"targeting_policy: {targeting_policy}\n"
         f"task_title: {task_title}\n"
         f"attempt_id: {attempt_id}\n"
         f"prompt_hash: {prompt_hash}\n"
@@ -2276,8 +2466,13 @@ def run_iteration(
             "loop_mode": resolved_mode,
             "branch": branch_label,
             "story_id": story_id,
+            "target_task_id": target_task_id_effective,
+            "target_status": target_status,
+            "target_failure_reason": target_failure_reason,
+            "targeting_policy": targeting_policy,
             "mode": resolved_mode,
             "duration_seconds": round(duration_s, 2),
+            "return_code": int(result.returncode),
             "gates_ok": gates_ok,
             "judge_ok": judge_ok,
             "judge_enabled": bool(judge_cfg.enabled),
@@ -2329,6 +2524,10 @@ def run_iteration(
                 "attempt_id": attempt_id,
                 "iteration": iteration,
                 "task_id": story_id,
+                "target_task_id": target_task_id_effective,
+                "target_status": target_status,
+                "target_failure_reason": target_failure_reason,
+                "targeting_policy": targeting_policy,
                 "task_title": task_title,
                 "started_at": iso_utc(iter_started),
                 "ended_at": iso_utc(),
@@ -2370,6 +2569,10 @@ def run_iteration(
         context_dir=str(context_dir),
         task_title=task_title,
         evidence_count=evidence_count,
+        target_task_id=target_task_id_effective,
+        target_status=target_status,
+        target_failure_reason=target_failure_reason,
+        targeting_policy=targeting_policy,
     )
 
 

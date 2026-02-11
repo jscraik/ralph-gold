@@ -268,6 +268,28 @@ class YamlTracker:
                 yaml.safe_dump(self.data, f, default_flow_style=False, sort_keys=False)
         return found
 
+    def get_task_by_id(self, task_id: TaskId) -> Optional[SelectedTask]:
+        """Return task by ID if present."""
+        tid = str(task_id)
+        for task_data in self.data.get("tasks", []):
+            if str(task_data.get("id")) != tid:
+                continue
+            return self._task_from_data(task_data)
+        return None
+
+    def get_task_status(self, task_id: TaskId) -> str:
+        """Return task status by ID: open|done|blocked|missing."""
+        tid = str(task_id)
+        for task_data in self.data.get("tasks", []):
+            if str(task_data.get("id")) != tid:
+                continue
+            if task_data.get("completed", False):
+                return "done"
+            if task_data.get("blocked", False):
+                return "blocked"
+            return "open"
+        return "missing"
+
     def branch_name(self) -> Optional[str]:
         """Return the branch name from metadata, if specified.
 
