@@ -747,6 +747,29 @@ class TestTrackerProtocol:
             result = tracker.force_task_open("1")
             assert result is False
 
+    def test_get_task_lookup_helpers(self, temp_project_root, mock_auth, sample_issues):
+        """Task lookup helpers should resolve open/blocked/done/missing states."""
+        closed_issue = {
+            "number": 999,
+            "title": "Closed issue",
+            "state": "closed",
+            "labels": [],
+        }
+
+        with patch(
+            "ralph_gold.trackers.github_issues.create_auth", return_value=mock_auth
+        ):
+            mock_auth.api_call = Mock(side_effect=[sample_issues, closed_issue, {}])
+            tracker = GitHubIssuesTracker(temp_project_root, "owner/repo")
+
+            task = tracker.get_task_by_id("1")
+            assert task is not None
+            assert task.id == "1"
+
+            assert tracker.get_task_status("1") == "open"
+            assert tracker.get_task_status("999") == "done"
+            assert tracker.get_task_status("404") == "missing"
+
     def test_branch_name_returns_none(self, temp_project_root, mock_auth):
         """Test branch_name returns None."""
         with patch(

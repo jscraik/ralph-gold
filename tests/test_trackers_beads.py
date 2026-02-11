@@ -56,3 +56,22 @@ def test_beads_claim_marks_in_progress(tmp_path: Path) -> None:
     assert task.id == "bd-2"
 
     assert any("update" in part for call in calls for part in call)
+
+
+def test_beads_lookup_helpers(tmp_path: Path) -> None:
+    tracker = BeadsTracker(project_root=tmp_path, ready_args=["ready", "--json"])
+
+    def fake_run(argv):
+        class Dummy:
+            returncode = 0
+            stdout = '{"id":"bd-3","title":"Lookup","status":"blocked"}'
+            stderr = ""
+
+        return Dummy()
+
+    tracker._run = fake_run  # type: ignore[assignment]
+
+    task = tracker.get_task_by_id("bd-3")
+    assert task is not None
+    assert task.id == "bd-3"
+    assert tracker.get_task_status("bd-3") == "blocked"

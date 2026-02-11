@@ -118,6 +118,12 @@ Run a single iteration with interactive task selection:
 ralph step --interactive
 ```
 
+Run a specific task directly:
+
+```bash
+ralph step --task-id 42
+```
+
 In interactive mode, you'll see a list of available tasks and can:
 
 - Select a task by number
@@ -244,6 +250,37 @@ ralph watch
 - Falls back to polling if native watching is unavailable
 - Respects `.gitignore` patterns and ignores common directories (`.ralph/`, `.git/`, `__pycache__/`, etc.)
 - JSON output format is not supported for watch mode (it's interactive)
+
+---
+
+## Harness evals (optional)
+
+Use harness commands to turn `.ralph` history/receipts into a regression-friendly
+quality dataset and report.
+
+```bash
+# Build dataset from recent history
+ralph harness collect --days 30 --limit 200
+
+# Evaluate dataset and write a run report
+ralph harness run --dataset .ralph/harness/cases.json
+
+# Or run live targeted execution for each dataset case
+ralph harness run --dataset .ralph/harness/cases.json --execution-mode live --strict-targeting
+
+# View latest run (text/json/csv)
+ralph harness report --format text
+```
+
+Config (optional):
+
+```toml
+[harness]
+enabled = false
+dataset_path = ".ralph/harness/cases.json"
+runs_dir = ".ralph/harness/runs"
+regression_threshold = 0.05
+```
 
 ---
 
