@@ -150,6 +150,25 @@ patterns = ["**/*.py", "**/*.md"]
 debounce_ms = 500
 auto_commit = false
 
+[harness]
+# Harness dataset/evaluation commands (opt-in)
+enabled = false
+owner = "engineering"
+dataset_path = ".ralph/harness/cases.json"
+runs_dir = ".ralph/harness/runs"
+default_days = 30
+default_limit = 200
+regression_threshold = 0.05
+
+[harness.replay]
+default_isolation = "worktree"     # worktree|snapshot
+max_case_timeout_seconds = 900
+
+[harness.retention]
+cases_days = 30
+runs_days = 30
+keep_last_runs = 20
+
 [progress]
 # Progress visualization settings
 show_velocity = true

@@ -263,6 +263,38 @@ tasks:
         yaml_path.unlink()
 
 
+def test_yaml_tracker_get_task_by_id_and_status():
+    """Task lookup helpers should return task + status consistently."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write("""version: 1
+tasks:
+  - id: 1
+    title: First task
+    completed: true
+  - id: 2
+    title: Second task
+    blocked: true
+  - id: 3
+    title: Third task
+    completed: false
+""")
+        f.flush()
+        yaml_path = Path(f.name)
+
+    try:
+        tracker = YamlTracker(yaml_path)
+        task = tracker.get_task_by_id("3")
+        assert task is not None
+        assert task.id == "3"
+
+        assert tracker.get_task_status("1") == "done"
+        assert tracker.get_task_status("2") == "blocked"
+        assert tracker.get_task_status("3") == "open"
+        assert tracker.get_task_status("404") == "missing"
+    finally:
+        yaml_path.unlink()
+
+
 def test_yaml_tracker_acceptance_criteria():
     """Test that acceptance criteria are extracted."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:

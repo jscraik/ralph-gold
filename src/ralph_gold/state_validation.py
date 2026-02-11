@@ -96,11 +96,15 @@ def validate_state_against_prd(
 
     # Get current PRD tasks
     try:
-        prd_tasks = get_all_tasks(prd_path)
+        prd_tasks = get_all_tasks(prd_path) or []
+        if not isinstance(prd_tasks, list):
+            prd_tasks = []
         prd_task_ids = {str(task.get("id", "")) for task in prd_tasks if isinstance(task, dict)}
     except Exception as e:
         logger.warning(f"Error loading PRD tasks: {e}")
-        return result
+        # Treat failures (including missing PRD) as "no tasks in PRD" so that
+        # state IDs are considered stale (caller can decide what to do next).
+        prd_task_ids = set()
 
     # Get task IDs from state history
     history = state.get("history", [])

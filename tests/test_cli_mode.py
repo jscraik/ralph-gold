@@ -92,3 +92,40 @@ def test_invalid_mode_rejected() -> None:
 
     assert exc.value.code == 2
     assert "Error: argument --mode: invalid choice: 'fast'" in stderr.getvalue()
+
+
+def test_step_targeting_flags_parse() -> None:
+    """Step parser should accept task-targeted execution flags."""
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "step",
+            "--task-id",
+            "42",
+            "--allow-done-target",
+            "--allow-blocked-target",
+            "--reopen-target",
+        ]
+    )
+    assert args.task_id == "42"
+    assert args.allow_done_target is True
+    assert args.allow_blocked_target is True
+    assert args.reopen_target is True
+
+
+def test_harness_live_flags_parse() -> None:
+    """Harness parser should accept live execution controls."""
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "harness",
+            "run",
+            "--execution-mode",
+            "live",
+            "--allow-non-strict-targeting",
+            "--stop-on-target-error",
+        ]
+    )
+    assert args.execution_mode == "live"
+    assert args.strict_targeting is False
+    assert args.continue_on_target_error is False

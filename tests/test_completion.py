@@ -70,6 +70,7 @@ def test_generate_bash_completion_contains_commands():
         "clean",
         "step",
         "run",
+        "supervise",
         "status",
         "tui",
         "serve",
@@ -110,9 +111,14 @@ def test_generate_bash_completion_contains_command_specific_flags():
     assert "--export" in script  # stats
     assert "--dry-run" in script  # multiple commands
     assert "--interactive" in script  # step
+    assert "--task-id" in script  # step targeted execution
+    assert "--reopen-target" in script  # step targeted execution
     assert "--graph" in script  # status
     assert "--detailed" in script  # status
     assert "--chart" in script  # status
+    assert "--execution-mode" in script  # harness run modes
+    assert "--strict-targeting" in script  # harness run targeting
+    assert "--continue-on-target-error" in script  # harness run flow control
 
 
 def test_generate_bash_completion_contains_agent_names():
@@ -197,6 +203,7 @@ def test_generate_zsh_completion_contains_commands():
         "clean",
         "step",
         "run",
+        "supervise",
         "status",
         "tui",
         "serve",
@@ -248,7 +255,11 @@ def test_generate_zsh_completion_contains_command_specific_flags():
     assert "--export" in script  # stats
     assert "--dry-run" in script  # multiple commands
     assert "--interactive" in script  # step
+    assert "--task-id" in script  # step targeted execution
+    assert "--reopen-target" in script  # step targeted execution
     assert "--graph" in script  # status
+    assert "--execution-mode" in script  # harness run modes
+    assert "--strict-targeting" in script  # harness run targeting
 
 
 def test_generate_zsh_completion_contains_helper_functions():

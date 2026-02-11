@@ -158,6 +158,15 @@ def _cleanup_files_by_age(
     )
 
 
+def _merge_results(a: CleanupResult, b: CleanupResult) -> CleanupResult:
+    return CleanupResult(
+        files_removed=int(a.files_removed) + int(b.files_removed),
+        bytes_freed=int(a.bytes_freed) + int(b.bytes_freed),
+        directories_removed=int(a.directories_removed) + int(b.directories_removed),
+        errors=[*a.errors, *b.errors],
+    )
+
+
 def clean_logs(
     project_root: Path,
     older_than_days: int = 30,
@@ -222,7 +231,17 @@ def clean_archives(
     if dry_run:
         logger.info("Dry run: would clean archives older than %d days", older_than_days)
 
-    return _cleanup_files_by_age(
+    # Archives are commonly stored as timestamped directories (from init --force)
+    # but may also exist as compressed files.
+    dir_result = _cleanup_files_by_age(
+        project_root=project_root,
+        subdir="archive",
+        pattern="*",
+        older_than_days=older_than_days,
+        dry_run=dry_run,
+        remove_dirs=True,
+    )
+    file_result = _cleanup_files_by_age(
         project_root=project_root,
         subdir="archive",
         pattern="*.tar.gz",
@@ -230,6 +249,7 @@ def clean_archives(
         dry_run=dry_run,
         remove_dirs=False,
     )
+    return _merge_results(dir_result, file_result)
 
 
 def clean_receipts(
@@ -296,7 +316,8 @@ def clean_contexts(
     if dry_run:
         logger.info("Dry run: would clean contexts older than %d days", older_than_days)
 
-    return _cleanup_files_by_age(
+    # Context may include both directories (per-task snapshots) and loose files.
+    dir_result = _cleanup_files_by_age(
         project_root=project_root,
         subdir="context",
         pattern="*",
@@ -304,6 +325,25 @@ def clean_contexts(
         dry_run=dry_run,
         remove_dirs=True,
     )
+    file_result = _cleanup_files_by_age(
+        project_root=project_root,
+        subdir="context",
+        pattern="*",
+        older_than_days=older_than_days,
+        dry_run=dry_run,
+        remove_dirs=False,
+    )
+    return _merge_results(dir_result, file_result)
+
+
+def clean_context(
+    project_root: Path,
+    older_than_days: int = 90,
+    dry_run: bool = False,
+) -> CleanupResult:
+    """Backward-compatible alias for clean_contexts()."""
+
+    return clean_contexts(project_root, older_than_days=older_than_days, dry_run=dry_run)
 
 
 def format_bytes(bytes_count: int) -> str:

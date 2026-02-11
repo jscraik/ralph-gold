@@ -453,6 +453,60 @@ class GitHubIssuesTracker:
             logger.error("Failed to block task %s: %s", task_id, e)
             return False
 
+    def _find_open_issue(self, task_id: TaskId) -> Optional[Dict[str, Any]]:
+        """Find an issue in the current open-issues cache."""
+        self._sync_cache()
+        issues = self._load_cache()
+        tid = str(task_id)
+        for issue in issues:
+            if str(issue.get("number")) == tid:
+                return issue
+        return None
+
+    def _fetch_issue(self, task_id: TaskId) -> Optional[Dict[str, Any]]:
+        """Fetch issue (open or closed) directly from GitHub API."""
+        endpoint = f"/repos/{self.repo}/issues/{task_id}"
+        try:
+            issue = self.auth.api_call("GET", endpoint)
+        except GitHubAuthError:
+            return None
+        if isinstance(issue, dict) and issue.get("number") is not None:
+            return issue
+        return None
+
+    def get_task_by_id(self, task_id: TaskId) -> Optional[SelectedTask]:
+        """Return task by ID from cache/API if present."""
+        issue = self._find_open_issue(task_id)
+        if issue is None:
+            issue = self._fetch_issue(task_id)
+        if issue is None:
+            return None
+        return self._issue_to_task(issue)
+
+    def get_task_status(self, task_id: TaskId) -> str:
+        """Return task status by ID: open|done|blocked|missing."""
+        issue = self._find_open_issue(task_id)
+        if issue is not None:
+            labels = issue.get("labels", [])
+            if isinstance(labels, list):
+                label_names = [l.get("name", "") for l in labels if isinstance(l, dict)]
+                if "blocked" in label_names:
+                    return "blocked"
+            return "open"
+
+        issue = self._fetch_issue(task_id)
+        if issue is None:
+            return "missing"
+        state = str(issue.get("state", "")).lower()
+        if state == "closed":
+            return "done"
+        labels = issue.get("labels", [])
+        if isinstance(labels, list):
+            label_names = [l.get("name", "") for l in labels if isinstance(l, dict)]
+            if "blocked" in label_names:
+                return "blocked"
+        return "open"
+
     def branch_name(self) -> Optional[str]:
         """Return the branch name for the current task.
 

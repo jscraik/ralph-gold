@@ -1066,6 +1066,22 @@ class WebTracker:
         """
         return False
 
+    def get_task_by_id(self, task_id: TaskId) -> Optional[SelectedTask]:
+        """Return task by ID from discovered tasks."""
+        tid = str(task_id)
+        for task in self._result.tasks:
+            if str(task.id) == tid:
+                return task
+        return None
+
+    def get_task_status(self, task_id: TaskId) -> str:
+        """Return task status by ID: open|done|blocked|missing.
+
+        Web analysis tracker does not track completion state, so discovered tasks
+        are always considered "open".
+        """
+        return "open" if self.get_task_by_id(task_id) is not None else "missing"
+
     def branch_name(self) -> Optional[str]:
         """Return the branch name for the current task.
 

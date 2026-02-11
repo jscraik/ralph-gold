@@ -71,7 +71,7 @@ _ralph_completion() {
     _init_completion || return
 
     # Main commands
-    local commands="init doctor diagnose stats resume clean step run status tui serve specs plan regen-plan snapshot rollback watch task bridge convert completion"
+    local commands="init doctor diagnose stats harness resume clean step run supervise status tui serve specs plan regen-plan snapshot rollback watch task bridge convert completion"
     
     # Global flags
     local global_flags="--version --quiet --verbose --format"
@@ -81,10 +81,16 @@ _ralph_completion() {
     local doctor_flags="--setup-checks --dry-run --check-github"
     local diagnose_flags="--test-gates"
     local stats_flags="--by-task --export"
+    local harness_flags="collect run report doctor"
+    local harness_collect_flags="--days --limit --output --include-failures --exclude-failures --redact"
+    local harness_run_flags="--dataset --agent --mode --isolation --max-cases --baseline --output --enforce-regression-threshold --execution-mode --strict-targeting --allow-non-strict-targeting --continue-on-target-error --stop-on-target-error"
+    local harness_report_flags="--input --baseline --format"
+    local harness_doctor_flags="--max-run-files"
     local resume_flags="--clear --auto"
     local clean_flags="--logs-days --archives-days --receipts-days --context-days --dry-run"
-    local step_flags="--agent --mode --prompt-file --prd-file --dry-run --interactive"
+    local step_flags="--agent --mode --prompt-file --prd-file --dry-run --interactive --task-id --allow-done-target --allow-blocked-target --reopen-target"
     local run_flags="--agent --mode --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run"
+    local supervise_flags="--agent --mode --max-runtime-seconds --heartbeat-seconds --sleep-seconds-between-runs --on-no-progress-limit --on-rate-limit --notify --no-notify --notify-backend --notify-command"
     local status_flags="--graph --detailed --chart"
     local serve_flags="--host --port"
     local plan_flags="--agent --desc --desc-file --prd-file"
@@ -99,7 +105,7 @@ _ralph_completion() {
     local convert_flags="--infer-groups"
     
     # Agent names for --agent flag
-    local agents="codex claude copilot"
+    local agents="codex claude claude-zai claude-kimi copilot"
     local modes="speed quality exploration"
     
     # Format values for --format flag
@@ -134,6 +140,30 @@ _ralph_completion() {
                 COMPREPLY=( $(compgen -W "$specs_check_flags" -- "$cur") )
                 return 0
             fi
+            ;;
+        harness)
+            if [[ "$cword" -eq 2 ]]; then
+                COMPREPLY=( $(compgen -W "$harness_flags" -- "$cur") )
+                return 0
+            fi
+            case "${words[2]}" in
+                collect)
+                    COMPREPLY=( $(compgen -W "$harness_collect_flags" -- "$cur") )
+                    return 0
+                    ;;
+                run)
+                    COMPREPLY=( $(compgen -W "$harness_run_flags" -- "$cur") )
+                    return 0
+                    ;;
+                report)
+                    COMPREPLY=( $(compgen -W "$harness_report_flags" -- "$cur") )
+                    return 0
+                    ;;
+                doctor)
+                    COMPREPLY=( $(compgen -W "$harness_doctor_flags" -- "$cur") )
+                    return 0
+                    ;;
+            esac
             ;;
         task)
             if [[ "$cword" -eq 2 ]]; then
@@ -170,6 +200,10 @@ _ralph_completion() {
             COMPREPLY=( $(compgen -W "$modes" -- "$cur") )
             return 0
             ;;
+        --execution-mode)
+            COMPREPLY=( $(compgen -W "historical live" -- "$cur") )
+            return 0
+            ;;
         --format)
             if [[ "$command" == "init" ]]; then
                 COMPREPLY=( $(compgen -W "$tracker_formats" -- "$cur") )
@@ -178,12 +212,12 @@ _ralph_completion() {
             fi
             return 0
             ;;
-        --export|--prompt-file|--prd-file|--desc-file|--specs-dir)
+        --export|--prompt-file|--prd-file|--desc-file|--specs-dir|--dataset|--baseline|--output|--input)
             # File completion
             COMPREPLY=( $(compgen -f -- "$cur") )
             return 0
             ;;
-        --logs-days|--archives-days|--receipts-days|--context-days|--max-iterations|--max-workers|--port)
+        --logs-days|--archives-days|--receipts-days|--context-days|--max-iterations|--max-workers|--port|--max-runtime-seconds|--heartbeat-seconds|--sleep-seconds-between-runs|--days|--limit|--max-cases|--max-run-files)
             # Numeric completion - no suggestions
             return 0
             ;;
@@ -214,6 +248,9 @@ _ralph_completion() {
         stats)
             COMPREPLY=( $(compgen -W "$stats_flags" -- "$cur") )
             ;;
+        harness)
+            COMPREPLY=( $(compgen -W "$harness_flags" -- "$cur") )
+            ;;
         resume)
             COMPREPLY=( $(compgen -W "$resume_flags" -- "$cur") )
             ;;
@@ -225,6 +262,9 @@ _ralph_completion() {
             ;;
         run)
             COMPREPLY=( $(compgen -W "$run_flags" -- "$cur") )
+            ;;
+        supervise)
+            COMPREPLY=( $(compgen -W "$supervise_flags" -- "$cur") )
             ;;
         status)
             COMPREPLY=( $(compgen -W "$status_flags" -- "$cur") )
@@ -291,10 +331,12 @@ _ralph() {
         'doctor:Check local prerequisites (git, uv, agent CLIs)'
         'diagnose:Run diagnostic checks on configuration and PRD'
         'stats:Display iteration statistics from Ralph history'
+        'harness:Collect/evaluate/report harness artifacts'
         'resume:Detect and resume interrupted iterations'
         'clean:Clean old logs, archives, and other workspace artifacts'
         'step:Run exactly one iteration'
         'run:Run the loop for N iterations'
+        'supervise:Run supervisor loop (heartbeat + notifications)'
         'status:Show PRD progress + last iteration summary'
         'tui:Interactive control surface (TUI)'
         'serve:Serve a minimal HTTP health endpoint'
@@ -345,6 +387,63 @@ _ralph() {
                         '--by-task[Show detailed per-task breakdown]' \
                         '--export[Export statistics to CSV file]:file:_files'
                     ;;
+                harness)
+                    local -a harness_commands
+                    harness_commands=(
+                        'collect:Collect harness cases from .ralph state and receipts'
+                        'run:Evaluate harness dataset and produce run metrics'
+                        'report:Render harness run report'
+                        'doctor:Validate harness config and artifact schemas'
+                    )
+                    _arguments \
+                        '1: :->harness_command' \
+                        '*::arg:->harness_args'
+
+                    case $state in
+                        harness_command)
+                            _describe -t harness_commands 'harness commands' harness_commands
+                            ;;
+                        harness_args)
+                            case $line[1] in
+                                collect)
+                                    _arguments \
+                                        '--days[Only include cases from last N days]:days:' \
+                                        '--limit[Maximum number of cases]:count:' \
+                                        '--output[Dataset output path]:file:_files' \
+                                        '--include-failures[Include failed cases]' \
+                                        '--exclude-failures[Exclude failed cases]' \
+                                        '--redact[Redact long/sensitive fields]'
+                                    ;;
+                                run)
+                                    _arguments \
+                                        '--dataset[Input dataset path]:file:_files' \
+                                        '--agent[Agent label]:agent:(codex claude claude-zai claude-kimi copilot)' \
+                                        '--mode[Mode label]:mode:(speed quality exploration)' \
+                                        '--isolation[Replay isolation label]:isolation:(worktree snapshot)' \
+                                        '--max-cases[Evaluate only first N cases]:count:' \
+                                        '--baseline[Baseline run JSON]:file:_files' \
+                                        '--output[Run output path]:file:_files' \
+                                        '--enforce-regression-threshold[Exit non-zero on regression]' \
+                                        '--execution-mode[Execution mode]:mode:(historical live)' \
+                                        '(--allow-non-strict-targeting)--strict-targeting[Fail case when target is done/blocked/missing]' \
+                                        '(--strict-targeting)--allow-non-strict-targeting[Allow done/blocked target execution]' \
+                                        '(--stop-on-target-error)--continue-on-target-error[Continue batch on target resolution errors]' \
+                                        '(--continue-on-target-error)--stop-on-target-error[Stop batch on first target resolution error]'
+                                    ;;
+                                report)
+                                    _arguments \
+                                        '--input[Harness run JSON path]:file:_files' \
+                                        '--baseline[Baseline run JSON]:file:_files' \
+                                        '--format[Report format]:format:(text json csv)'
+                                    ;;
+                                doctor)
+                                    _arguments \
+                                        '--max-run-files[Max run files to validate]:count:'
+                                    ;;
+                            esac
+                            ;;
+                    esac
+                    ;;
                 resume)
                     _arguments \
                         '--clear[Clear the interrupted iteration without resuming]' \
@@ -360,16 +459,20 @@ _ralph() {
                     ;;
                 step)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--mode[Override loop.mode]:mode:(speed quality exploration)' \
                         '--prompt-file[Override files.prompt]:file:_files' \
                         '--prd-file[Override files.prd]:file:_files' \
                         '--dry-run[Simulate execution without running agents]' \
-                        '--interactive[Interactively select which task to work on]'
+                        '--interactive[Interactively select which task to work on]' \
+                        '--task-id[Execute a specific task ID]:task id:' \
+                        '--allow-done-target[Allow targeting a task marked done]' \
+                        '--allow-blocked-target[Allow targeting a task marked blocked]' \
+                        '--reopen-target[Attempt to reopen target task before running]'
                     ;;
                 run)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--mode[Override loop.mode]:mode:(speed quality exploration)' \
                         '--max-iterations[Override loop.max_iterations]:iterations:' \
                         '--prompt-file[Override files.prompt]:file:_files' \
@@ -377,6 +480,20 @@ _ralph() {
                         '--parallel[Enable parallel execution with git worktrees]' \
                         '--max-workers[Number of parallel workers]:workers:' \
                         '--dry-run[Simulate execution without running agents]'
+                    ;;
+                supervise)
+                    _arguments \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
+                        '--mode[Override loop.mode]:mode:(speed quality exploration)' \
+                        '--max-runtime-seconds[Stop after N seconds]:seconds:' \
+                        '--heartbeat-seconds[Heartbeat interval seconds]:seconds:' \
+                        '--sleep-seconds-between-runs[Sleep between iterations]:seconds:' \
+                        '--on-no-progress-limit[Policy when no-progress limit hit]:policy:(stop continue)' \
+                        '--on-rate-limit[Policy when rate limit hit]:policy:(wait stop)' \
+                        '--notify[Enable OS notifications]' \
+                        '--no-notify[Disable OS notifications]' \
+                        '--notify-backend[Notification backend]:backend:(auto macos linux windows command none)' \
+                        '--notify-command[Command argv when backend=command]:command:_files'
                     ;;
                 status)
                     _arguments \
@@ -415,14 +532,14 @@ _ralph() {
                     ;;
                 plan)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--desc[Short description text]:description:' \
                         '--desc-file[Path to description file]:file:_files' \
                         '--prd-file[Target file to write]:file:_files'
                     ;;
                 regen-plan)
                     _arguments \
-                        '--agent[Runner to use]:agent:(codex claude copilot)' \
+                        '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
                         '--prd-file[Target plan file]:file:_files' \
                         '--specs-dir[Specs directory]:dir:_directories' \
                         '--no-specs-check[Do not run specs check before generating]'
@@ -529,7 +646,7 @@ def get_dynamic_completions(
     if completion_type == "agents":
         # Get configured agent names
         # Default agents
-        completions = ["codex", "claude", "copilot"]
+        completions = ["codex", "claude", "claude-zai", "claude-kimi", "copilot"]
 
         # Add custom runners from config if available
         if hasattr(cfg, "runners") and cfg.runners:

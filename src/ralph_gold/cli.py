@@ -66,6 +66,20 @@ def _normalize_cli_mode(value: str | None) -> str | None:
     return mode
 
 
+def _default_planner_agent(cfg) -> str:
+    """Pick the best available planning/review agent from configured runners."""
+
+    preferred = ["claude-zai", "claude-kimi", "claude", "codex"]
+    for name in preferred:
+        if hasattr(cfg, "runners") and cfg.runners and name in cfg.runners:
+            return name
+    # Fallback: first configured runner name, else codex.
+    try:
+        return next(iter(cfg.runners.keys()))
+    except Exception:
+        return "codex"
+
+
 class _RalphArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
         self.exit(2, f"Error: {message}\n")
@@ -496,6 +510,471 @@ def cmd_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_path(root: Path, value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return root / path
+
+
+def cmd_harness_collect(args: argparse.Namespace) -> int:
+    """Collect harness cases from Ralph history artifacts."""
+    root = _project_root()
+    cfg = load_config(root)
+
+    from .harness import collect_harness_cases
+    from .harness_store import save_cases
+
+    days = (
+        int(args.days)
+        if args.days is not None
+        else int(cfg.harness.default_days)
+    )
+    limit = (
+        int(args.limit)
+        if args.limit is not None
+        else int(cfg.harness.default_limit)
+    )
+    output_path = _resolve_path(
+        root,
+        str(args.output) if args.output else str(cfg.harness.dataset_path),
+    )
+
+    try:
+        payload = collect_harness_cases(
+            project_root=root,
+            days=days,
+            limit=limit,
+            include_failures=bool(args.include_failures),
+            redact=bool(args.redact),
+        )
+        save_cases(output_path, payload)
+    except Exception as e:
+        print_output(f"Error collecting harness cases: {e}", level="error")
+        return 2
+
+    if get_output_config().format == "json":
+        print_json_output(
+            {
+                "cmd": "harness collect",
+                "output": str(output_path),
+                "cases": len(payload.get("cases", [])),
+                "days": days,
+                "limit": limit,
+            }
+        )
+        return 0
+
+    print_output(f"Harness dataset saved: {output_path}", level="normal")
+    print_output(f"Cases collected: {len(payload.get('cases', []))}", level="normal")
+    return 0
+
+
+def cmd_harness_run(args: argparse.Namespace) -> int:
+    """Evaluate harness dataset and create a run report."""
+    root = _project_root()
+    cfg = load_config(root)
+
+    from .harness import (
+        STATUS_ERROR,
+        STATUS_HARD_FAIL,
+        STATUS_PASS,
+        classify_failure_category,
+        compare_harness_runs,
+        compute_aggregate,
+        evaluate_harness_dataset,
+        format_harness_report,
+    )
+    from .harness_store import load_cases, load_run, save_run
+
+    dataset_path = _resolve_path(
+        root,
+        str(args.dataset) if args.dataset else str(cfg.harness.dataset_path),
+    )
+    if not dataset_path.exists():
+        print_output(f"Dataset not found: {dataset_path}", level="error")
+        return 2
+
+    baseline_path: Path | None = None
+    baseline_payload = None
+    if args.baseline:
+        baseline_path = _resolve_path(root, str(args.baseline))
+        if not baseline_path.exists():
+            print_output(f"Baseline run not found: {baseline_path}", level="error")
+            return 2
+        try:
+            baseline_payload = load_run(baseline_path)
+        except Exception as e:
+            print_output(f"Invalid baseline run payload: {e}", level="error")
+            return 2
+
+    try:
+        dataset_payload = load_cases(dataset_path)
+    except Exception as e:
+        print_output(f"Invalid dataset payload: {e}", level="error")
+        return 2
+
+    mode = (
+        str(args.mode).strip().lower()
+        if args.mode is not None
+        else str(cfg.loop.mode)
+    )
+    isolation = (
+        str(args.isolation).strip().lower()
+        if args.isolation is not None
+        else str(cfg.harness.replay.default_isolation)
+    )
+    max_cases = int(args.max_cases) if args.max_cases is not None else None
+    threshold = float(cfg.harness.regression_threshold)
+    execution_mode = str(args.execution_mode or "historical").strip().lower()
+
+    if execution_mode == "live":
+        from .loop import next_iteration_number, run_iteration
+
+        live_started_ts = time.time()
+        live_started_at = datetime.now(timezone.utc).isoformat()
+        cases_raw = dataset_payload.get("cases", [])
+        cases = (
+            [c for c in cases_raw if isinstance(c, dict)]
+            if isinstance(cases_raw, list)
+            else []
+        )
+        if max_cases is not None:
+            cases = cases[: max(0, int(max_cases))]
+
+        strict_targeting = bool(args.strict_targeting)
+        continue_on_target_error = bool(args.continue_on_target_error)
+        results: list[dict] = []
+        aborted_early = False
+        for case in cases:
+            case_started_ts = time.time()
+            task_id = str(case.get("task_id") or "").strip()
+            case_id = str(case.get("case_id") or "")
+            if not task_id:
+                results.append(
+                    {
+                        "case_id": case_id,
+                        "status": STATUS_ERROR,
+                        "failure_category": "target_resolution_error",
+                        "target_status": "missing",
+                        "target_failure_reason": "missing_target",
+                        "metrics": {
+                            "duration_seconds": round(
+                                time.time() - case_started_ts, 4
+                            ),
+                            "return_code": 2,
+                            "gates_ok": None,
+                            "judge_ok": None,
+                            "blocked": False,
+                            "no_files_written": None,
+                            "timed_out": False,
+                            "evidence_count": 0,
+                        },
+                        "notes": "case missing task_id",
+                    }
+                )
+                if not continue_on_target_error:
+                    aborted_early = True
+                    break
+                continue
+
+            try:
+                iter_n = next_iteration_number(root)
+                res = run_iteration(
+                    root,
+                    agent=str(args.agent).strip(),
+                    cfg=cfg,
+                    iteration=iter_n,
+                    target_task_id=task_id,
+                    allow_done_target=not strict_targeting,
+                    allow_blocked_target=not strict_targeting,
+                    reopen_if_needed=False,
+                )
+
+                if res.target_failure_reason:
+                    status = STATUS_ERROR
+                    failure = "target_resolution_error"
+                else:
+                    failure = classify_failure_category(
+                        return_code=int(res.return_code),
+                        gates_ok=res.gates_ok,
+                        judge_ok=res.judge_ok,
+                        blocked=bool(res.blocked),
+                        no_files_written=None,
+                        timed_out=False,
+                    )
+                    status = STATUS_PASS
+                    if failure != "none":
+                        status = STATUS_HARD_FAIL
+
+                results.append(
+                    {
+                        "case_id": case_id,
+                        "status": status,
+                        "failure_category": failure,
+                        "target_status": res.target_status,
+                        "target_failure_reason": res.target_failure_reason,
+                        "metrics": {
+                            "duration_seconds": round(
+                                time.time() - case_started_ts, 4
+                            ),
+                            "return_code": int(res.return_code),
+                            "gates_ok": res.gates_ok,
+                            "judge_ok": res.judge_ok,
+                            "blocked": bool(res.blocked),
+                            "no_files_written": None,
+                            "timed_out": False,
+                            "evidence_count": int(res.evidence_count),
+                        },
+                        "notes": None,
+                    }
+                )
+
+                if res.target_failure_reason and not continue_on_target_error:
+                    aborted_early = True
+                    break
+            except Exception as e:
+                results.append(
+                    {
+                        "case_id": case_id,
+                        "status": STATUS_ERROR,
+                        "failure_category": "target_resolution_error",
+                        "target_status": "missing",
+                        "target_failure_reason": "target_resolution_error",
+                        "metrics": {
+                            "duration_seconds": round(
+                                time.time() - case_started_ts, 4
+                            ),
+                            "return_code": 2,
+                            "gates_ok": None,
+                            "judge_ok": None,
+                            "blocked": False,
+                            "no_files_written": None,
+                            "timed_out": False,
+                            "evidence_count": 0,
+                        },
+                        "notes": str(e),
+                    }
+                )
+                if not continue_on_target_error:
+                    aborted_early = True
+                    break
+
+        aggregate = compute_aggregate(results)
+        errored_cases = sum(1 for r in results if r.get("status") == STATUS_ERROR)
+        live_completed_ts = time.time()
+        live_completed_at = datetime.now(timezone.utc).isoformat()
+        partial = aborted_early or (len(results) < len(cases))
+        run_payload = {
+            "_schema": "ralph_gold.harness_run.v1",
+            "run_id": f"harness-{int(live_started_ts)}",
+            "started_at": live_started_at,
+            "completed_at": live_completed_at,
+            "config": {
+                "agent": str(args.agent).strip(),
+                "mode": mode,
+                "isolation": isolation,
+                "max_cases": max_cases,
+                "execution_mode": "live",
+                "targeting_policy": "strict" if strict_targeting else "override",
+                "continue_on_target_error": continue_on_target_error,
+                "regression_threshold": float(threshold),
+            },
+            "dataset_ref": {
+                "path": str(dataset_path),
+            },
+            "results": results,
+            "aggregate": aggregate,
+            "completion": {
+                "total_cases": len(cases),
+                "completed_cases": len(results),
+                "errored_cases": errored_cases,
+                "partial": partial,
+                "duration_seconds": round(live_completed_ts - live_started_ts, 4),
+            },
+        }
+        if baseline_payload is not None and baseline_path is not None:
+            run_payload["baseline_ref"] = {"path": str(baseline_path)}
+            run_payload["comparison"] = compare_harness_runs(
+                current_run=run_payload,
+                baseline_run=baseline_payload,
+                regression_threshold=threshold,
+            )
+    else:
+        run_payload = evaluate_harness_dataset(
+            dataset_payload,
+            dataset_path=dataset_path,
+            agent=str(args.agent).strip(),
+            mode=mode,
+            isolation=isolation,
+            max_cases=max_cases,
+            baseline_run=baseline_payload,
+            baseline_path=baseline_path,
+            regression_threshold=threshold,
+        )
+
+    if args.output:
+        output_path = _resolve_path(root, str(args.output))
+    else:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        output_path = _resolve_path(root, str(cfg.harness.runs_dir)) / f"{ts}.json"
+
+    try:
+        save_run(output_path, run_payload)
+    except Exception as e:
+        print_output(f"Error saving harness run: {e}", level="error")
+        return 2
+
+    comparison = run_payload.get("comparison", {}) or {}
+    regressed = bool(comparison.get("regressed", False))
+
+    if get_output_config().format == "json":
+        print_json_output(
+            {
+                "cmd": "harness run",
+                "output": str(output_path),
+                "aggregate": run_payload.get("aggregate", {}),
+                "comparison": comparison if comparison else None,
+                "regressed": regressed,
+            }
+        )
+    else:
+        print_output(format_harness_report(run_payload), level="normal")
+        print_output(f"Saved run: {output_path}", level="normal")
+
+    if bool(args.enforce_regression_threshold) and regressed:
+        print_output("Regression threshold breached.", level="error")
+        return 1
+    return 0
+
+
+def cmd_harness_report(args: argparse.Namespace) -> int:
+    """Render a harness run report in text/json/csv."""
+    root = _project_root()
+    cfg = load_config(root)
+
+    from .harness import compare_harness_runs, format_harness_report, report_to_csv
+    from .harness_store import load_run
+
+    report_format = str(args.report_format or "text").strip().lower()
+    if report_format not in {"text", "json", "csv"}:
+        print_output(f"Invalid --format: {report_format}", level="error")
+        return 2
+
+    if args.input:
+        input_path = _resolve_path(root, str(args.input))
+    else:
+        runs_dir = _resolve_path(root, str(cfg.harness.runs_dir))
+        candidates = sorted(runs_dir.glob("*.json")) if runs_dir.exists() else []
+        if not candidates:
+            print_output("No harness run files found.", level="error")
+            return 2
+        input_path = candidates[-1]
+
+    try:
+        run_payload = load_run(input_path)
+    except Exception as e:
+        print_output(f"Invalid run payload: {e}", level="error")
+        return 2
+
+    if args.baseline:
+        baseline_path = _resolve_path(root, str(args.baseline))
+        if not baseline_path.exists():
+            print_output(f"Baseline run not found: {baseline_path}", level="error")
+            return 2
+        try:
+            baseline_run = load_run(baseline_path)
+        except Exception as e:
+            print_output(f"Invalid baseline payload: {e}", level="error")
+            return 2
+        run_payload["comparison"] = compare_harness_runs(
+            current_run=run_payload,
+            baseline_run=baseline_run,
+            regression_threshold=float(cfg.harness.regression_threshold),
+        )
+
+    if report_format == "json":
+        print_json_output(
+            {
+                "cmd": "harness report",
+                "input": str(input_path),
+                "report": run_payload,
+            }
+        )
+        return 0
+
+    if report_format == "csv":
+        print_output(report_to_csv(run_payload), level="normal")
+        return 0
+
+    print_output(format_harness_report(run_payload), level="normal")
+    return 0
+
+
+def cmd_harness_doctor(args: argparse.Namespace) -> int:
+    """Validate harness config and artifact schemas."""
+    root = _project_root()
+    cfg = load_config(root)
+
+    from .harness_store import load_cases, load_run
+
+    issues: list[str] = []
+    info: list[str] = []
+
+    if cfg.harness.default_days < 0:
+        issues.append("harness.default_days must be >= 0")
+    if cfg.harness.default_limit < 1:
+        issues.append("harness.default_limit must be >= 1")
+    if cfg.harness.regression_threshold < 0 or cfg.harness.regression_threshold > 1:
+        issues.append("harness.regression_threshold must be between 0 and 1")
+    if cfg.harness.replay.default_isolation not in {"worktree", "snapshot"}:
+        issues.append("harness.replay.default_isolation must be worktree|snapshot")
+
+    dataset_path = _resolve_path(root, str(cfg.harness.dataset_path))
+    if dataset_path.exists():
+        try:
+            payload = load_cases(dataset_path)
+            info.append(f"dataset OK ({len(payload.get('cases', []))} cases)")
+        except Exception as e:
+            issues.append(f"dataset invalid: {e}")
+    else:
+        info.append("dataset missing (run `ralph harness collect`)")
+
+    runs_dir = _resolve_path(root, str(cfg.harness.runs_dir))
+    if runs_dir.exists():
+        run_files = sorted(runs_dir.glob("*.json"))
+        if run_files:
+            max_checks = int(args.max_run_files or 10)
+            for run_file in run_files[-max_checks:]:
+                try:
+                    load_run(run_file)
+                except Exception as e:
+                    issues.append(f"invalid run {run_file.name}: {e}")
+            info.append(f"validated {min(len(run_files), max_checks)} run file(s)")
+        else:
+            info.append("no run files found")
+    else:
+        info.append("runs dir missing (no runs yet)")
+
+    if get_output_config().format == "json":
+        print_json_output(
+            {
+                "cmd": "harness doctor",
+                "ok": len(issues) == 0,
+                "issues": issues,
+                "info": info,
+            }
+        )
+        return 0 if not issues else 1
+
+    print_output("Harness doctor", level="normal")
+    for line in info:
+        print_output(f"  ✓ {line}", level="normal")
+    for issue in issues:
+        print_output(f"  ✗ {issue}", level="error")
+    return 0 if not issues else 1
+
+
 def cmd_resume(args: argparse.Namespace) -> int:
     """Handle resume command - detect and optionally continue interrupted iteration."""
     root = _project_root()
@@ -807,6 +1286,20 @@ def cmd_step(args: argparse.Namespace) -> int:
     # Handle interactive mode
     interactive = getattr(args, "interactive", False)
     task_override = None
+    target_task_id = (
+        str(getattr(args, "task_id", "")).strip()
+        if getattr(args, "task_id", None) is not None
+        else ""
+    )
+    allow_done_target = bool(getattr(args, "allow_done_target", False))
+    allow_blocked_target = bool(getattr(args, "allow_blocked_target", False))
+    reopen_target = bool(getattr(args, "reopen_target", False))
+
+    if interactive and target_task_id:
+        print_output(
+            "--interactive cannot be combined with --task-id.", level="error"
+        )
+        return 2
 
     if interactive:
         from .interactive import (
@@ -900,11 +1393,20 @@ def cmd_step(args: argparse.Namespace) -> int:
             kind="markdown",  # Default to markdown kind
             acceptance=selected_choice.acceptance_criteria,
         )
+        target_task_id = str(selected_choice.task_id)
 
     iter_n = next_iteration_number(root)
     try:
         res = run_iteration(
-            root, agent=agent, cfg=cfg, iteration=iter_n, task_override=task_override
+            root,
+            agent=agent,
+            cfg=cfg,
+            iteration=iter_n,
+            task_override=task_override,
+            target_task_id=target_task_id or None,
+            allow_done_target=allow_done_target,
+            allow_blocked_target=allow_blocked_target,
+            reopen_if_needed=reopen_target,
         )
     except RuntimeError as e:
         # Handle rate-limit and other runtime errors
@@ -929,6 +1431,10 @@ def cmd_step(args: argparse.Namespace) -> int:
             "log_path": str(res.log_path),
             "no_progress_streak": res.no_progress_streak,
             "no_progress_limit": cfg.loop.no_progress_limit,
+            "target_task_id": res.target_task_id,
+            "target_status": res.target_status,
+            "target_failure_reason": res.target_failure_reason,
+            "targeting_policy": res.targeting_policy,
         }
         print_json_output(payload)
         return exit_code
@@ -1053,6 +1559,97 @@ def cmd_run(args: argparse.Namespace) -> int:
     if last and last.exit_signal is True:
         return 0
     return 1
+
+
+def cmd_supervise(args: argparse.Namespace) -> int:
+    """Run a long-lived supervisor loop with heartbeat + notifications."""
+
+    root = _project_root()
+    agent = args.agent
+    try:
+        cfg = load_config(root)
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+
+    try:
+        mode_override = _normalize_cli_mode(getattr(args, "mode", None))
+    except ValueError as exc:
+        print_output(str(exc), level="error")
+        return 2
+    if mode_override:
+        cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
+
+    # Resolve supervisor defaults from config, overridden by flags when provided.
+    sup = cfg.supervisor
+    max_runtime_seconds = (
+        args.max_runtime_seconds
+        if args.max_runtime_seconds is not None
+        else sup.max_runtime_seconds
+    )
+    heartbeat_seconds = (
+        args.heartbeat_seconds if args.heartbeat_seconds is not None else sup.heartbeat_seconds
+    )
+    sleep_seconds_between_runs = (
+        args.sleep_seconds_between_runs
+        if args.sleep_seconds_between_runs is not None
+        else sup.sleep_seconds_between_runs
+    )
+    on_no_progress_limit = (
+        args.on_no_progress_limit
+        if args.on_no_progress_limit is not None
+        else sup.on_no_progress_limit
+    )
+    on_rate_limit = (
+        args.on_rate_limit if args.on_rate_limit is not None else sup.on_rate_limit
+    )
+
+    # Notifications (best-effort)
+    notify_enabled: bool
+    if getattr(args, "notify", None) is True:
+        notify_enabled = True
+    elif getattr(args, "no_notify", None) is True:
+        notify_enabled = False
+    else:
+        notify_enabled = bool(sup.notify_enabled)
+
+    notify_backend = (
+        args.notify_backend if args.notify_backend is not None else sup.notify_backend
+    )
+    notify_command_argv = (
+        args.notify_command if args.notify_command is not None else list(sup.notify_command_argv)
+    )
+
+    from .supervisor import run_supervisor, supervise_to_stdout_json
+
+    res = run_supervisor(
+        root,
+        agent=agent,
+        cfg=cfg,
+        max_runtime_seconds=int(max_runtime_seconds),
+        heartbeat_seconds=int(heartbeat_seconds),
+        sleep_seconds_between_runs=int(sleep_seconds_between_runs),
+        on_no_progress_limit=str(on_no_progress_limit),
+        on_rate_limit=str(on_rate_limit),
+        notify_enabled=notify_enabled,
+        notify_events=list(sup.notify_events),
+        notify_backend=str(notify_backend),
+        notify_command_argv=list(notify_command_argv or []),
+    )
+
+    # JSON mode emits exactly one JSON payload and suppresses heartbeat text
+    supervise_to_stdout_json(res)
+
+    if get_output_config().format != "json":
+        print_output(
+            f"Supervise finished: exit_code={res.exit_code} reason={res.reason} "
+            f"iterations={res.iterations_run}",
+            level="normal",
+        )
+        if res.last_log_path:
+            print_output(f"Last log: {res.last_log_path}", level="quiet")
+
+    return int(res.exit_code)
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -1396,7 +1993,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
     state_dir.mkdir(exist_ok=True)
     logs_dir.mkdir(exist_ok=True)
 
-    agent = args.agent
+    agent = str(args.agent).strip() if args.agent else _default_planner_agent(cfg)
     runner = cfg.runners.get(agent)
     if runner is None:
         available = ", ".join(sorted(cfg.runners.keys()))
@@ -1470,7 +2067,7 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
     prompt_text = _regen_plan_prompt(root, prd_filename, specs_report)
     logs_dir.mkdir(exist_ok=True)
 
-    agent = args.agent
+    agent = str(args.agent).strip() if args.agent else _default_planner_agent(cfg)
     runner = cfg.runners.get(agent)
     if runner is None:
         available = ", ".join(sorted(cfg.runners.keys()))
@@ -2281,6 +2878,172 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_stats.set_defaults(func=cmd_stats)
 
+    # Harness commands
+    p_harness = sub.add_parser(
+        "harness",
+        help="Collect/evaluate/report harness artifacts for regression tracking",
+    )
+    p_harness_sub = p_harness.add_subparsers(
+        dest="harness_subcommand",
+        title="harness subcommands",
+        required=True,
+    )
+
+    p_harness_collect = p_harness_sub.add_parser(
+        "collect",
+        help="Collect harness cases from .ralph state and receipts",
+    )
+    p_harness_collect.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="Only include cases from the last N days (default: from config)",
+    )
+    p_harness_collect.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of cases to include (default: from config)",
+    )
+    p_harness_collect.add_argument(
+        "--output",
+        default=None,
+        help="Dataset output path (default: harness.dataset_path)",
+    )
+    p_harness_collect.add_argument(
+        "--include-failures",
+        action="store_true",
+        default=True,
+        help="Include failed cases (default: true)",
+    )
+    p_harness_collect.add_argument(
+        "--exclude-failures",
+        dest="include_failures",
+        action="store_false",
+        help="Exclude failed cases",
+    )
+    p_harness_collect.add_argument(
+        "--redact",
+        action="store_true",
+        default=True,
+        help="Redact long/sensitive fields where possible (default: true)",
+    )
+    p_harness_collect.set_defaults(func=cmd_harness_collect)
+
+    p_harness_run = p_harness_sub.add_parser(
+        "run",
+        help="Evaluate harness dataset and produce run metrics",
+    )
+    p_harness_run.add_argument(
+        "--dataset",
+        default=None,
+        help="Input dataset path (default: harness.dataset_path)",
+    )
+    p_harness_run.add_argument(
+        "--agent",
+        default="codex",
+        help="Agent label for run metadata (default: codex)",
+    )
+    p_harness_run.add_argument(
+        "--mode",
+        choices=LOOP_MODE_NAMES,
+        default=None,
+        help="Mode label for run metadata (default: loop.mode)",
+    )
+    p_harness_run.add_argument(
+        "--isolation",
+        choices=["worktree", "snapshot"],
+        default=None,
+        help="Replay isolation strategy label (default: harness.replay.default_isolation)",
+    )
+    p_harness_run.add_argument(
+        "--max-cases",
+        type=int,
+        default=None,
+        help="Evaluate only the first N cases",
+    )
+    p_harness_run.add_argument(
+        "--baseline",
+        default=None,
+        help="Baseline harness run JSON for regression comparison",
+    )
+    p_harness_run.add_argument(
+        "--output",
+        default=None,
+        help="Run output path (default: harness.runs_dir/<timestamp>.json)",
+    )
+    p_harness_run.add_argument(
+        "--enforce-regression-threshold",
+        action="store_true",
+        help="Exit non-zero when run is regressed vs baseline",
+    )
+    p_harness_run.add_argument(
+        "--execution-mode",
+        choices=["historical", "live"],
+        default="historical",
+        help="Evaluation mode: historical replay or live targeted execution (default: historical)",
+    )
+    p_harness_run.add_argument(
+        "--strict-targeting",
+        action="store_true",
+        default=True,
+        help="In live mode, fail targeted case when target is done/blocked/missing (default: true)",
+    )
+    p_harness_run.add_argument(
+        "--allow-non-strict-targeting",
+        dest="strict_targeting",
+        action="store_false",
+        help="In live mode, allow done/blocked target execution",
+    )
+    p_harness_run.add_argument(
+        "--continue-on-target-error",
+        action="store_true",
+        default=True,
+        help="In live mode, continue batch even if a case target fails (default: true)",
+    )
+    p_harness_run.add_argument(
+        "--stop-on-target-error",
+        dest="continue_on_target_error",
+        action="store_false",
+        help="In live mode, stop on first target resolution failure",
+    )
+    p_harness_run.set_defaults(func=cmd_harness_run)
+
+    p_harness_report = p_harness_sub.add_parser(
+        "report",
+        help="Render harness run report",
+    )
+    p_harness_report.add_argument(
+        "--input",
+        default=None,
+        help="Harness run JSON path (default: latest run in harness.runs_dir)",
+    )
+    p_harness_report.add_argument(
+        "--baseline",
+        default=None,
+        help="Optional baseline run JSON for comparison",
+    )
+    p_harness_report.add_argument(
+        "--format",
+        dest="report_format",
+        choices=["text", "json", "csv"],
+        default="text",
+        help="Report output format (default: text)",
+    )
+    p_harness_report.set_defaults(func=cmd_harness_report)
+
+    p_harness_doctor = p_harness_sub.add_parser(
+        "doctor",
+        help="Validate harness config and artifact schema integrity",
+    )
+    p_harness_doctor.add_argument(
+        "--max-run-files",
+        type=int,
+        default=10,
+        help="Maximum run files to validate in harness.runs_dir (default: 10)",
+    )
+    p_harness_doctor.set_defaults(func=cmd_harness_doctor)
+
     p_resume = sub.add_parser(
         "resume",
         help="Detect and resume interrupted iterations",
@@ -2385,6 +3148,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Interactively select which task to work on from available tasks",
     )
+    p_step.add_argument(
+        "--task-id",
+        default=None,
+        help="Execute a specific task ID instead of auto-selecting next task",
+    )
+    p_step.add_argument(
+        "--allow-done-target",
+        action="store_true",
+        help="Allow targeting a task currently marked done",
+    )
+    p_step.add_argument(
+        "--allow-blocked-target",
+        action="store_true",
+        help="Allow targeting a task currently marked blocked",
+    )
+    p_step.add_argument(
+        "--reopen-target",
+        action="store_true",
+        help="Attempt to reopen target task before running",
+    )
     p_step.set_defaults(func=cmd_step)
 
     p_run = sub.add_parser(
@@ -2427,6 +3210,76 @@ def build_parser() -> argparse.ArgumentParser:
         help="Simulate execution without running agents (validate config and show execution plan)",
     )
     p_run.set_defaults(func=cmd_run)
+
+    p_supervise = sub.add_parser(
+        "supervise",
+        help="Run a long-lived supervisor loop (heartbeat + policy stops + notifications).",
+    )
+    p_supervise.add_argument(
+        "--agent",
+        default="codex",
+        help="Runner to use for execution iterations (default: codex)",
+    )
+    p_supervise.add_argument(
+        "--mode",
+        choices=LOOP_MODE_NAMES,
+        help="Override loop.mode (speed|quality|exploration)",
+    )
+    p_supervise.add_argument(
+        "--max-runtime-seconds",
+        type=int,
+        default=None,
+        help="Stop after N seconds (0/unset = unlimited)",
+    )
+    p_supervise.add_argument(
+        "--heartbeat-seconds",
+        type=int,
+        default=None,
+        help="Print a heartbeat every N seconds (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--sleep-seconds-between-runs",
+        type=int,
+        default=None,
+        help="Sleep N seconds between iterations (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--on-no-progress-limit",
+        choices=["stop", "continue"],
+        default=None,
+        help="Policy when no-progress limit is reached (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--on-rate-limit",
+        choices=["wait", "stop"],
+        default=None,
+        help="Policy when rate limit is reached (default: from supervisor config)",
+    )
+
+    notify_group = p_supervise.add_mutually_exclusive_group()
+    notify_group.add_argument(
+        "--notify",
+        action="store_true",
+        help="Enable OS notifications (default: enabled)",
+    )
+    notify_group.add_argument(
+        "--no-notify",
+        action="store_true",
+        help="Disable OS notifications",
+    )
+    p_supervise.add_argument(
+        "--notify-backend",
+        choices=["auto", "macos", "linux", "windows", "command", "none"],
+        default=None,
+        help="Notification backend (default: from supervisor config)",
+    )
+    p_supervise.add_argument(
+        "--notify-command",
+        nargs="+",
+        default=None,
+        help="Command argv to invoke for notifications when backend=command (appends title + message)",
+    )
+    p_supervise.set_defaults(func=cmd_supervise)
 
     p_status = sub.add_parser(
         "status", help="Show PRD progress + last iteration summary"
@@ -2542,8 +3395,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_plan.add_argument(
         "--agent",
-        default="codex",
-        help="Runner to use (codex|claude|copilot or custom)",
+        default=None,
+        help="Runner to use (defaults to claude-zai/claude-kimi/claude/codex if configured)",
     )
     p_plan.add_argument("--desc", default=None, help="Short description text")
     p_plan.add_argument(
@@ -2563,7 +3416,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate IMPLEMENTATION_PLAN.md from specs/* + codebase gap analysis",
     )
     p_regen.add_argument(
-        "--agent", default="claude", help="Runner to use (default: claude)"
+        "--agent",
+        default=None,
+        help="Runner to use (defaults to claude-zai/claude-kimi/claude/codex if configured)",
     )
     p_regen.add_argument(
         "--prd-file", default=None, help="Target plan file (defaults to files.prd)"
@@ -2732,3 +3587,7 @@ def main(argv: list[str] | None = None) -> int:
         logger = logging.getLogger(__name__)
         logger.error("%s", e)
         return 1
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

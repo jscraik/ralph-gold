@@ -347,19 +347,21 @@ def check_gates(project_root: Path, cfg: Config) -> List[DiagnosticResult]:
         )
     )
 
+    # Determine shell invocation once (Hypothesis property tests have tight deadlines).
+    import os
+    import shutil
+
+    if os.name == "nt":
+        shell_prefix = ["cmd", "/c"]
+    elif shutil.which("bash"):
+        shell_prefix = ["bash", "-lc"]
+    else:
+        shell_prefix = ["sh", "-lc"]
+
     # Test each gate command
     for idx, cmd in enumerate(cfg.gates.commands, 1):
         try:
-            # Determine shell based on platform
-            import os
-            import shutil
-
-            if os.name == "nt":
-                shell_argv = ["cmd", "/c", cmd]
-            elif shutil.which("bash"):
-                shell_argv = ["bash", "-lc", cmd]
-            else:
-                shell_argv = ["sh", "-lc", cmd]
+            shell_argv = [*shell_prefix, cmd]
 
             # Run the command with a timeout
             result = subprocess.run(

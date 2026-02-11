@@ -166,6 +166,11 @@ class GenericAgentBuilder(AgentBuilder):
             argv = [prompt if x == "{prompt}" else x for x in argv]
             return argv, None
 
+        # Stdin transport: if runner argv includes '-', pass prompt via stdin.
+        # This matches docs/CONFIGURATION.md guidance for custom runners.
+        if "-" in argv:
+            return argv, prompt
+
         # Default: append prompt as final argument
         argv.append(prompt)
         return argv, None
@@ -179,6 +184,9 @@ class GenericAgentBuilder(AgentBuilder):
 _AGENT_BUILDERS: dict[str, AgentBuilder] = {
     "codex": CodexAgentBuilder(),
     "claude": ClaudeAgentBuilder(),
+    # Claude variants: treat as Claude Code CLIs that accept `-p <prompt>`.
+    "claude-kimi": ClaudeAgentBuilder(),
+    "claude-zai": ClaudeAgentBuilder(),
     "copilot": CopilotAgentBuilder(),
 }
 

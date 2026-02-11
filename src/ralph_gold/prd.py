@@ -415,6 +415,88 @@ def select_next_task(
     )
 
 
+def select_task_by_id(prd_path: Path, task_id: TaskId) -> Optional[SelectedTask]:
+    """Return a specific task by ID from the configured PRD file."""
+    tid = str(task_id)
+
+    if is_markdown_prd(prd_path):
+        prd = _load_md_prd(prd_path)
+        for t in prd.tasks:
+            if str(t.id) != tid:
+                continue
+            return SelectedTask(
+                id=str(t.id),
+                title=t.title,
+                kind="md",
+                acceptance=list(t.acceptance),
+                depends_on=list(t.depends_on),
+            )
+        return None
+
+    prd = _load_json_prd(prd_path)
+    if prd is None:
+        return None
+    stories = prd.get("stories", [])
+    if not isinstance(stories, list):
+        return None
+    for story in stories:
+        if not isinstance(story, dict):
+            continue
+        sid = story.get("id", story.get("story_id", story.get("key")))
+        if sid is None or str(sid) != tid:
+            continue
+        title = str(story.get("title", "")).strip() or f"Story {tid}"
+        acc = story.get("acceptance", [])
+        if not isinstance(acc, list):
+            acc = []
+        acceptance = [str(x).strip() for x in acc if str(x).strip()]
+        depends = _story_depends(story)
+        return SelectedTask(
+            id=tid,
+            title=title,
+            kind="json",
+            acceptance=acceptance,
+            depends_on=depends,
+        )
+    return None
+
+
+def task_status_by_id(prd_path: Path, task_id: TaskId) -> str:
+    """Return task status by ID: open|done|blocked|missing."""
+    tid = str(task_id)
+
+    if is_markdown_prd(prd_path):
+        prd = _load_md_prd(prd_path)
+        for t in prd.tasks:
+            if str(t.id) != tid:
+                continue
+            if t.status == "done":
+                return "done"
+            if t.status == "blocked":
+                return "blocked"
+            return "open"
+        return "missing"
+
+    prd = _load_json_prd(prd_path)
+    if prd is None:
+        return "missing"
+    stories = prd.get("stories", [])
+    if not isinstance(stories, list):
+        return "missing"
+    for story in stories:
+        if not isinstance(story, dict):
+            continue
+        sid = story.get("id", story.get("story_id", story.get("key")))
+        if sid is None or str(sid) != tid:
+            continue
+        if _story_done(story):
+            return "done"
+        if _story_blocked(story):
+            return "blocked"
+        return "open"
+    return "missing"
+
+
 def task_counts(prd_path: Path) -> Tuple[int, int]:
     """Return (done, total)."""
 

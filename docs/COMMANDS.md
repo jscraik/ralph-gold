@@ -18,7 +18,7 @@ Ralph-gold provides a comprehensive CLI for managing the development loop. This 
 1. **Setup commands** - `init`, `doctor`, `diagnose` for getting started
 2. **Execution commands** - `run`, `step`, `resume` for running the loop
 3. **Visibility commands** - `status`, `stats`, `tui` for monitoring
-4. **Management commands** - `task`, `specs`, `state`, `snapshot` for management
+4. **Management commands** - `task`, `specs`, `state`, `snapshot`, `harness` for management
 `─────────────────────────────────────────────────`
 
 ---
@@ -35,6 +35,7 @@ Ralph-gold provides a comprehensive CLI for managing the development loop. This 
 | `ralph resume` | Resume interrupted iterations |
 | `ralph status` | Show PRD progress and last iteration |
 | `ralph stats` | Display iteration statistics |
+| `ralph harness` | Collect/evaluate/report harness artifacts |
 | `ralph tui` | Interactive control surface |
 | `ralph task` | Manage tasks in the PRD |
 | `ralph specs` | Work with specs directory |
@@ -210,6 +211,38 @@ ralph run --agent codex --dry-run
 
 ---
 
+### `ralph supervise`
+
+Run a long-lived supervisor loop (heartbeat + policy stops + OS notifications by default).
+
+```bash
+ralph supervise --agent AGENT [OPTIONS]
+```
+
+**Options:**
+- `--agent AGENT`: Agent to use for execution iterations (default: `codex`)
+- `--mode MODE`: Loop mode (`speed`, `quality`, `exploration`)
+- `--max-runtime-seconds N`: Stop after N seconds (0/unset = unlimited)
+- `--heartbeat-seconds N`: Print heartbeat every N seconds
+- `--sleep-seconds-between-runs N`: Sleep between iterations
+- `--on-no-progress-limit stop|continue`: Policy when no-progress limit is hit
+- `--on-rate-limit wait|stop`: Policy when rate limit is hit
+- `--notify/--no-notify`: Enable/disable OS notifications
+- `--notify-backend auto|macos|linux|windows|command|none`: Notification backend
+- `--notify-command ...`: Command argv when backend is `command` (appends title + message)
+
+**Exit codes:**
+- `0`: Completed successfully
+- `1`: Stopped/incomplete (policy stop)
+- `2`: Error
+
+**Example:**
+```bash
+ralph supervise --agent codex
+```
+
+---
+
 ### `ralph step`
 
 Run exactly one iteration.
@@ -221,6 +254,10 @@ ralph step --agent AGENT [OPTIONS]
 **Options:**
 - `--agent AGENT`: Agent to use
 - `--interactive`: Interactive task selection
+- `--task-id TASK_ID`: Run a specific task directly
+- `--allow-done-target`: Allow running a task marked done
+- `--allow-blocked-target`: Allow running a task marked blocked
+- `--reopen-target`: Attempt to reopen the target task first
 - `--prompt-file PATH`: Custom prompt file
 - `--prd-file PATH`: Custom PRD file
 - `--dry-run`: Simulate without running agents
@@ -244,6 +281,9 @@ ralph step --agent codex
 
 # Interactive task selection
 ralph step --interactive
+
+# Explicit target task
+ralph step --task-id 42
 ```
 
 ---
@@ -338,6 +378,37 @@ ralph stats --by-task
 
 # Export for analysis
 ralph stats --export stats.csv
+```
+
+---
+
+### `ralph harness`
+
+Collect, evaluate, and report harness artifacts for regression tracking.
+
+```bash
+ralph harness <collect|run|report|doctor> [OPTIONS]
+```
+
+**Subcommands:**
+- `collect`: Build a dataset from `.ralph/state.json` and receipts
+- `run`: Evaluate dataset and produce aggregate quality metrics (historical or live)
+- `report`: Render run output as text, JSON, or CSV
+- `doctor`: Validate harness config and artifact schemas
+
+**Examples:**
+```bash
+# Build dataset
+ralph harness collect --days 30 --limit 200
+
+# Evaluate dataset and save run output
+ralph harness run --dataset .ralph/harness/cases.json
+
+# Live execution against explicit task IDs from the dataset
+ralph harness run --dataset .ralph/harness/cases.json --execution-mode live --strict-targeting
+
+# Report latest run in CSV format
+ralph harness report --format csv
 ```
 
 ---
