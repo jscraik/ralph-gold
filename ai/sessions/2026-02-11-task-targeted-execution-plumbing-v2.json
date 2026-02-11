@@ -1,0 +1,39 @@
+{
+  "tool": "codex",
+  "started_at": "2026-02-11T18:55:00Z",
+  "ended_at": "2026-02-11T20:50:10Z",
+  "files_touched": [
+    "README.md",
+    "docs/COMMANDS.md",
+    "src/ralph_gold/cli.py",
+    "src/ralph_gold/completion.py",
+    "src/ralph_gold/config.py",
+    "src/ralph_gold/harness.py",
+    "src/ralph_gold/harness_store.py",
+    "src/ralph_gold/loop.py",
+    "src/ralph_gold/prd.py",
+    "src/ralph_gold/templates/ralph.toml",
+    "src/ralph_gold/templates/ralph_solo.toml",
+    "src/ralph_gold/trackers.py",
+    "src/ralph_gold/trackers/github_issues.py",
+    "src/ralph_gold/trackers/web_analysis.py",
+    "src/ralph_gold/trackers/yaml_tracker.py",
+    "tests/test_cli_harness.py",
+    "tests/test_cli_mode.py",
+    "tests/test_completion.py",
+    "tests/test_github_issues.py",
+    "tests/test_harness.py",
+    "tests/test_loop_targeting.py",
+    "tests/test_prd_task_lookup.py",
+    "tests/test_trackers_beads.py",
+    "tests/test_yaml_tracker.py",
+    "ai/prompts/2026-02-11-task-targeted-execution-plumbing-v2.yaml",
+    "ai/sessions/2026-02-11-task-targeted-execution-plumbing-v2.json"
+  ],
+  "tests_run": [
+    "uv run pytest -q tests/test_prd_task_lookup.py tests/test_loop_targeting.py tests/test_harness.py tests/test_cli_harness.py tests/test_cli_mode.py tests/test_completion.py tests/test_yaml_tracker.py tests/test_github_issues.py tests/test_trackers_beads.py",
+    "uv run pytest -q"
+  ],
+  "human_verification": "Reviewed strict vs override target behavior, live harness completion/aggregate semantics, new CLI/completion flags, and full test pass status.",
+  "notes": "Implemented explicit task targeting and resolution plumbing across loop/trackers/PRD; added live harness execution mode with strict/override controls; expanded docs/completions and tests for regression safety."
+}
