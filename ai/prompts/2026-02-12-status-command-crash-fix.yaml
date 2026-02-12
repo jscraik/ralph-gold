@@ -1,0 +1,14 @@
+id: pr-status-command-crash-fix-2026-02-12
+tool: codex
+mode: normal
+task: "Fix the `ralph status` crash due to uninitialized locals in `cmd_status`, add regression coverage, and prepare branch for a draft PR."
+constraints:
+  - "no new dependencies"
+  - "keep fix minimal and backwards-compatible"
+  - "add regression tests for no-state and with-state status paths"
+  - "no secrets"
+outputs_expected:
+  - "src/ralph_gold/cli.py"
+  - "tests/test_cli_status.py"
+  - "ai/prompts/2026-02-12-status-command-crash-fix.yaml"
+  - "ai/sessions/2026-02-12-status-command-crash-fix.json"
