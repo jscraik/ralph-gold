@@ -2106,6 +2106,9 @@ def cmd_status(args: argparse.Namespace) -> int:
     root = _project_root()
     cfg = load_config(root)
     tracker = make_tracker(root, cfg)
+    state_path = root / ".ralph" / "state.json"
+    next_task = None
+    last_iteration = None
 
     # Handle --graph flag for dependency visualization
     if getattr(args, "graph", False):
@@ -2159,6 +2162,14 @@ def cmd_status(args: argparse.Namespace) -> int:
         logger.debug("Tracker operation failed: %s", e)
         done, total = 0, 0
 
+    try:
+        if hasattr(tracker, "peek_next_task"):
+            next_task = tracker.peek_next_task()
+        elif hasattr(tracker, "select_next_task"):
+            next_task = tracker.select_next_task()
+    except (OSError, ValueError) as e:
+        logger.debug("Failed to resolve next task: %s", e)
+
     blocked = 0
     open_count = 0
     try:
@@ -2175,6 +2186,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     state = {}
     if state_path.exists():
         try:
+            from .progress import calculate_progress, format_progress_bar
+
             state = json.loads(state_path.read_text(encoding="utf-8"))
             history = state.get("history", [])
             if isinstance(history, list) and history:
