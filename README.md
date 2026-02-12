@@ -268,6 +268,12 @@ ralph harness run --dataset .ralph/harness/cases.json
 # Or run live targeted execution for each dataset case
 ralph harness run --dataset .ralph/harness/cases.json --execution-mode live --strict-targeting
 
+# Pin failing cases so they remain covered in future runs
+ralph harness pin --run .ralph/harness/runs/<run>.json
+
+# CI-friendly collect + evaluate
+ralph harness ci --enforce-regression-threshold
+
 # View latest run (text/json/csv)
 ralph harness report --format text
 ```
@@ -279,7 +285,21 @@ Config (optional):
 enabled = false
 dataset_path = ".ralph/harness/cases.json"
 runs_dir = ".ralph/harness/runs"
+pinned_dataset_path = ".ralph/harness/pinned.json"
+baseline_run_path = ".ralph/harness/runs/baseline.json"
+append_pinned_by_default = true
+max_cases_per_task = 2
 regression_threshold = 0.05
+
+[harness.buckets]
+small_max_seconds = 120
+medium_max_seconds = 600
+
+[harness.ci]
+execution_mode = "historical"
+enforce_regression_threshold = true
+require_baseline = true
+baseline_missing_policy = "fail"
 ```
 
 ---

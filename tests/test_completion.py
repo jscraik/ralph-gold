@@ -119,6 +119,10 @@ def test_generate_bash_completion_contains_command_specific_flags():
     assert "--execution-mode" in script  # harness run modes
     assert "--strict-targeting" in script  # harness run targeting
     assert "--continue-on-target-error" in script  # harness run flow control
+    assert "--pinned-input" in script  # harness collect/ci
+    assert "--max-cases-per-task" in script  # harness collect/ci
+    assert " pin " in script or "pin" in script  # harness pin command
+    assert " ci " in script or "ci" in script  # harness ci command
 
 
 def test_generate_bash_completion_contains_agent_names():
@@ -260,6 +264,8 @@ def test_generate_zsh_completion_contains_command_specific_flags():
     assert "--graph" in script  # status
     assert "--execution-mode" in script  # harness run modes
     assert "--strict-targeting" in script  # harness run targeting
+    assert "--pinned-input" in script  # harness collect/ci
+    assert "--max-cases-per-task" in script  # harness collect/ci
 
 
 def test_generate_zsh_completion_contains_helper_functions():

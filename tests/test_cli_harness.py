@@ -191,6 +191,8 @@ def test_harness_run_live_mode_stops_on_target_error(
         execution_mode="live",
         strict_targeting=True,
         continue_on_target_error=False,
+        bucket="all",
+        report_breakdown=True,
     )
 
     rc = cli.cmd_harness_run(args)
@@ -209,3 +211,117 @@ def test_harness_run_live_mode_stops_on_target_error(
     assert payload["completion"]["duration_seconds"] >= 0.0
     assert payload["results"][0]["status"] == "pass"
     assert payload["results"][1]["status"] == "error"
+
+
+def test_harness_pin_command_creates_pinned_dataset(tmp_path: Path, monkeypatch) -> None:
+    from ralph_gold import cli
+
+    run_path = tmp_path / ".ralph" / "harness" / "runs" / "run.json"
+    dataset_path = tmp_path / ".ralph" / "harness" / "cases.json"
+    pinned_path = tmp_path / ".ralph" / "harness" / "pinned.json"
+    _write_json(
+        dataset_path,
+        {
+            "_schema": "ralph_gold.harness_cases.v1",
+            "generated_at": "2026-02-11T00:00:00+00:00",
+            "source": {},
+            "cases": [
+                {
+                    "case_id": "case-1",
+                    "task_id": "T-1",
+                    "task_title": "Failure case",
+                    "expected": {},
+                    "observed_history": {"return_code": 1},
+                }
+            ],
+        },
+    )
+    _write_json(
+        run_path,
+        {
+            "_schema": "ralph_gold.harness_run.v1",
+            "run_id": "harness-1",
+            "started_at": "2026-02-11T00:00:00+00:00",
+            "completed_at": "2026-02-11T00:01:00+00:00",
+            "config": {},
+            "dataset_ref": {"path": str(dataset_path)},
+            "results": [
+                {
+                    "case_id": "case-1",
+                    "status": "hard_fail",
+                    "failure_category": "gate_failed",
+                    "metrics": {"return_code": 1},
+                }
+            ],
+            "aggregate": {"quality_score": 50.0},
+        },
+    )
+
+    monkeypatch.chdir(tmp_path)
+    args = SimpleNamespace(
+        run=str(run_path),
+        dataset=str(dataset_path),
+        output=str(pinned_path),
+        status=[],
+        failure_category=[],
+        limit=None,
+        redact=True,
+    )
+    rc = cli.cmd_harness_pin(args)
+    assert rc == 0
+    payload = json.loads(pinned_path.read_text(encoding="utf-8"))
+    assert payload["_schema"] == "ralph_gold.harness_cases.v1"
+    assert len(payload["cases"]) == 1
+    assert payload["cases"][0]["is_pinned"] is True
+
+
+def test_harness_ci_baseline_missing_fails_when_required(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from ralph_gold import cli
+
+    _write_json(
+        tmp_path / ".ralph" / "state.json",
+        {
+            "history": [
+                {
+                    "ts": "2026-02-10T12:00:00+00:00",
+                    "iteration": 1,
+                    "agent": "codex",
+                    "story_id": "task-1",
+                    "gates_ok": True,
+                    "judge_ok": True,
+                    "blocked": False,
+                    "timed_out": False,
+                    "duration_seconds": 12.0,
+                }
+            ]
+        },
+    )
+    monkeypatch.chdir(tmp_path)
+
+    args = SimpleNamespace(
+        days=365,
+        limit=10,
+        dataset=None,
+        output=None,
+        baseline=str(tmp_path / "missing-baseline.json"),
+        agent="codex",
+        mode=None,
+        isolation=None,
+        execution_mode="historical",
+        max_cases=10,
+        bucket="all",
+        enforce_regression_threshold=True,
+        require_baseline=True,
+        baseline_missing_policy="fail",
+        include_failures=True,
+        redact=True,
+        pinned_input=None,
+        append_pinned=False,
+        max_cases_per_task=2,
+        strict_targeting=True,
+        continue_on_target_error=True,
+    )
+    rc = cli.cmd_harness_ci(args)
+    assert rc == 2
