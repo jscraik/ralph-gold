@@ -142,9 +142,9 @@ def _deps_satisfied(deps: List[str], done_ids: Set[str]) -> bool:
 def _story_priority(story: Dict[str, Any]) -> int:
     try:
         return int(story.get("priority", 10_000))
-    except (json.JSONDecodeError, OSError) as e:
-        logger.debug("Failed to load JSON PRD: %s", e)
-        return None
+    except (ValueError, TypeError) as e:
+        logger.debug("Invalid priority value, using default: %s", e)
+        return 10_000
 
 
 def _select_next_story(

@@ -30,22 +30,30 @@ def load_completion_data(completion_path: Path) -> list[dict]:
     """
     try:
         completion_data = json.loads(completion_path.read_text(encoding="utf-8"))
+        if isinstance(completion_data, list):
+            return completion_data
+        return []
     except (json.JSONDecodeError, OSError) as e:
         logger.debug("Failed to load completion data: %s", e)
         return []
 
 
-def save_completion_data(completion_path: Path, completion_data: list[dict]) -> None:
+def save_completion_data(completion_path: Path, completion_data: list[dict]) -> bool:
     """Save completion data to a JSON file.
 
     Args:
         completion_path: Path to the completion data file
         completion_data: List of completion entries to save
+
+    Returns:
+        True if save succeeded, False otherwise
     """
     try:
         completion_path.write_text(json.dumps(completion_data), encoding="utf-8")
+        return True
     except OSError as e:
-        logger.debug("Failed to save completion data: %s", e)
+        logger.warning("Failed to save completion data: %s", e)
+        return False
 
 
 def generate_bash_completion() -> str:

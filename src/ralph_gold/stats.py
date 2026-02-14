@@ -46,6 +46,30 @@ class IterationStats:
     task_stats: Dict[str, TaskStats] = field(default_factory=dict)
 
 
+def _safe_mean(data: List[float]) -> float:
+    """Safely calculate mean, handling empty lists and StatisticsError."""
+    if not data:
+        return 0.0
+    try:
+        return statistics.mean(data)
+    except statistics.StatisticsError:
+        return 0.0
+
+
+def _safe_min(data: List[float]) -> float:
+    """Safely calculate min, handling empty lists."""
+    if not data:
+        return 0.0
+    return min(data)
+
+
+def _safe_max(data: List[float]) -> float:
+    """Safely calculate max, handling empty lists."""
+    if not data:
+        return 0.0
+    return max(data)
+
+
 def calculate_stats(state: Dict[str, Any]) -> IterationStats:
     """Calculate statistics from state.json history.
 
@@ -120,9 +144,9 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
 
     # Calculate overall statistics
     total = len(history)
-    avg_duration = statistics.mean(durations) if durations else 0.0
-    min_duration = min(durations) if durations else 0.0
-    max_duration = max(durations) if durations else 0.0
+    avg_duration = _safe_mean(durations)
+    min_duration = _safe_min(durations)
+    max_duration = _safe_max(durations)
     success_rate = successful_count / total if total > 0 else 0.0
 
     # Build per-task statistics
@@ -134,9 +158,7 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
             attempts=data["attempts"],
             successes=data["successes"],
             failures=data["failures"],
-            avg_duration_seconds=(
-                statistics.mean(task_durations) if task_durations else 0.0
-            ),
+            avg_duration_seconds=_safe_mean(task_durations),
             total_duration_seconds=sum(task_durations),
         )
 

@@ -302,7 +302,7 @@ def get_runner_config(cfg: Config, agent: str) -> RunnerConfig:
     runner = cfg.runners.get(agent)
     if runner is None:
         available = ", ".join(sorted(cfg.runners.keys()))
-        raise RuntimeError(
+        raise ValueError(
             f"Unknown agent '{agent}'. Available runners: {available}"
         )
     return runner

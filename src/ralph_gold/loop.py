@@ -642,9 +642,19 @@ def load_state(state_path: Path) -> Dict[str, Any]:
         state.setdefault("session_id", "")
         state.setdefault("snapshots", [])
         return state
-    except (OSError, subprocess.SubprocessError) as e:
-        logger.debug("Git operation failed: %s", e)
-        return ""
+    except (OSError, json.JSONDecodeError) as e:
+        logger.debug("Failed to load state: %s", e)
+        # Return default state structure instead of empty string
+        return {
+            "createdAt": utc_now_iso(),
+            "invocations": [],
+            "noProgressStreak": 0,
+            "history": [],
+            "task_attempts": {},
+            "blocked_tasks": {},
+            "session_id": "",
+            "snapshots": [],
+        }
 
 
 def save_state(state_path: Path, state: Dict[str, Any]) -> None:
@@ -2336,7 +2346,7 @@ def run_iteration(
                 attempt_id=attempt_id,
                 timestamp=iso_utc(),
                 citations=citations,
-                raw_output_hash=_hash_text(combined_output),
+                raw_output_hash=hash_text(combined_output),
                 metadata={
                     "iteration": iteration,
                     "agent": agent,
@@ -2769,26 +2779,6 @@ def _find_recently_created_files(project_root: Path) -> List[str]:
         List of up to 10 recently created file paths
     """
     recent_files: List[str] = []
-    now = time.time()
-    recent_threshold = 900  # 15 minutes
-
-    for item in project_root.rglob("*"):
-        if not item.is_file():
-            continue
-
-        # Skip .ralph internal files
-        if ".ralph" in item.parts or ".git" in item.parts:
-            continue
-
-        try:
-            mtime = item.stat().st_mtime
-            if now - mtime < recent_threshold:
-                rel_path = str(item.relative_to(project_root))
-                recent_files.append(rel_path)
-        except OSError:
-            continue
-
-    return recent_files[:10]  # Limit to 10 most recent
     now = time.time()
     recent_threshold = 900  # 15 minutes
 
@@ -3299,6 +3289,7 @@ def run_loop(
         res = run_iteration(project_root, agent=agent, cfg=cfg, iteration=i)
         results.append(res)
 
+        done = False  # Initialize before try block
         try:
             done = tracker.all_done()
         except OSError as e:

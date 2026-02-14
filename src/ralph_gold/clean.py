@@ -45,7 +45,7 @@ def _get_file_age_days(path: Path) -> float:
 
 
 def _get_directory_size(path: Path) -> int:
-    """Get the total size of a directory in bytes.
+    """Get the total size of a directory in bytes (recursive).
     
     Args:
         path: Path to the directory
@@ -55,7 +55,7 @@ def _get_directory_size(path: Path) -> int:
     """
     try:
         total = 0
-        for item in path.iterdir():
+        for item in path.rglob("*"):
             try:
                 if item.is_file():
                     total += item.stat().st_size

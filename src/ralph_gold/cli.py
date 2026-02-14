@@ -2528,6 +2528,7 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
             logger.debug("Operation failed: %s", e)
 
     prompt_text = _regen_plan_prompt(root, prd_filename, specs_report)
+    logs_dir = root / ".ralph" / "logs"
     logs_dir.mkdir(exist_ok=True)
 
     agent = str(args.agent).strip() if args.agent else _default_planner_agent(cfg)

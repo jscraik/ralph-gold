@@ -302,8 +302,10 @@ class BridgeServer:
                     )
 
                     # Stop conditions mirror the CLI run_loop.
+                    done = False
                     try:
-                        if tracker.all_done():
+                        done = tracker.all_done()
+                        if done:
                             logger.info("All tasks completed. Exiting loop.")
                             return
                     except (AttributeError, NotImplementedError) as e:

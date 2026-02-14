@@ -12,6 +12,7 @@ Phase 5: Adaptive Timeout & Unblock mechanism.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -26,6 +27,8 @@ from .adaptive_timeout import (
 from .config import load_config
 from .prd import SelectedTask
 from .trackers import Tracker, make_tracker
+
+logger = logging.getLogger(__name__)
 
 
 class BlockReason(Enum):
@@ -157,15 +160,15 @@ class BlockedTaskManager:
             cfg = load_config(self.project_root)
             self.tracker = make_tracker(self.project_root, cfg)
 
-        # Get all tasks from tracker
-        try:
-            all_tasks = list(self.tracker.all_tasks())
-    except (json.JSONDecodeError, OSError) as e:
-        logger.debug("Failed to load blocked tasks: %s", e)
-        return []
-
+        # Build blocked task list by looking up each blocked task individually
+        # (Tracker protocol doesn't have all_tasks(), so we get each by ID)
         for task_id, block_info in blocked_tasks_raw.items():
-            task = next((t for t in all_tasks if str(t.id) == task_id), None)
+            try:
+                task = self.tracker.get_task_by_id(task_id)
+            except (json.JSONDecodeError, OSError) as e:
+                logger.debug("Failed to load task %s: %s", task_id, e)
+                continue
+            
             if not task:
                 continue
 
@@ -350,13 +353,12 @@ class BlockedTaskManager:
         try:
             self.tracker.force_task_open(task_id)
         except Exception as e:
-    except (json.JSONDecodeError, OSError) as e:
-        logger.debug("Failed to load blocked tasks: %s", e)
-        return []
+            return UnblockResult(
                 task_id=task_id,
                 previous_attempts=previous_attempts,
                 new_timeout=new_timeout or 0,
                 message=f"Failed to unblock in tracker: {e}",
+                success=False,
             )
 
         # Update state: remove from blocked_tasks

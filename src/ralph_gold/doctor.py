@@ -135,10 +135,11 @@ def _get_check_commands(project_type: str, project_root: Path) -> Tuple[List[str
                 data = json.loads(package_json.read_text(encoding="utf-8"))
                 scripts = data.get("scripts", {})
                 existing_scripts = list(scripts.keys())
-            except (subprocess.SubprocessError, OSError) as e:
-                    logger.debug("Command failed: %s", e)
-                    return False
-        # Build check command from common patterns
+            except (json.JSONDecodeError, OSError) as e:
+                logger.debug("Failed to read package.json: %s", e)
+                existing_scripts = []
+            
+            # Build check command from common patterns
         commands = []
         if "typecheck" in existing_scripts:
             commands.append(f"{pm} -s typecheck")
