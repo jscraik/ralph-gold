@@ -125,36 +125,3 @@ Key interfaces that must exist after implementation:
     In src/ralph_gold/loop.py, ensure per-iteration context snapshots are written to `.ralph/context/<n>/ANCHOR.md`.
 
 Plan change note: Created a new ExecPlan for implementing the finalized PRD/UX/Build Plan slices; archived the prior ExecPlan as `.agent/PLANS.archive-2026-01-23.md` to preserve history.
-
-<!-- AGENT-FIRST-PLANS:START -->
-## Plan Contract (Agent-first)
-
-All significant implementation plans MUST use task graphs with explicit dependencies.
-
-Validation command:
-
-```bash
-python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py .agent/PLANS.md
-```
-
-Valid sample plan:
-
-```yaml
-tasks:
-  - id: T1
-    title: Define scope and constraints
-    depends_on: []
-  - id: T2
-    title: Implement scaffold updates
-    depends_on: [T1]
-  - id: T3
-    title: Run verification and publish report
-    depends_on: [T2]
-```
-
-Optional cross-plan reference:
-
-```yaml
-external_dep: "/absolute/repo/path#T12"
-```
-<!-- AGENT-FIRST-PLANS:END -->

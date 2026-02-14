@@ -35,6 +35,9 @@ def validate_cases_payload(payload: Dict[str, Any]) -> List[str]:
         for key in ("case_id", "task_id", "expected", "observed_history"):
             if key not in case:
                 errors.append(f"cases[{idx}] missing {key}")
+        bucket = case.get("bucket")
+        if bucket is not None and bucket not in {"small", "medium", "large"}:
+            errors.append(f"cases[{idx}] invalid bucket: {bucket!r}")
 
     return errors
 
@@ -65,6 +68,9 @@ def validate_run_payload(payload: Dict[str, Any]) -> List[str]:
             for key in ("case_id", "status", "failure_category", "metrics"):
                 if key not in result:
                     errors.append(f"results[{idx}] missing {key}")
+            bucket = result.get("bucket")
+            if bucket is not None and bucket not in {"small", "medium", "large"}:
+                errors.append(f"results[{idx}] invalid bucket: {bucket!r}")
 
     aggregate = payload.get("aggregate")
     if not isinstance(aggregate, dict):
@@ -112,4 +118,3 @@ def save_run(path: Path, payload: Dict[str, Any]) -> None:
         raise ValueError(f"Invalid harness run payload: {'; '.join(errors)}")
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(path, payload)
-

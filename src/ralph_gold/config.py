@@ -345,6 +345,27 @@ class HarnessRetentionConfig:
     cases_days: int = 30
     runs_days: int = 30
     keep_last_runs: int = 20
+    pinned_days: int = 90
+
+
+@dataclass(frozen=True)
+class HarnessBucketConfig:
+    """Configuration for harness bucket classification thresholds."""
+
+    small_max_seconds: int = 120
+    medium_max_seconds: int = 600
+
+
+@dataclass(frozen=True)
+class HarnessCIConfig:
+    """Configuration for harness CI orchestration."""
+
+    enabled: bool = True
+    execution_mode: str = "historical"  # historical|live
+    max_cases: int = 200
+    enforce_regression_threshold: bool = True
+    require_baseline: bool = True
+    baseline_missing_policy: str = "fail"  # fail|warn
 
 
 @dataclass(frozen=True)
@@ -354,10 +375,16 @@ class HarnessConfig:
     enabled: bool = False
     owner: str = "engineering"
     dataset_path: str = ".ralph/harness/cases.json"
+    pinned_dataset_path: str = ".ralph/harness/pinned.json"
     runs_dir: str = ".ralph/harness/runs"
+    baseline_run_path: str = ".ralph/harness/runs/baseline.json"
+    append_pinned_by_default: bool = True
+    max_cases_per_task: int = 2
     default_days: int = 30
     default_limit: int = 200
     regression_threshold: float = 0.05
+    buckets: HarnessBucketConfig = field(default_factory=HarnessBucketConfig)
+    ci: HarnessCIConfig = field(default_factory=HarnessCIConfig)
     replay: HarnessReplayConfig = field(default_factory=HarnessReplayConfig)
     retention: HarnessRetentionConfig = field(default_factory=HarnessRetentionConfig)
 
@@ -1195,12 +1222,30 @@ def load_config(project_root: Path) -> Config:
     harness_retention_raw = harness_raw.get("retention", {}) or {}
     if not isinstance(harness_retention_raw, dict):
         harness_retention_raw = {}
+    harness_buckets_raw = harness_raw.get("buckets", {}) or {}
+    if not isinstance(harness_buckets_raw, dict):
+        harness_buckets_raw = {}
+    harness_ci_raw = harness_raw.get("ci", {}) or {}
+    if not isinstance(harness_ci_raw, dict):
+        harness_ci_raw = {}
 
     replay_isolation = str(
         harness_replay_raw.get("default_isolation", "worktree")
     ).strip().lower()
     if replay_isolation not in {"worktree", "snapshot"}:
         replay_isolation = "worktree"
+
+    ci_execution_mode = str(
+        harness_ci_raw.get("execution_mode", "historical")
+    ).strip().lower()
+    if ci_execution_mode not in {"historical", "live"}:
+        ci_execution_mode = "historical"
+
+    baseline_missing_policy = str(
+        harness_ci_raw.get("baseline_missing_policy", "fail")
+    ).strip().lower()
+    if baseline_missing_policy not in {"fail", "warn"}:
+        baseline_missing_policy = "fail"
 
     regression_threshold_raw = harness_raw.get("regression_threshold", 0.05)
     try:
@@ -1212,16 +1257,56 @@ def load_config(project_root: Path) -> Config:
     if regression_threshold > 1:
         regression_threshold = 1.0
 
+    max_cases_per_task = _coerce_int(harness_raw.get("max_cases_per_task"), 2)
+    if max_cases_per_task < 0:
+        max_cases_per_task = 0
+
+    small_max_seconds = _coerce_int(harness_buckets_raw.get("small_max_seconds"), 120)
+    if small_max_seconds < 1:
+        small_max_seconds = 1
+
+    medium_max_seconds = _coerce_int(
+        harness_buckets_raw.get("medium_max_seconds"), 600
+    )
+    if medium_max_seconds < small_max_seconds:
+        medium_max_seconds = small_max_seconds
+
     harness = HarnessConfig(
         enabled=_coerce_bool(harness_raw.get("enabled"), False),
         owner=str(harness_raw.get("owner", "engineering")).strip() or "engineering",
         dataset_path=str(
             harness_raw.get("dataset_path", ".ralph/harness/cases.json")
         ),
+        pinned_dataset_path=str(
+            harness_raw.get("pinned_dataset_path", ".ralph/harness/pinned.json")
+        ),
         runs_dir=str(harness_raw.get("runs_dir", ".ralph/harness/runs")),
+        baseline_run_path=str(
+            harness_raw.get("baseline_run_path", ".ralph/harness/runs/baseline.json")
+        ),
+        append_pinned_by_default=_coerce_bool(
+            harness_raw.get("append_pinned_by_default"), True
+        ),
+        max_cases_per_task=max_cases_per_task,
         default_days=_coerce_int(harness_raw.get("default_days"), 30),
         default_limit=_coerce_int(harness_raw.get("default_limit"), 200),
         regression_threshold=regression_threshold,
+        buckets=HarnessBucketConfig(
+            small_max_seconds=small_max_seconds,
+            medium_max_seconds=medium_max_seconds,
+        ),
+        ci=HarnessCIConfig(
+            enabled=_coerce_bool(harness_ci_raw.get("enabled"), True),
+            execution_mode=ci_execution_mode,
+            max_cases=max(1, _coerce_int(harness_ci_raw.get("max_cases"), 200)),
+            enforce_regression_threshold=_coerce_bool(
+                harness_ci_raw.get("enforce_regression_threshold"), True
+            ),
+            require_baseline=_coerce_bool(
+                harness_ci_raw.get("require_baseline"), True
+            ),
+            baseline_missing_policy=baseline_missing_policy,
+        ),
         replay=HarnessReplayConfig(
             default_isolation=replay_isolation,
             max_case_timeout_seconds=_coerce_int(
@@ -1234,6 +1319,7 @@ def load_config(project_root: Path) -> Config:
             keep_last_runs=_coerce_int(
                 harness_retention_raw.get("keep_last_runs"), 20
             ),
+            pinned_days=_coerce_int(harness_retention_raw.get("pinned_days"), 90),
         ),
     )
 

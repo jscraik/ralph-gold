@@ -32,6 +32,12 @@ STATUS_SOFT_FAIL = "soft_fail"
 STATUS_HARD_FAIL = "hard_fail"
 STATUS_ERROR = "error"
 
+BUCKET_ALL = "all"
+BUCKET_SMALL = "small"
+BUCKET_MEDIUM = "medium"
+BUCKET_LARGE = "large"
+VALID_BUCKETS = {BUCKET_SMALL, BUCKET_MEDIUM, BUCKET_LARGE}
+
 
 def _iso_utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -124,6 +130,176 @@ def _read_receipt_metrics(
     return metrics
 
 
+def _safe_duration(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def normalize_bucket(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in VALID_BUCKETS:
+        return normalized
+    return None
+
+
+def classify_duration_bucket(
+    duration_seconds: float,
+    *,
+    small_max_seconds: float = 120.0,
+    medium_max_seconds: float = 600.0,
+) -> str:
+    duration = max(0.0, _safe_duration(duration_seconds))
+    if duration <= max(0.0, float(small_max_seconds)):
+        return BUCKET_SMALL
+    if duration <= max(0.0, float(medium_max_seconds)):
+        return BUCKET_MEDIUM
+    return BUCKET_LARGE
+
+
+def case_bucket(
+    case: Dict[str, Any],
+    *,
+    small_max_seconds: float = 120.0,
+    medium_max_seconds: float = 600.0,
+) -> str:
+    normalized = normalize_bucket(case.get("bucket"))
+    if normalized is not None:
+        return normalized
+    observed = case.get("observed_history", {}) or {}
+    duration_seconds = _safe_duration(observed.get("duration_seconds", 0.0))
+    return classify_duration_bucket(
+        duration_seconds,
+        small_max_seconds=small_max_seconds,
+        medium_max_seconds=medium_max_seconds,
+    )
+
+
+def _sort_history_entry(entry: Dict[str, Any]) -> Tuple[float, int, str, str]:
+    ts = _parse_iso8601(str(entry.get("ts", "")))
+    ts_key = ts.timestamp() if ts is not None else 0.0
+    iteration = int(entry.get("iteration", 0) or 0)
+    task_id = str(entry.get("story_id") or entry.get("task_id") or "").strip()
+    case_id = _compute_case_id(task_id or "__none__", iteration, str(entry.get("ts", "")))
+    return (-ts_key, -iteration, task_id, case_id)
+
+
+def _redact_task_title(task_title: Any, redact: bool) -> Optional[str]:
+    if not isinstance(task_title, str):
+        return None
+    if not redact:
+        return task_title
+    return task_title[:200]
+
+
+def _normalize_case_shape(
+    case: Dict[str, Any],
+    *,
+    redact: bool,
+    small_max_seconds: float,
+    medium_max_seconds: float,
+    is_pinned: bool,
+) -> Optional[Dict[str, Any]]:
+    case_id = str(case.get("case_id") or "").strip()
+    if not case_id:
+        return None
+
+    observed = case.get("observed_history", {})
+    if not isinstance(observed, dict):
+        observed = {}
+
+    expected = case.get("expected", {})
+    if not isinstance(expected, dict):
+        expected = {}
+
+    normalized = dict(case)
+    normalized["case_id"] = case_id
+    normalized["task_id"] = str(case.get("task_id") or "").strip()
+    normalized["task_title"] = _redact_task_title(case.get("task_title"), redact)
+    normalized["observed_history"] = observed
+    normalized["expected"] = expected
+    normalized["bucket"] = case_bucket(
+        normalized,
+        small_max_seconds=small_max_seconds,
+        medium_max_seconds=medium_max_seconds,
+    )
+    normalized["is_pinned"] = bool(is_pinned)
+    normalized["source_kind"] = "pinned" if is_pinned else str(case.get("source_kind") or "history")
+    return normalized
+
+
+def compute_dataset_health(
+    cases: List[Dict[str, Any]],
+    *,
+    now: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    total_cases = len(cases)
+    if total_cases == 0:
+        return {
+            "total_cases": 0,
+            "unique_task_ids": 0,
+            "task_diversity_ratio": 0.0,
+            "median_case_age_days": 0.0,
+            "pinned_ratio": 0.0,
+            "bucket_distribution": {
+                BUCKET_SMALL: 0,
+                BUCKET_MEDIUM: 0,
+                BUCKET_LARGE: 0,
+            },
+        }
+
+    task_ids = {
+        str(case.get("task_id") or "").strip()
+        for case in cases
+        if str(case.get("task_id") or "").strip()
+    }
+
+    age_days: List[float] = []
+    pinned_count = 0
+    bucket_distribution = {
+        BUCKET_SMALL: 0,
+        BUCKET_MEDIUM: 0,
+        BUCKET_LARGE: 0,
+    }
+
+    for case in cases:
+        if bool(case.get("is_pinned", False)):
+            pinned_count += 1
+        bucket = normalize_bucket(case.get("bucket"))
+        if bucket is not None:
+            bucket_distribution[bucket] += 1
+
+        ts = _parse_iso8601(str(case.get("timestamp", "")))
+        if ts is None:
+            continue
+        delta = now - ts
+        age_days.append(max(0.0, delta.total_seconds() / 86400.0))
+
+    median_age = 0.0
+    if age_days:
+        age_days_sorted = sorted(age_days)
+        mid = len(age_days_sorted) // 2
+        if len(age_days_sorted) % 2 == 1:
+            median_age = age_days_sorted[mid]
+        else:
+            median_age = (age_days_sorted[mid - 1] + age_days_sorted[mid]) / 2.0
+
+    return {
+        "total_cases": total_cases,
+        "unique_task_ids": len(task_ids),
+        "task_diversity_ratio": round(len(task_ids) / total_cases, 4),
+        "median_case_age_days": round(median_age, 2),
+        "pinned_ratio": round(pinned_count / total_cases, 4),
+        "bucket_distribution": bucket_distribution,
+    }
+
+
 def classify_failure_category(
     return_code: int,
     gates_ok: Optional[bool],
@@ -189,6 +365,12 @@ def collect_harness_cases(
     limit: int = 200,
     include_failures: bool = True,
     redact: bool = True,
+    *,
+    pinned_cases: Optional[List[Dict[str, Any]]] = None,
+    append_pinned: bool = False,
+    max_cases_per_task: int = 0,
+    small_max_seconds: float = 120.0,
+    medium_max_seconds: float = 600.0,
 ) -> Dict[str, Any]:
     """Collect harness cases from state history + receipts."""
     state_path = project_root / ".ralph" / "state.json"
@@ -199,15 +381,12 @@ def collect_harness_cases(
     )
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=max(0, int(days)))
+    history_sorted = sorted(history, key=_sort_history_entry)
 
-    def _sort_key(entry: Dict[str, Any]) -> Tuple[float, int]:
-        ts = _parse_iso8601(str(entry.get("ts", "")))
-        if ts is not None:
-            return ts.timestamp(), int(entry.get("iteration", 0) or 0)
-        return 0.0, int(entry.get("iteration", 0) or 0)
-
-    history_sorted = sorted(history, key=_sort_key, reverse=True)
     cases: List[Dict[str, Any]] = []
+    per_task_counts: Dict[str, int] = {}
+    max_per_task = max(0, int(max_cases_per_task))
+    max_total = max(0, int(limit))
 
     for entry in history_sorted:
         ts_raw = str(entry.get("ts", ""))
@@ -228,6 +407,11 @@ def collect_harness_cases(
             else None
         )
 
+        if max_per_task > 0 and story_id:
+            current_count = per_task_counts.get(story_id, 0)
+            if current_count >= max_per_task:
+                continue
+
         attempt = _read_attempt_record(project_root, story_id, attempt_id)
         receipt_metrics = _read_receipt_metrics(project_root, receipts_dir_rel)
 
@@ -244,9 +428,7 @@ def collect_harness_cases(
         no_files_written = receipt_metrics.get("no_files_written")
         evidence_count = int(receipt_metrics.get("evidence_count", 0) or 0)
 
-        task_title = attempt.get("task_title")
-        if redact and isinstance(task_title, str):
-            task_title = task_title[:200]
+        task_title = _redact_task_title(attempt.get("task_title"), redact)
 
         expected_files_written: Optional[bool]
         if isinstance(no_files_written, bool):
@@ -254,10 +436,11 @@ def collect_harness_cases(
         else:
             expected_files_written = None
 
+        duration_seconds = _safe_duration(entry.get("duration_seconds", 0.0))
         case = {
             "case_id": _compute_case_id(story_id or "__none__", iteration, ts_raw),
             "task_id": story_id,
-            "task_title": task_title if isinstance(task_title, str) else None,
+            "task_title": task_title,
             "timestamp": ts_raw,
             "iteration": iteration,
             "agent": str(entry.get("agent") or ""),
@@ -268,7 +451,7 @@ def collect_harness_cases(
                 "files_written": expected_files_written,
             },
             "observed_history": {
-                "duration_seconds": float(entry.get("duration_seconds", 0.0) or 0.0),
+                "duration_seconds": duration_seconds,
                 "return_code": return_code,
                 "blocked": blocked,
                 "gates_ok": gates_ok if isinstance(gates_ok, bool) else None,
@@ -279,6 +462,13 @@ def collect_harness_cases(
                 "timed_out": timed_out,
                 "evidence_count": evidence_count,
             },
+            "bucket": classify_duration_bucket(
+                duration_seconds,
+                small_max_seconds=small_max_seconds,
+                medium_max_seconds=medium_max_seconds,
+            ),
+            "is_pinned": False,
+            "source_kind": "history",
         }
         _, failure = _evaluate_case_status(case)
         case["seed_failure_category"] = failure
@@ -287,8 +477,40 @@ def collect_harness_cases(
             continue
 
         cases.append(case)
-        if len(cases) >= max(0, int(limit)):
+        if story_id:
+            per_task_counts[story_id] = per_task_counts.get(story_id, 0) + 1
+
+        if max_total > 0 and len(cases) >= max_total:
             break
+
+    merged_pinned_count = 0
+    if append_pinned and pinned_cases:
+        case_index = {
+            str(case.get("case_id") or ""): idx
+            for idx, case in enumerate(cases)
+            if str(case.get("case_id") or "")
+        }
+        for pinned in pinned_cases:
+            if not isinstance(pinned, dict):
+                continue
+            normalized = _normalize_case_shape(
+                pinned,
+                redact=redact,
+                small_max_seconds=small_max_seconds,
+                medium_max_seconds=medium_max_seconds,
+                is_pinned=True,
+            )
+            if normalized is None:
+                continue
+            case_id = str(normalized.get("case_id") or "")
+            if case_id in case_index:
+                cases[case_index[case_id]] = normalized
+            else:
+                case_index[case_id] = len(cases)
+                cases.append(normalized)
+            merged_pinned_count += 1
+
+    dataset_health = compute_dataset_health(cases)
 
     return {
         "_schema": HARNESS_CASES_SCHEMA_V1,
@@ -301,13 +523,20 @@ def collect_harness_cases(
                 "limit": int(limit),
                 "include_failures": bool(include_failures),
                 "redact": bool(redact),
+                "max_cases_per_task": max_per_task,
+                "append_pinned": bool(append_pinned),
+            },
+            "pinned": {
+                "merged_count": merged_pinned_count,
+                "input_count": len(pinned_cases or []),
             },
         },
+        "dataset_health": dataset_health,
         "cases": cases,
     }
 
 
-def compute_aggregate(results: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _compute_rates(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     total = len(results)
     if total == 0:
         return {
@@ -367,6 +596,18 @@ def compute_aggregate(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+def compute_aggregate(results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    aggregate = _compute_rates(results)
+
+    breakdown: Dict[str, Dict[str, Any]] = {
+        BUCKET_SMALL: _compute_rates([r for r in results if r.get("bucket") == BUCKET_SMALL]),
+        BUCKET_MEDIUM: _compute_rates([r for r in results if r.get("bucket") == BUCKET_MEDIUM]),
+        BUCKET_LARGE: _compute_rates([r for r in results if r.get("bucket") == BUCKET_LARGE]),
+    }
+    aggregate["breakdown_by_bucket"] = breakdown
+    return aggregate
+
+
 def compare_harness_runs(
     current_run: Dict[str, Any],
     baseline_run: Dict[str, Any],
@@ -410,6 +651,34 @@ def compare_harness_runs(
     }
 
 
+def filter_cases_by_bucket(
+    cases: List[Dict[str, Any]],
+    *,
+    bucket: str,
+    small_max_seconds: float = 120.0,
+    medium_max_seconds: float = 600.0,
+) -> List[Dict[str, Any]]:
+    bucket_norm = str(bucket or BUCKET_ALL).strip().lower()
+    if bucket_norm == BUCKET_ALL:
+        return list(cases)
+
+    if bucket_norm not in VALID_BUCKETS:
+        raise ValueError(
+            f"Invalid bucket filter: {bucket!r}. Must be one of: all, small, medium, large"
+        )
+
+    return [
+        case
+        for case in cases
+        if case_bucket(
+            case,
+            small_max_seconds=small_max_seconds,
+            medium_max_seconds=medium_max_seconds,
+        )
+        == bucket_norm
+    ]
+
+
 def evaluate_harness_dataset(
     dataset: Dict[str, Any],
     *,
@@ -421,6 +690,10 @@ def evaluate_harness_dataset(
     baseline_run: Optional[Dict[str, Any]] = None,
     baseline_path: Optional[Path] = None,
     regression_threshold: float = 0.05,
+    bucket_filter: str = BUCKET_ALL,
+    report_breakdown: bool = True,
+    small_max_seconds: float = 120.0,
+    medium_max_seconds: float = 600.0,
 ) -> Dict[str, Any]:
     """Evaluate a harness dataset and build a run artifact.
 
@@ -434,6 +707,12 @@ def evaluate_harness_dataset(
     cases: List[Dict[str, Any]] = (
         [c for c in cases_raw if isinstance(c, dict)] if isinstance(cases_raw, list) else []
     )
+    cases = filter_cases_by_bucket(
+        cases,
+        bucket=bucket_filter,
+        small_max_seconds=small_max_seconds,
+        medium_max_seconds=medium_max_seconds,
+    )
     if max_cases is not None:
         cases = cases[: max(0, int(max_cases))]
 
@@ -446,8 +725,13 @@ def evaluate_harness_dataset(
                 "case_id": str(case.get("case_id") or ""),
                 "status": status,
                 "failure_category": failure,
+                "bucket": case_bucket(
+                    case,
+                    small_max_seconds=small_max_seconds,
+                    medium_max_seconds=medium_max_seconds,
+                ),
                 "metrics": {
-                    "duration_seconds": float(observed.get("duration_seconds", 0.0) or 0.0),
+                    "duration_seconds": _safe_duration(observed.get("duration_seconds", 0.0)),
                     "return_code": int(observed.get("return_code", 0) or 0),
                     "gates_ok": observed.get("gates_ok"),
                     "judge_ok": observed.get("judge_ok"),
@@ -461,6 +745,9 @@ def evaluate_harness_dataset(
         )
 
     aggregate = compute_aggregate(results)
+    if not report_breakdown:
+        aggregate.pop("breakdown_by_bucket", None)
+
     completed_at = _iso_utc_now()
 
     run_payload: Dict[str, Any] = {
@@ -475,11 +762,14 @@ def evaluate_harness_dataset(
             "max_cases": max_cases,
             "execution_mode": "historical_replay",
             "regression_threshold": float(regression_threshold),
+            "bucket_filter": bucket_filter,
+            "report_breakdown": bool(report_breakdown),
         },
         "dataset_ref": {
             "path": str(dataset_path),
             "sha256": _payload_sha256(dataset),
         },
+        "dataset_health": dataset.get("dataset_health") or compute_dataset_health(cases),
         "results": results,
         "aggregate": aggregate,
     }
@@ -502,6 +792,7 @@ def format_harness_report(
     run_payload: Dict[str, Any],
     *,
     include_comparison: bool = True,
+    include_breakdown: bool = True,
 ) -> str:
     aggregate = run_payload.get("aggregate", {}) or {}
     lines: List[str] = []
@@ -520,6 +811,28 @@ def format_harness_report(
     lines.append(
         f"Evidence completeness: {aggregate.get('evidence_completeness_rate', 0.0):.2%}"
     )
+
+    dataset_health = run_payload.get("dataset_health")
+    if isinstance(dataset_health, dict):
+        lines.append("")
+        lines.append("Dataset health:")
+        lines.append(f"  Unique task ids:     {dataset_health.get('unique_task_ids', 0)}")
+        lines.append(f"  Task diversity:      {float(dataset_health.get('task_diversity_ratio', 0.0)):.2%}")
+        lines.append(f"  Median age (days):   {dataset_health.get('median_case_age_days', 0.0)}")
+        lines.append(f"  Pinned ratio:        {float(dataset_health.get('pinned_ratio', 0.0)):.2%}")
+
+    if include_breakdown:
+        breakdown = aggregate.get("breakdown_by_bucket")
+        if isinstance(breakdown, dict):
+            lines.append("")
+            lines.append("Breakdown by bucket:")
+            for bucket_name in (BUCKET_SMALL, BUCKET_MEDIUM, BUCKET_LARGE):
+                bucket_metrics = breakdown.get(bucket_name, {}) or {}
+                lines.append(
+                    f"  {bucket_name:>6}: cases={bucket_metrics.get('total_cases', 0)} "
+                    f"quality={bucket_metrics.get('quality_score', 0.0)} "
+                    f"pass={float(bucket_metrics.get('pass_rate', 0.0)):.2%}"
+                )
 
     if include_comparison:
         comparison = run_payload.get("comparison")
@@ -558,6 +871,30 @@ def report_to_csv(run_payload: Dict[str, Any]) -> str:
             str(aggregate.get("evidence_completeness_rate", 0.0)),
         ],
     ]
+
+    dataset_health = run_payload.get("dataset_health")
+    if isinstance(dataset_health, dict):
+        rows.extend(
+            [
+                ["dataset_unique_task_ids", str(dataset_health.get("unique_task_ids", 0))],
+                ["dataset_task_diversity_ratio", str(dataset_health.get("task_diversity_ratio", 0.0))],
+                ["dataset_median_case_age_days", str(dataset_health.get("median_case_age_days", 0.0))],
+                ["dataset_pinned_ratio", str(dataset_health.get("pinned_ratio", 0.0))],
+            ]
+        )
+
+    breakdown = aggregate.get("breakdown_by_bucket")
+    if isinstance(breakdown, dict):
+        for bucket_name in (BUCKET_SMALL, BUCKET_MEDIUM, BUCKET_LARGE):
+            bucket_metrics = breakdown.get(bucket_name, {}) or {}
+            rows.extend(
+                [
+                    [f"{bucket_name}_total_cases", str(bucket_metrics.get("total_cases", 0))],
+                    [f"{bucket_name}_quality_score", str(bucket_metrics.get("quality_score", 0.0))],
+                    [f"{bucket_name}_pass_rate", str(bucket_metrics.get("pass_rate", 0.0))],
+                ]
+            )
+
     comparison = run_payload.get("comparison")
     if isinstance(comparison, dict):
         rows.extend(

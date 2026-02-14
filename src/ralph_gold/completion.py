@@ -81,11 +81,13 @@ _ralph_completion() {
     local doctor_flags="--setup-checks --dry-run --check-github"
     local diagnose_flags="--test-gates"
     local stats_flags="--by-task --export"
-    local harness_flags="collect run report doctor"
-    local harness_collect_flags="--days --limit --output --include-failures --exclude-failures --redact"
-    local harness_run_flags="--dataset --agent --mode --isolation --max-cases --baseline --output --enforce-regression-threshold --execution-mode --strict-targeting --allow-non-strict-targeting --continue-on-target-error --stop-on-target-error"
+    local harness_flags="collect run report doctor pin ci"
+    local harness_collect_flags="--days --limit --output --include-failures --exclude-failures --redact --pinned-input --append-pinned --no-append-pinned --max-cases-per-task"
+    local harness_run_flags="--dataset --agent --mode --isolation --max-cases --baseline --output --enforce-regression-threshold --execution-mode --bucket --report-breakdown --no-report-breakdown --strict-targeting --allow-non-strict-targeting --continue-on-target-error --stop-on-target-error"
     local harness_report_flags="--input --baseline --format"
     local harness_doctor_flags="--max-run-files"
+    local harness_pin_flags="--run --dataset --output --status --failure-category --limit --redact"
+    local harness_ci_flags="--days --limit --dataset --output --baseline --agent --mode --isolation --execution-mode --max-cases --bucket --enforce-regression-threshold --no-enforce-regression-threshold --require-baseline --allow-missing-baseline --baseline-missing-policy --include-failures --exclude-failures --redact --pinned-input --append-pinned --no-append-pinned --max-cases-per-task --strict-targeting --allow-non-strict-targeting --continue-on-target-error --stop-on-target-error"
     local resume_flags="--clear --auto"
     local clean_flags="--logs-days --archives-days --receipts-days --context-days --dry-run"
     local step_flags="--agent --mode --prompt-file --prd-file --dry-run --interactive --task-id --allow-done-target --allow-blocked-target --reopen-target"
@@ -161,6 +163,14 @@ _ralph_completion() {
                     ;;
                 doctor)
                     COMPREPLY=( $(compgen -W "$harness_doctor_flags" -- "$cur") )
+                    return 0
+                    ;;
+                pin)
+                    COMPREPLY=( $(compgen -W "$harness_pin_flags" -- "$cur") )
+                    return 0
+                    ;;
+                ci)
+                    COMPREPLY=( $(compgen -W "$harness_ci_flags" -- "$cur") )
                     return 0
                     ;;
             esac
@@ -394,6 +404,8 @@ _ralph() {
                         'run:Evaluate harness dataset and produce run metrics'
                         'report:Render harness run report'
                         'doctor:Validate harness config and artifact schemas'
+                        'pin:Promote failing run cases into pinned dataset'
+                        'ci:Run collect + evaluate in one CI command'
                     )
                     _arguments \
                         '1: :->harness_command' \
@@ -412,7 +424,11 @@ _ralph() {
                                         '--output[Dataset output path]:file:_files' \
                                         '--include-failures[Include failed cases]' \
                                         '--exclude-failures[Exclude failed cases]' \
-                                        '--redact[Redact long/sensitive fields]'
+                                        '--redact[Redact long/sensitive fields]' \
+                                        '--pinned-input[Pinned dataset path]:file:_files' \
+                                        '(--no-append-pinned)--append-pinned[Append pinned cases]' \
+                                        '(--append-pinned)--no-append-pinned[Do not append pinned cases]' \
+                                        '--max-cases-per-task[Cap collected cases per task_id]:count:'
                                     ;;
                                 run)
                                     _arguments \
@@ -425,6 +441,9 @@ _ralph() {
                                         '--output[Run output path]:file:_files' \
                                         '--enforce-regression-threshold[Exit non-zero on regression]' \
                                         '--execution-mode[Execution mode]:mode:(historical live)' \
+                                        '--bucket[Only evaluate a bucket]:bucket:(all small medium large)' \
+                                        '(--no-report-breakdown)--report-breakdown[Include per-bucket breakdown]' \
+                                        '(--report-breakdown)--no-report-breakdown[Disable per-bucket breakdown]' \
                                         '(--allow-non-strict-targeting)--strict-targeting[Fail case when target is done/blocked/missing]' \
                                         '(--strict-targeting)--allow-non-strict-targeting[Allow done/blocked target execution]' \
                                         '(--stop-on-target-error)--continue-on-target-error[Continue batch on target resolution errors]' \
@@ -439,6 +458,46 @@ _ralph() {
                                 doctor)
                                     _arguments \
                                         '--max-run-files[Max run files to validate]:count:'
+                                    ;;
+                                pin)
+                                    _arguments \
+                                        '--run[Harness run JSON path]:file:_files' \
+                                        '--dataset[Optional dataset path]:file:_files' \
+                                        '--output[Pinned dataset output path]:file:_files' \
+                                        '--status[Filter by status]' \
+                                        '--failure-category[Filter by failure category]' \
+                                        '--limit[Pin at most N matching cases]:count:' \
+                                        '--redact[Redact long/sensitive fields]'
+                                    ;;
+                                ci)
+                                    _arguments \
+                                        '--days[Only include cases from last N days]:days:' \
+                                        '--limit[Maximum number of collected cases]:count:' \
+                                        '--dataset[Dataset output path]:file:_files' \
+                                        '--output[Run output path]:file:_files' \
+                                        '--baseline[Baseline run path]:file:_files' \
+                                        '--agent[Agent label]:agent:(codex claude claude-zai claude-kimi copilot)' \
+                                        '--mode[Mode label]:mode:(speed quality exploration)' \
+                                        '--isolation[Replay isolation label]:isolation:(worktree snapshot)' \
+                                        '--execution-mode[Execution mode]:mode:(historical live)' \
+                                        '--max-cases[Max evaluated cases]:count:' \
+                                        '--bucket[Only evaluate a bucket]:bucket:(all small medium large)' \
+                                        '(--no-enforce-regression-threshold)--enforce-regression-threshold[Fail on regression threshold breach]' \
+                                        '(--enforce-regression-threshold)--no-enforce-regression-threshold[Do not fail on regression threshold breach]' \
+                                        '(--allow-missing-baseline)--require-baseline[Require baseline run]' \
+                                        '(--require-baseline)--allow-missing-baseline[Allow missing baseline run]' \
+                                        '--baseline-missing-policy[Policy when baseline missing]:policy:(fail warn)' \
+                                        '--include-failures[Include failed cases while collecting]' \
+                                        '--exclude-failures[Exclude failed cases while collecting]' \
+                                        '--redact[Redact long/sensitive fields]' \
+                                        '--pinned-input[Pinned dataset path]:file:_files' \
+                                        '(--no-append-pinned)--append-pinned[Append pinned cases]' \
+                                        '(--append-pinned)--no-append-pinned[Do not append pinned cases]' \
+                                        '--max-cases-per-task[Cap collected cases per task_id]:count:' \
+                                        '(--allow-non-strict-targeting)--strict-targeting[Fail case when target is done/blocked/missing]' \
+                                        '(--strict-targeting)--allow-non-strict-targeting[Allow done/blocked target execution]' \
+                                        '(--stop-on-target-error)--continue-on-target-error[Continue batch on target resolution errors]' \
+                                        '(--continue-on-target-error)--stop-on-target-error[Stop batch on first target resolution error]'
                                     ;;
                             esac
                             ;;
