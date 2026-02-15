@@ -61,7 +61,11 @@
     1768828647.337954,
     1768828659.476862,
     1768828671.47153,
-    1768828683.494648
+    1768828683.494648,
+    1770940124.377564,
+    1770940173.69179,
+    1770940901.737036,
+    1770944346.1955462
   ],
   "noProgressStreak": 0,
   "history": [
@@ -1950,6 +1954,215 @@
       "commit_return_code": null,
       "gate_results": [],
       "log": "20260119T131751Z-iter0061-codex.log"
+    },
+    {
+      "ts": "20260212T234842Z",
+      "iteration": 62,
+      "agent": "codex",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "codex/auto-checkpoint/20260212-145749",
+      "story_id": "6",
+      "target_task_id": "6",
+      "target_status": "open",
+      "target_failure_reason": null,
+      "targeting_policy": "strict",
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 1.15,
+      "return_code": 1,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": true,
+      "attempt_id": "20260212-234842-iter0062",
+      "receipts_dir": ".ralph/receipts/6/20260212-234842-iter0062",
+      "context_dir": ".ralph/context/6/20260212-234842-iter0062",
+      "timed_out": false,
+      "commit_action": null,
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260212T234842Z-iter0062-codex.log"
+    },
+    {
+      "ts": "2026-02-12T23:49:33.691795+00:00",
+      "iteration": 63,
+      "agent": "claude",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "story_id": "6",
+      "duration_seconds": 0.0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "review_ok": null,
+      "blocked": false,
+      "return_code": 2,
+      "target_task_id": "6",
+      "target_status": "blocked",
+      "target_failure_reason": "target_blocked",
+      "targeting_policy": "strict",
+      "log": "20260212T234933Z-iter0063-claude.log"
+    },
+    {
+      "ts": "20260213T000115Z",
+      "iteration": 64,
+      "agent": "codex",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "codex/auto-checkpoint/20260212-145749",
+      "story_id": "6",
+      "target_task_id": "6",
+      "target_status": "open",
+      "target_failure_reason": null,
+      "targeting_policy": "strict",
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 25.09,
+      "return_code": 1,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": true,
+      "attempt_id": "20260213-000115-iter0064",
+      "receipts_dir": ".ralph/receipts/6/20260213-000115-iter0064",
+      "context_dir": ".ralph/context/6/20260213-000115-iter0064",
+      "timed_out": false,
+      "commit_action": null,
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260213T000115Z-iter0064-codex.log"
+    },
+    {
+      "ts": "20260213T005540Z",
+      "iteration": 65,
+      "agent": "claude-kimi",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "codex/auto-checkpoint/20260212-145749",
+      "story_id": "6",
+      "target_task_id": "6",
+      "target_status": "open",
+      "target_failure_reason": null,
+      "targeting_policy": "strict",
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 204.75,
+      "return_code": 1,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": true,
+      "attempt_id": "20260213-005540-iter0065",
+      "receipts_dir": ".ralph/receipts/6/20260213-005540-iter0065",
+      "context_dir": ".ralph/context/6/20260213-005540-iter0065",
+      "timed_out": false,
+      "commit_action": null,
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260213T005540Z-iter0065-claude-kimi.log"
     }
   ],
   "snapshots": [
@@ -1966,7 +2179,8 @@
     "1": 4,
     "2": 3,
     "3": 3,
-    "4": 2
+    "4": 2,
+    "6": 1
   },
   "blocked_tasks": {
     "1": {
@@ -1986,7 +2200,31 @@
       "attempts": 3,
       "reason": "runner failed",
       "attempt_id": "20260119-112107-iter0022"
+    },
+    "6": {
+      "blocked_at": "2026-02-13T00:59:06.033101+00:00",
+      "attempts": 1,
+      "reason": "runner failed",
+      "attempt_id": "20260213-005540-iter0065"
     }
   },
-  "session_id": "20260119-093701"
+  "session_id": "20260119-093701",
+  "attempt_history": [
+    {
+      "task_id": "6",
+      "action": "unblocked",
+      "reason": "runner plumbing fixed",
+      "unblocked_at": "2026-02-12T23:59:11.496637Z",
+      "previous_attempts": 1,
+      "new_timeout": 180
+    },
+    {
+      "task_id": "6",
+      "action": "unblocked",
+      "reason": "retry with approval_policy=never",
+      "unblocked_at": "2026-02-13T00:31:28.708868Z",
+      "previous_attempts": 1,
+      "new_timeout": 180
+    }
+  ]
 }

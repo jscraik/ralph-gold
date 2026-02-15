@@ -122,10 +122,16 @@ verbosity = "normal" # quiet|normal|verbose
 format = "text"      # text|json
 
 [runners.codex]
-argv = ["codex", "exec", "--full-auto", "-"]
+argv = ["codex", "exec", "--full-auto", "-c", "approval_policy=\"never\"", "-m", "gpt-5.3-codex-spark", "-"]
 
 [runners.claude]
 argv = ["claude", "-p"]
+
+[runners.claude-kimi]
+argv = ["claude", "--settings", "/Users/jamiecraik/.claude/kimi_settings.json", "-p"]
+
+[runners.claude-zai]
+argv = ["claude", "--settings", "/Users/jamiecraik/.claude/zai_settings.json", "-p"]
 
 [runners.copilot]
 argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]

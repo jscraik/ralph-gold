@@ -221,7 +221,7 @@ def _json_force_story_open(prd: Dict[str, Any], story_id: str) -> bool:
         if "passes" in s and s.get("passes") is True:
             s["passes"] = False
             changed = True
-        if "status" in s and str(s.get("status", "open")).lower() == "done":
+        if "status" in s and str(s.get("status", "open")).lower() in {"done", "blocked"}:
             s["status"] = "open"
             changed = True
         if "completedAt" in s:
@@ -353,7 +353,7 @@ def _md_force_task_open(prd: MdPrd, task_id: str) -> bool:
     for t in prd.tasks:
         if t.id != task_id:
             continue
-        if t.status != "done":
+        if t.status == "open":
             return False
         line = prd.lines[t.line_index]
         prd.lines[t.line_index] = re.sub(r"\[[^\]]\]", "[ ]", line, count=1)
