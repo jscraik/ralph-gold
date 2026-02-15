@@ -41,7 +41,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
 
 ### Loop Mode Runtime (Task 2 - Broken Down)
 
-- [ ] Add LoopModeOverride dataclass to config.py
+- [-] Add LoopModeOverride dataclass to config.py
   - Add `LoopModeOverride` with fields for max_iterations, gates, etc.
   - Add `resolve_mode_overrides()` function to merge mode into config
   - Test: `uv run pytest -q tests/test_config_loop_modes.py -k test_resolve` passes

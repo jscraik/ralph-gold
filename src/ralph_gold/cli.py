@@ -3020,15 +3020,22 @@ def cmd_unblock(args: argparse.Namespace) -> int:
 
     manager = BlockedTaskManager(root)
 
-    # Normalize task_id (handle both "task-22" and "22" formats)
+    # Keep user-provided task ID; unblock manager resolves alternate forms
     task_id = args.task_id
-    if not task_id.startswith("task-") and task_id.isdigit():
-        task_id = f"task-{task_id}"
 
     # Get suggested timeout if not provided
     if args.timeout is None:
         blocked = manager.list_blocked_tasks()
-        task_info = next((b for b in blocked if b.task_id == task_id), None)
+        task_info = next(
+            (
+                b
+                for b in blocked
+                if b.task_id == task_id
+                or (task_id.startswith("task-") and b.task_id == task_id[5:])
+                or (task_id.isdigit() and b.task_id == f"task-{task_id}")
+            ),
+            None,
+        )
         if task_info:
             args.timeout = task_info.suggested_timeout
         else:

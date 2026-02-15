@@ -149,26 +149,25 @@ class BlockedTaskManager:
         except (json.JSONDecodeError, OSError):
             return blocked
 
-        # Get blocked_tasks from state
         blocked_tasks_raw = state_data.get("blocked_tasks", {})
-
-        # Get attempt counts
         task_attempts = state_data.get("task_attempts", {})
 
-        # Load tracker if not provided
         if self.tracker is None:
             cfg = load_config(self.project_root)
             self.tracker = make_tracker(self.project_root, cfg)
 
-        # Build blocked task list by looking up each blocked task individually
-        # (Tracker protocol doesn't have all_tasks(), so we get each by ID)
         for task_id, block_info in blocked_tasks_raw.items():
+            task: Optional[SelectedTask] = None
             try:
                 task = self.tracker.get_task_by_id(task_id)
-            except (json.JSONDecodeError, OSError) as e:
-                logger.debug("Failed to load task %s: %s", task_id, e)
+                if task is None and task_id.startswith("task-"):
+                    task = self.tracker.get_task_by_id(task_id[5:])
+                elif task is None and task_id.isdigit():
+                    task = self.tracker.get_task_by_id(f"task-{task_id}")
+            except Exception as e:
+                logger.debug("Failed to resolve blocked task %s: %s", task_id, e)
                 continue
-            
+
             if not task:
                 continue
 
@@ -323,20 +322,26 @@ class BlockedTaskManager:
                 message=f"Failed to read state: {e}",
             )
 
-        # Check if task is blocked
+        # Check if task is blocked (support both "6" and "task-6")
         blocked_tasks = state_data.get("blocked_tasks", {})
-        if task_id not in blocked_tasks:
-            return UnblockResult(
-                success=False,
-                task_id=task_id,
-                previous_attempts=0,
-                new_timeout=0,
-                message="Task is not currently blocked",
-            )
+        task_id_effective = task_id
+        if task_id_effective not in blocked_tasks:
+            if task_id.startswith("task-") and task_id[5:] in blocked_tasks:
+                task_id_effective = task_id[5:]
+            elif task_id.isdigit() and f"task-{task_id}" in blocked_tasks:
+                task_id_effective = f"task-{task_id}"
+            else:
+                return UnblockResult(
+                    success=False,
+                    task_id=task_id,
+                    previous_attempts=0,
+                    new_timeout=0,
+                    message="Task is not currently blocked",
+                )
 
         # Get attempt count
         task_attempts = state_data.get("task_attempts", {})
-        attempts_data = task_attempts.get(task_id, {})
+        attempts_data = task_attempts.get(task_id_effective, task_attempts.get(task_id, {}))
         if isinstance(attempts_data, dict) and "count" in attempts_data:
             previous_attempts = attempts_data["count"]
         elif isinstance(attempts_data, int):
@@ -351,25 +356,25 @@ class BlockedTaskManager:
 
         # Unblock in tracker
         try:
-            self.tracker.force_task_open(task_id)
+            self.tracker.force_task_open(task_id_effective)
         except Exception as e:
             return UnblockResult(
+                success=False,
                 task_id=task_id,
                 previous_attempts=previous_attempts,
                 new_timeout=new_timeout or 0,
                 message=f"Failed to unblock in tracker: {e}",
-                success=False,
             )
 
         # Update state: remove from blocked_tasks
-        del state_data["blocked_tasks"][task_id]
+        del state_data["blocked_tasks"][task_id_effective]
 
         # Optional: Reset attempts for clean retry
-        if "task_attempts" in state_data and task_id in state_data["task_attempts"]:
-            if isinstance(state_data["task_attempts"][task_id], dict):
-                state_data["task_attempts"][task_id]["count"] = 0
+        if "task_attempts" in state_data and task_id_effective in state_data["task_attempts"]:
+            if isinstance(state_data["task_attempts"][task_id_effective], dict):
+                state_data["task_attempts"][task_id_effective]["count"] = 0
             else:
-                state_data["task_attempts"][task_id] = {"count": 0}
+                state_data["task_attempts"][task_id_effective] = 0
 
         # Record unblock in attempt history
         if "attempt_history" not in state_data:

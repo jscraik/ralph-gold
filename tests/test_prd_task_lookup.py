@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ralph_gold.prd import select_task_by_id, task_status_by_id
+from ralph_gold.prd import force_task_open, select_task_by_id, task_status_by_id
 
 
 def test_markdown_task_lookup_and_status(tmp_path: Path) -> None:
@@ -55,3 +55,39 @@ def test_json_task_lookup_and_status(tmp_path: Path) -> None:
     assert task_status_by_id(prd_path, "b") == "blocked"
     assert task_status_by_id(prd_path, "c") == "open"
     assert task_status_by_id(prd_path, "missing") == "missing"
+
+
+def test_force_task_open_reopens_blocked_markdown_task(tmp_path: Path) -> None:
+    prd_path = tmp_path / "PRD.md"
+    prd_path.write_text(
+        """# PRD
+
+## Tasks
+
+- [x] Done task
+- [-] Blocked task
+""",
+        encoding="utf-8",
+    )
+
+    changed = force_task_open(prd_path, "2")
+    assert changed is True
+    assert task_status_by_id(prd_path, "2") == "open"
+
+
+def test_force_task_open_reopens_blocked_json_story(tmp_path: Path) -> None:
+    prd_path = tmp_path / "PRD.json"
+    prd_path.write_text(
+        json.dumps(
+            {
+                "stories": [
+                    {"id": "a", "title": "Blocked story", "status": "blocked"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    changed = force_task_open(prd_path, "a")
+    assert changed is True
+    assert task_status_by_id(prd_path, "a") == "open"
