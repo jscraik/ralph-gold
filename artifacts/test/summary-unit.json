@@ -1,0 +1,8 @@
+{
+  "name": "unit",
+  "command": "uv run pytest --junitxml=artifacts/test/junit-unit.xml",
+  "started_at": "2026-02-24T14:12:01Z",
+  "ended_at": "2026-02-24T14:12:49Z",
+  "exit_code": 1,
+  "duration_ms": 48000
+}
