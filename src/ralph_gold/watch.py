@@ -84,9 +84,11 @@ def _poll_for_changes(
     """
     changed_files: Set[Path] = set()
 
-    # Walk the project directory
+    # Walk matching files for each configured glob pattern.
+    # Use Path.glob(pattern) directly so patterns like "**/*.py" are handled
+    # correctly. Stripping the pattern prefix (e.g., "**/") can break matching.
     for pattern in patterns:
-        for file_path in project_root.rglob(pattern.lstrip("**/")):
+        for file_path in project_root.glob(pattern):
             if not file_path.is_file():
                 continue
 
@@ -97,7 +99,7 @@ def _poll_for_changes(
             # Check modification time
             try:
                 mtime = file_path.stat().st_mtime
-                if mtime > last_check:
+                if mtime >= last_check:
                     changed_files.add(file_path)
             except OSError:
                 # File might have been deleted or is inaccessible

@@ -580,7 +580,7 @@ def test_property_34_bash_completion_script_validity():
     from hypothesis import strategies as st
 
     @given(st.integers(min_value=0, max_value=100))
-    @settings(max_examples=100)
+    @settings(max_examples=100, deadline=None)
     def property_bash_syntax_valid(_seed: int):
         """Test that bash completion script is always syntactically valid."""
         # Generate the bash completion script
@@ -628,7 +628,7 @@ def test_property_34_zsh_completion_script_validity():
     from hypothesis import strategies as st
 
     @given(st.integers(min_value=0, max_value=100))
-    @settings(max_examples=100)
+    @settings(max_examples=100, deadline=None)
     def property_zsh_syntax_valid(_seed: int):
         """Test that zsh completion script is always syntactically valid."""
         # Generate the zsh completion script

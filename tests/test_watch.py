@@ -248,9 +248,6 @@ def test_should_ignore_path_outside_project(temp_project: Path, tmp_path: Path) 
 # ============================================================================
 
 
-@pytest.mark.xfail(
-    reason="Filesystem timestamp resolution on macOS APFS may be too coarse"
-)
 def test_poll_for_changes_detects_new_file(temp_project: Path) -> None:
     """Test that polling detects newly created files."""
     # Set last_check, then create file after
@@ -267,9 +264,6 @@ def test_poll_for_changes_detects_new_file(temp_project: Path) -> None:
     assert new_file in changed
 
 
-@pytest.mark.xfail(
-    reason="Filesystem timestamp resolution on macOS APFS may be too coarse"
-)
 def test_poll_for_changes_detects_modified_file(temp_project: Path) -> None:
     """Test that polling detects modified files."""
     # Create initial file
@@ -305,9 +299,6 @@ def test_poll_for_changes_ignores_old_files(temp_project: Path) -> None:
     assert old_file not in changed
 
 
-@pytest.mark.xfail(
-    reason="Filesystem timestamp resolution on macOS APFS may be too coarse"
-)
 def test_poll_for_changes_respects_patterns(temp_project: Path) -> None:
     """Test that polling only detects files matching patterns."""
     # Set last_check first
@@ -670,7 +661,6 @@ def test_no_auto_commit_when_gates_fail(git_repo: Path) -> None:
                     assert not any("commit" in str(cmd) for cmd in commit_calls)
 
 
-@pytest.mark.xfail(reason="Mock call structure check needs adjustment")
 def test_auto_commit_with_no_changes(git_repo: Path) -> None:
     """Test that auto-commit handles case with no changes gracefully."""
     watch_cfg = WatchConfig(
@@ -717,12 +707,20 @@ def test_auto_commit_with_no_changes(git_repo: Path) -> None:
                     status_calls = [
                         c
                         for c in mock_run.call_args_list
-                        if len(c[0]) > 1 and c[0][0][1] == "status"
+                        if c.args
+                        and isinstance(c.args[0], list)
+                        and len(c.args[0]) > 1
+                        and c.args[0][0] == "git"
+                        and c.args[0][1] == "status"
                     ]
                     commit_calls = [
                         c
                         for c in mock_run.call_args_list
-                        if len(c[0]) > 1 and c[0][0][1] == "commit"
+                        if c.args
+                        and isinstance(c.args[0], list)
+                        and len(c.args[0]) > 1
+                        and c.args[0][0] == "git"
+                        and c.args[0][1] == "commit"
                     ]
 
                     assert len(status_calls) > 0
@@ -902,9 +900,6 @@ def test_watch_mode_full_cycle_simulation(git_repo: Path) -> None:
                 assert "callback_completed" in events
 
 
-@pytest.mark.xfail(
-    reason="Filesystem timestamp resolution on macOS APFS may be too coarse"
-)
 def test_multiple_file_changes_in_sequence(temp_project: Path) -> None:
     """Test handling multiple file changes in sequence."""
     # Set last_check first
@@ -927,9 +922,6 @@ def test_multiple_file_changes_in_sequence(temp_project: Path) -> None:
         assert file_path in changed
 
 
-@pytest.mark.xfail(
-    reason="Filesystem timestamp resolution on macOS APFS may be too coarse"
-)
 def test_watch_mode_with_subdirectories(temp_project: Path) -> None:
     """Test watching files in subdirectories."""
     # Create nested directory structure
