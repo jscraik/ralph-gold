@@ -1,121 +1,63 @@
 schema_version: 1
 # Repository Guidelines
 
-## Project Structure & Module Organization
+ralph-gold is a uv-first Python CLI orchestrator for deterministic multi-agent work loops with durable filesystem state.
 
-- Core code: `src/ralph_gold/`
-- Tests: `tests/`
-- Docs: `docs/`
-- VS Code bridge extension: `vscode/ralph-bridge/`
-- Install helpers: `scripts/`
+## Mandatory workflow snippet
+1. Explore project first, then invoke skill.
+2. IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any React, Tauri, Apps-SDK-ui, Tailwind, Vite, Storybook + Chat Widget tasks.
+3. Add a Table of Contents for docs.
 
-## Build, Test, and Development Commands
+## Required essentials
+- Package manager: `uv`.
+- Non-standard build/typecheck commands: none.
+- Default compatibility posture: canonical-only.
 
-- `uv sync`: install dependencies into the local env.
-- `uv run pytest -q`: run the test suite.
-- `uv run python -m ralph_gold.cli --help`: smoke-check the CLI.
-- `uv tool install -e .`: install the CLI as a global-ish tool.
+## Tooling essentials
+- Run shell commands with `zsh -lc`.
+- Prefer `rg`, `fd`, and `jq` for search, file discovery, and JSON.
+- Before choosing tools, read `/Users/jamiecraik/.codex/instructions/tooling.md`.
+- Ask before adding dependencies or system settings.
+- Execution mode: single-threaded by default; do not parallelize or spawn subagents unless explicitly requested.
 
-## Coding Style & Naming Conventions
+## References (informational)
+- Global protocol index: `/Users/jamiecraik/.codex/AGENTS.md`
+- Security baseline: `/Users/jamiecraik/.codex/instructions/standards.md`
+- RVCP source of truth: `/Users/jamiecraik/.codex/instructions/rvcp-common.md`
 
-- Python code lives under `src/ralph_gold/`.
-- Prefer small, single-purpose functions and clear error handling.
-- Use `snake_case` for functions/variables and `PascalCase` for classes.
-- Follow existing patterns in adjacent modules; avoid new dependencies without approval.
+## Global discovery order
+1. `/Users/jamiecraik/.codex/AGENTS.md`
+2. Nearest repo `AGENTS.md`
+3. Linked instruction files
+4. If conflicts appear, pause and ask which instruction wins
 
-## Testing Guidelines
+## Documentation map
+### Table of Contents
+- [Instruction map](docs/agents/01-instruction-map.md)
+- [Development workflow](docs/agents/02-development-workflow.md)
+- [Validation and governance](docs/agents/03-validation-and-governance.md)
+- [Contradictions and cleanup](docs/agents/04-contradictions-and-cleanup.md)
 
-- Tests use `pytest` under `tests/`.
-- Name tests `test_*.py` and keep fixtures local to the test file.
-- Run `uv run pytest -q` before opening a PR.
-
-## Commit & Pull Request Guidelines
-
-- Commit message convention: not observed in this repo; keep messages clear and scoped.
-- PRs should include a short summary, test results, and any doc updates for behavior changes.
-
-## Working With Project Instructions
-
-- Global scope: Codex reads `~/.codex/AGENTS.override.md` if present; otherwise `~/.codex/AGENTS.md`.
-- Also check `~/.codex/instructions/` for applicable global standards and guidance.
-- Project scope: Codex discovers instruction files from repo root down to the working directory.
-- Per-directory order: `AGENTS.override.md`, then `AGENTS.md`, then fallback names in `project_doc_fallback_filenames`.
-- Size limit: `project_doc_max_bytes` caps combined instructions (32 KiB default). This is a byte limit, not a token window.
-- Use `CODEX_HOME` to switch profiles (for example, per-project settings).
-- Troubleshoot: empty files are ignored; higher-level overrides win; increase max bytes if truncated.
-
-## ExecPlans
-
-- For complex features or significant refactors, follow ExecPlans (`/Users/jamiecraik/.codex/instructions/plans.md` or `.agent/PLANS.md` if present).
-
-## Philosophy
-
-This codebase will outlive you. Every shortcut becomes someone else's burden. Every hack compounds into technical debt that slows the whole team down. Fight entropy. Leave the codebase better than you found it.
-
-## Security & Configuration Tips
-
-- Treat `.ralph/*` logs as sensitive; do not store secrets in prompts or logs.
-- Prefer least-privilege environments for long-running loops.
----
-
-# AI Assistance Governance (Model A)
-
-This project follows **Model A** AI artifact governance: prompts and session logs are committed artifacts in the repository.
-
-## When creating PRs with AI assistance
-
-Claude must:
-
-1. **Save artifacts to `ai/` directory**:
-   - Final prompt → `ai/prompts/YYYY-MM-DD-<slug>.yaml`
-   - Session summary → `ai/sessions/YYYY-MM-DD-<slug>.json`
-
-2. **Commit both files in the PR branch**:
-   ```bash
-   git add ai/prompts/YYYY-MM-DD-<slug>.yaml ai/sessions/YYYY-MM-DD-<slug>.json
-   ```
-
-3. **Reference exact paths in PR body**:
-   - Under **AI assistance** section:
-     - Prompt: `ai/prompts/YYYY-MM-DD-<slug>.yaml`
-     - Session: `ai/sessions/YYYY-MM-DD-<slug>.json`
-   - In **AI Session Log** details:
-     - Log file: `ai/sessions/YYYY-MM-DD-<slug>.json`
-     - Prompt file: `ai/prompts/YYYY-MM-DD-<slug>.yaml`
-
-4. **Do NOT**:
-   - Embed prompt/log excerpts in the PR body
-   - Link to external logs or pastebins
-   - Skip creating artifacts when AI assistance is acknowledged
-
-5. **Abort** if artifacts cannot be created and committed.
-
-## Artifact Templates
-
-See `ai/prompts/.template.yaml` and `ai/sessions/.template.json` for required fields.
-
-## PR Template
-
-All PRs must use `.github/PULL_REQUEST_TEMPLATE.md` which includes required AI disclosure sections.
+## Local Memory usage
+- Follow `/Users/jamiecraik/.codex/instructions/local-memory.md`.
+- Mandatory workflow before durable notes:
+  - `bootstrap(mode="minimal", include_questions=true, session_id="repo:<name>:task:<id>")`
+  - `search(query="...", session_id="repo:<name>:task:<id>")`
+- Store durable facts only; never store secrets, tokens, keys, or PII.
 
 <!-- AGENT-FIRST-SCAFFOLD:START -->
 ## Agent-First Scaffold Contract (managed by ~/.codex)
 
-This repository participates in Jamie's global agent-first scaffold program.
+This repository uses marker-based scaffold blocks in `AGENTS.md`, `.agent/PLANS.md`, and `README.md`.
 
-Required global references:
-- `/Users/jamiecraik/.codex/instructions/openai-agent-workflow-playbook.md`
+Validation commands:
+- `python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py .agent/PLANS.md`
+- `/Users/jamiecraik/.codex/scripts/verify-work.sh`
+
+Scaffold references (available on disk):
+- `/Users/jamiecraik/.codex/AGENTS.md`
 - `/Users/jamiecraik/.codex/instructions/README.checklist.md`
-- `/Users/jamiecraik/.codex/instructions/validator-contracts.md`
-- `/Users/jamiecraik/.codex/instructions/strict-toggle-governance.md`
-- `/Users/jamiecraik/.codex/instructions/agent-first-scaffold-spec.md`
-
-Repo-level requirements:
-- Maintain `.agent/PLANS.md` using `tasks / id / depends_on` contract.
-- Validate plan files with:
-  `python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py <plan-file>`
-- Run canonical verification:
-  `/Users/jamiecraik/.codex/scripts/verify-work.sh`
-
-State model: `S0 -> S1 -> S2 -> S3 -> S4 -> S5` with rollback to `Sx` on critical governance events.
+- `/Users/jamiecraik/.codex/instructions/standards.md`
+- `/Users/jamiecraik/.codex/instructions/rvcp-common.md`
+- `/Users/jamiecraik/.codex/instructions/plans.md`
 <!-- AGENT-FIRST-SCAFFOLD:END -->
