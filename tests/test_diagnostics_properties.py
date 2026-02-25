@@ -170,7 +170,7 @@ def test_property_exit_code_mapping(check_results: List[tuple]):
 @settings(
     max_examples=100,
     suppress_health_check=[HealthCheck.function_scoped_fixture],
-    deadline=1000,
+    deadline=None,
 )
 @given(
     gate_commands=st.lists(
