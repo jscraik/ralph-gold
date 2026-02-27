@@ -187,6 +187,7 @@ ralph run --agent AGENT [OPTIONS]
 - `--prd-file PATH`: Custom PRD file
 - `--parallel`: Enable parallel execution
 - `--dry-run`: Simulate without running agents
+- `--stream`: Stream runner output live during execution (sequential runs only; ignored with `--parallel`)
 - `--format FORMAT`: Output format (`text`, `json`)
 
 **Exit codes:**
@@ -204,6 +205,9 @@ ralph run --agent claude --max-iterations 20
 
 # Run in quality mode
 ralph run --agent codex --mode quality
+
+# Stream iteration output while running
+ralph run --agent codex --stream
 
 # Dry run to see what would happen
 ralph run --agent codex --dry-run

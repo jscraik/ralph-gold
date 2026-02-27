@@ -1934,6 +1934,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     parallel = getattr(args, "parallel", False)
     max_workers = getattr(args, "max_workers", None)
     dry_run = getattr(args, "dry_run", False)
+    stream = getattr(args, "stream", False)
+    if parallel and stream:
+        print_output(
+            "INFO: --stream is only supported in sequential mode and will be ignored "
+            "when --parallel is enabled.",
+            level="normal",
+        )
+        stream = False
 
     try:
         results = run_loop(
@@ -1944,6 +1952,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             parallel=parallel,
             max_workers=max_workers,
             dry_run=dry_run,
+            stream=stream,
         )
     except RuntimeError as e:
         # Handle rate-limit and other runtime errors
@@ -3926,6 +3935,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Simulate execution without running agents (validate config and show execution plan)",
+    )
+    p_run.add_argument(
+        "--stream",
+        action="store_true",
+        help="Stream runner output live instead of buffering it (sequential mode only)",
     )
     p_run.set_defaults(func=cmd_run)
 

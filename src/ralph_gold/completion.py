@@ -99,7 +99,7 @@ _ralph_completion() {
     local resume_flags="--clear --auto"
     local clean_flags="--logs-days --archives-days --receipts-days --context-days --dry-run"
     local step_flags="--agent --mode --prompt-file --prd-file --dry-run --interactive --task-id --allow-done-target --allow-blocked-target --reopen-target"
-    local run_flags="--agent --mode --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run"
+    local run_flags="--agent --mode --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run --stream"
     local supervise_flags="--agent --mode --max-runtime-seconds --heartbeat-seconds --sleep-seconds-between-runs --on-no-progress-limit --on-rate-limit --notify --no-notify --notify-backend --notify-command"
     local status_flags="--graph --detailed --chart"
     local serve_flags="--host --port"
@@ -546,6 +546,7 @@ _ralph() {
                         '--prd-file[Override files.prd]:file:_files' \
                         '--parallel[Enable parallel execution with git worktrees]' \
                         '--max-workers[Number of parallel workers]:workers:' \
+                        '--stream[Stream runner output live (sequential runs only)]' \
                         '--dry-run[Simulate execution without running agents]'
                     ;;
                 supervise)

@@ -26,7 +26,11 @@ from .receipts import CommandReceipt, NoFilesWrittenReceipt, hash_text, iso_utc,
 from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
 from .state_validation import validate_state_against_prd
-from .subprocess_helper import SubprocessResult, run_subprocess
+from .subprocess_helper import (
+    SubprocessResult,
+    run_subprocess,
+    run_subprocess_live,
+)
 from .trackers import make_tracker
 
 logger = logging.getLogger(__name__)
@@ -81,7 +85,7 @@ class IterationResult:
     no_progress_streak: int
     gates_ok: Optional[bool]
     repo_clean: bool
-    judge_ok: Optional[bool]
+    judge_ok: Optional[bool] = None
     review_ok: Optional[bool] = None
     blocked: bool = False
     attempt_id: Optional[str] = None
@@ -1327,6 +1331,7 @@ def run_iteration(
     allow_done_target: bool = False,
     allow_blocked_target: bool = False,
     reopen_if_needed: bool = False,
+    stream: bool = False,
 ) -> IterationResult:
     cfg = cfg or load_config(project_root)
     cfg, resolved_mode = _resolve_loop_mode(cfg)
@@ -1798,11 +1803,23 @@ def run_iteration(
     start = time.time()
     timed_out = False
     try:
-        result = run_subprocess(
-            argv,
-            cwd=project_root,
-            timeout=timeout,
-        )
+        from .output import get_output_config
+
+        if stream:
+            result = run_subprocess_live(
+                argv,
+                cwd=project_root,
+                timeout=timeout,
+                input_text=stdin_text,
+                forward_output=get_output_config().format != "json",
+            )
+        else:
+            result = run_subprocess(
+                argv,
+                cwd=project_root,
+                timeout=timeout,
+                input_text=stdin_text,
+            )
         runner_ok = result.success
         duration_s = time.time() - start
     except RuntimeError as e:
@@ -2999,6 +3016,7 @@ def run_loop(
     parallel: bool = False,
     max_workers: Optional[int] = None,
     dry_run: bool = False,
+    stream: bool = False,
 ) -> List[IterationResult]:
     """Run the Ralph loop in sequential or parallel mode.
 
@@ -3010,12 +3028,17 @@ def run_loop(
         parallel: Enable parallel execution (overrides config)
         max_workers: Number of parallel workers (overrides config)
         dry_run: If True, simulate execution without running agents
+        stream: If True, stream runner output to terminal during each sequential
+            iteration. This flag is ignored when parallel execution is enabled.
 
     Returns:
         List of iteration results
     """
     cfg = cfg or load_config(project_root)
     cfg, resolved_mode = _resolve_loop_mode(cfg)
+    if parallel and stream:
+        logger.debug("Ignoring stream flag in parallel mode.")
+        stream = False
 
     # Handle dry-run mode
     if dry_run:
@@ -3286,7 +3309,13 @@ def run_loop(
 
     for offset in range(limit):
         i = start_iter + offset
-        res = run_iteration(project_root, agent=agent, cfg=cfg, iteration=i)
+        res = run_iteration(
+            project_root,
+            agent=agent,
+            cfg=cfg,
+            iteration=i,
+            stream=stream,
+        )
         results.append(res)
 
         done = False  # Initialize before try block

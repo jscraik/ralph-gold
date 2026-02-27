@@ -16,14 +16,102 @@ fi
 '''
 
 [[actions]]
+name = "Install dependencies"
+icon = "wrench"
+command = '''
+set -euo pipefail
+
+cd /Users/jamiecraik/dev/ralph-gold
+if command -v uv >/dev/null 2>&1; then
+  uv sync
+else
+  if [ -f requirements.txt ]; then
+    python3 -m pip install -r requirements.txt
+  fi
+fi
+'''
+
+[[actions]]
 name = "Run tests"
 icon = "test"
 command = '''
 set -euo pipefail
 
+cd /Users/jamiecraik/dev/ralph-gold
 if command -v uv >/dev/null 2>&1; then
-  uv run pytest
+  uv run pytest -q
 else
-  python3 -m pytest
+  python3 -m pytest -q
 fi
+'''
+
+[[actions]]
+name = "Lint (ruff)"
+icon = "debug"
+command = '''
+set -euo pipefail
+
+cd /Users/jamiecraik/dev/ralph-gold
+if command -v uv >/dev/null 2>&1; then
+  uv run --with ruff ruff check src tests
+  uv run --with ruff ruff format --check src tests
+else
+  echo "[codex] uv not found; skipping lint checks"
+fi
+'''
+
+[[actions]]
+name = "Typecheck (mypy)"
+icon = "shield"
+command = '''
+set -euo pipefail
+
+cd /Users/jamiecraik/dev/ralph-gold
+if command -v uv >/dev/null 2>&1; then
+  uv run --with mypy mypy src/ralph_gold
+else
+  echo "[codex] uv not found; skipping typecheck"
+fi
+'''
+
+[[actions]]
+name = "Run tests with artifacts"
+icon = "package"
+command = '''
+set -euo pipefail
+
+cd /Users/jamiecraik/dev/ralph-gold
+bash scripts/test-with-artifacts.sh all
+'''
+
+[[actions]]
+name = "Run CLI smoke check"
+icon = "tool"
+command = '''
+set -euo pipefail
+
+cd /Users/jamiecraik/dev/ralph-gold
+if command -v uv >/dev/null 2>&1; then
+  uv run python -m ralph_gold.cli --help
+else
+  python3 -m ralph_gold.cli --help
+fi
+'''
+
+[[actions]]
+name = "Plan graph lint"
+icon = "debug"
+command = '''
+set -euo pipefail
+
+python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py /Users/jamiecraik/dev/ralph-gold/.agent/PLANS.md
+'''
+
+[[actions]]
+name = "Canonical verification"
+icon = "shield"
+command = '''
+set -euo pipefail
+
+bash /Users/jamiecraik/.codex/scripts/verify-work.sh
 '''

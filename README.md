@@ -98,6 +98,10 @@ Run N iterations:
 
 ```bash
 ralph run --agent codex --max-iterations 10
+
+# Stream runner output during the loop
+# (sequential runs only; ignored with --parallel)
+ralph run --agent codex --stream
 ```
 
 Exit codes:
@@ -743,7 +747,7 @@ ralph <TAB>
 
 # Tab completion for flags
 ralph run --<TAB>
-# Shows: --agent --max-iterations --prompt-file --prd-file --parallel ...
+# Shows: --agent --max-iterations --prompt-file --prd-file --parallel --stream ...
 
 # Tab completion for agent names
 ralph step --agent <TAB>

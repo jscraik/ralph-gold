@@ -113,6 +113,7 @@ def test_generate_bash_completion_contains_command_specific_flags():
     assert "--interactive" in script  # step
     assert "--task-id" in script  # step targeted execution
     assert "--reopen-target" in script  # step targeted execution
+    assert "--stream" in script  # run streaming mode
     assert "--graph" in script  # status
     assert "--detailed" in script  # status
     assert "--chart" in script  # status
@@ -261,6 +262,7 @@ def test_generate_zsh_completion_contains_command_specific_flags():
     assert "--interactive" in script  # step
     assert "--task-id" in script  # step targeted execution
     assert "--reopen-target" in script  # step targeted execution
+    assert "--stream" in script  # run streaming mode
     assert "--graph" in script  # status
     assert "--execution-mode" in script  # harness run modes
     assert "--strict-targeting" in script  # harness run targeting

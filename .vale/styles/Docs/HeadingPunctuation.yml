@@ -1,0 +1,7 @@
+extends: existence
+message: "Avoid punctuation in headings unless required."
+level: suggestion
+scope: heading
+nonword: true
+tokens:
+  - '[.!?]$'

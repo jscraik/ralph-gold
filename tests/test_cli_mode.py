@@ -60,8 +60,10 @@ def test_run_mode_overrides_loop_config(tmp_path: Path, monkeypatch) -> None:
         parallel: bool = False,
         max_workers: int | None = None,
         dry_run: bool = False,
+        stream: bool = False,
     ):
         captured["mode"] = cfg.loop.mode
+        captured["stream"] = stream
         return []
 
     monkeypatch.setattr("ralph_gold.cli.run_loop", mock_run_loop)
@@ -75,11 +77,91 @@ def test_run_mode_overrides_loop_config(tmp_path: Path, monkeypatch) -> None:
         parallel=False,
         max_workers=None,
         dry_run=True,
+        stream=True,
     )
 
     exit_code = cmd_run(args)
     assert exit_code == 0
     assert captured["mode"] == "exploration"
+    assert captured["stream"] is True
+
+
+def test_run_mode_stream_flag_is_forwarded(tmp_path: Path, monkeypatch) -> None:
+    """Ensure --stream flag is passed to loop runtime."""
+    monkeypatch.chdir(tmp_path)
+
+    captured = {}
+
+    def mock_run_loop(
+        project_root: Path,
+        agent: str,
+        max_iterations: int | None = None,
+        cfg=None,
+        parallel: bool = False,
+        max_workers: int | None = None,
+        dry_run: bool = False,
+        stream: bool = False,
+    ):
+        captured["stream"] = stream
+        return []
+
+    monkeypatch.setattr("ralph_gold.cli.run_loop", mock_run_loop)
+
+    args = SimpleNamespace(
+        agent="codex",
+        mode=None,
+        max_iterations=None,
+        prompt_file=None,
+        prd_file=None,
+        parallel=False,
+        max_workers=None,
+        dry_run=True,
+        stream=True,
+    )
+
+    exit_code = cmd_run(args)
+    assert exit_code == 0
+    assert captured["stream"] is True
+
+
+def test_run_mode_stream_flag_disabled_with_parallel(tmp_path: Path, monkeypatch) -> None:
+    """Parallel runs cannot stream live output, so --stream should be ignored."""
+    monkeypatch.chdir(tmp_path)
+
+    captured = {}
+
+    def mock_run_loop(
+        project_root: Path,
+        agent: str,
+        max_iterations: int | None = None,
+        cfg=None,
+        parallel: bool = False,
+        max_workers: int | None = None,
+        dry_run: bool = False,
+        stream: bool = False,
+    ):
+        captured["parallel"] = parallel
+        captured["stream"] = stream
+        return []
+
+    monkeypatch.setattr("ralph_gold.cli.run_loop", mock_run_loop)
+
+    args = SimpleNamespace(
+        agent="codex",
+        mode=None,
+        max_iterations=None,
+        prompt_file=None,
+        prd_file=None,
+        parallel=True,
+        max_workers=None,
+        dry_run=True,
+        stream=True,
+    )
+
+    exit_code = cmd_run(args)
+    assert exit_code == 0
+    assert captured["parallel"] is True
+    assert captured["stream"] is False
 
 
 def test_invalid_mode_rejected() -> None:
