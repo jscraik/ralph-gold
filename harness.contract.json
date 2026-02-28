@@ -1,10 +1,11 @@
 {
   "version": "1.2.0",
   "riskTierRules": {
-    "src/auth/**": "high",
-    "src/api/**": "high",
-    "src/lib/**": "medium",
-    "**/*.test.ts": "low"
+    "src/ralph_gold/bridge/**": "high",
+    "src/ralph_gold/cli.py": "high",
+    "src/ralph_gold/*.py": "medium",
+    "tests/**/*.py": "low",
+    "**/__pycache__/**": "low"
   },
   "mergePolicy": {
     "high": [
@@ -35,9 +36,9 @@
     "overrideLabel": "diff-budget-override"
   },
   "uiLoopPolicy": {
-    "fastCommand": "npm ui:fast",
-    "verifyCommand": "npm ui:verify",
-    "exploreCommand": "npm ui:explore",
+    "fastCommand": "uv run ui:fast",
+    "verifyCommand": "uv run ui:verify",
+    "exploreCommand": "uv run ui:explore",
     "sloTargets": {
       "fastLoopSeconds": 30,
       "verifyLoopSeconds": 120
@@ -93,11 +94,10 @@
   },
   "packageManagerPolicy": {
     "allowedManagers": [
-      "pnpm",
-      "npm",
-      "yarn"
+      "uv",
+      "pip"
     ],
-    "requiredManager": null
+    "requiredManager": "uv"
   },
   "remediationPolicy": {
     "providerDefaults": {
