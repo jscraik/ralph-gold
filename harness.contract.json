@@ -1,0 +1,145 @@
+{
+  "version": "1.2.0",
+  "riskTierRules": {
+    "src/auth/**": "high",
+    "src/api/**": "high",
+    "src/lib/**": "medium",
+    "**/*.test.ts": "low"
+  },
+  "mergePolicy": {
+    "high": [
+      "review-gate",
+      "evidence-verify"
+    ],
+    "medium": [
+      "review-gate"
+    ],
+    "low": []
+  },
+  "docsDriftRules": {},
+  "reviewPolicy": {
+    "timeoutSeconds": 600,
+    "timeoutAction": "fail"
+  },
+  "evidencePolicy": {
+    "requiredFor": [],
+    "allowedTypes": [
+      "png",
+      "jpeg"
+    ],
+    "maxFileSizeBytes": 1048576
+  },
+  "diffBudget": {
+    "maxFiles": 10,
+    "maxNetLOC": 400,
+    "overrideLabel": "diff-budget-override"
+  },
+  "uiLoopPolicy": {
+    "fastCommand": "npm ui:fast",
+    "verifyCommand": "npm ui:verify",
+    "exploreCommand": "npm ui:explore",
+    "sloTargets": {
+      "fastLoopSeconds": 30,
+      "verifyLoopSeconds": 120
+    }
+  },
+  "runtimePolicy": {
+    "nodeVersion": "20.x"
+  },
+  "memoryPolicy": {
+    "enabled": true,
+    "provider": "local",
+    "sessionIdTemplate": "repo:<name>:task:<id>",
+    "domain": "default",
+    "requiredTags": [
+      "repo",
+      "area",
+      "type"
+    ],
+    "maxObservationsPerStep": 3,
+    "allowedLevels": [
+      "observation",
+      "learning",
+      "pattern"
+    ],
+    "requireStartRead": true,
+    "requireCloseoutSummary": true,
+    "forbiddenContentPatterns": [
+      "token",
+      "api[_-]?key",
+      "secret",
+      "password",
+      "credential"
+    ]
+  },
+  "memoryMaintenancePolicy": {
+    "validateSchedule": "weekly",
+    "reflectSchedule": "weekly",
+    "questionSlaDays": 7,
+    "duplicateThreshold": 0.8
+  },
+  "memoryEvalPolicy": {
+    "trialsPerTask": 3,
+    "requiredMetrics": [
+      "pass^k",
+      "tool_errors",
+      "duplicate_rate"
+    ],
+    "passPowKThreshold": 0.8
+  },
+  "observabilityPolicy": {
+    "provider": "logs",
+    "collectorEndpoint": "http://localhost:4318"
+  },
+  "packageManagerPolicy": {
+    "allowedManagers": [
+      "pnpm",
+      "npm",
+      "yarn"
+    ],
+    "requiredManager": null
+  },
+  "remediationPolicy": {
+    "providerDefaults": {
+      "greptile": {
+        "autoApplyMaxTier": "medium",
+        "dryRunOnlyByDefault": false
+      },
+      "codex": {
+        "autoApplyMaxTier": "medium",
+        "dryRunOnlyByDefault": false
+      }
+    },
+    "marker": "[auto-remediate]",
+    "timeoutMinutes": 10,
+    "retryLimit": 3,
+    "requireEvidence": true
+  },
+  "pilotGapCasePolicy": {
+    "enabled": false,
+    "defaultSlaHours": 72,
+    "requireClosureEvidence": true,
+    "storePath": ".harness/gap-cases.v1.json"
+  },
+  "pilotRollbackPolicy": {
+    "autoTrigger": true,
+    "requireManualRelease": true,
+    "completionMarkerPath": ".harness/rollback-marker.json",
+    "mode": "manual"
+  },
+  "pilotAuthzPolicy": {
+    "githubScopeAllowlist": [
+      "pull_requests:write",
+      "contents:read",
+      "issues:write"
+    ],
+    "repoAllowlist": [],
+    "branchAllowlist": [],
+    "protectedBranchDenylist": [
+      "main",
+      "master",
+      "release/*"
+    ],
+    "enforceBranchProtection": true
+  }
+}

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Wrapper for @brainwav/coding-harness CLI
+# Works around npm bin shim issue in global install
+set -euo pipefail
+NODE_VERSION="24.13.1"
+exec node "/Users/jamiecraik/.local/share/mise/installs/node/${NODE_VERSION}/lib/node_modules/@brainwav/coding-harness/dist/cli.js" "$@"
