@@ -76,3 +76,7 @@ Scaffold references (available on disk):
   - `artifacts/test/artifact-manifest.json`
 - Keep artifact filenames stable (no timestamps in filenames) so recurring flake scans can compare runs.
 
+
+## Repository preflight helper
+- Use `scripts/codex-preflight.sh` before multi-step, destructive, or path-sensitive workflows.
+- Source it with `source scripts/codex-preflight.sh` and run `preflight_repo` (or `preflight_js`, `preflight_py`, `preflight_rust`) as a guard before changing repo state.
