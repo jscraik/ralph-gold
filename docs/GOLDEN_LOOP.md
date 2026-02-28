@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # Golden Ralph Loop (reference)
 
 This repository packages a pragmatic “gold” Ralph loop:

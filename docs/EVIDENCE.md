@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # Evidence System
 
 **Version:** 1.0

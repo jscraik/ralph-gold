@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # YAML Tracker
 
 The YAML tracker provides a structured, machine-editable task format with native support for parallel execution grouping.

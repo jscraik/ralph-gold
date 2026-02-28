@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # Ralph Gold - New Features Summary
 
 ## Recently Implemented Features

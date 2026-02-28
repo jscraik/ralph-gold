@@ -1,6 +1,7 @@
 ---
 date: 2026-02-26
 topic: ralph-afk-streaming-and-dead-weight-cleanup
+last_validated: 2026-02-28
 ---
 
 # Ralph AFK Streaming + Dead-Weight Cleanup

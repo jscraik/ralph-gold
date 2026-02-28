@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # Migration Guide: v0.7.x to v0.8.0
 
 **Version:** 0.8.0

@@ -4,6 +4,7 @@ type: feat
 status: active
 date: 2026-02-26
 origin: docs/brainstorms/2026-02-26-ralph-afk-streaming-and-dead-weight-cleanup-brainstorm.md
+last_validated: 2026-02-28
 ---
 
 # 🏗️ Add AFK Streaming + Dead-Weight Cleanup

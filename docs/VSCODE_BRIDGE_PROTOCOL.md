@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # VS Code Bridge Protocol (v1)
 
 The **Golden Ralph Loop** can be controlled from VS Code using a **JSON-RPC 2.0** bridge over **stdio**.

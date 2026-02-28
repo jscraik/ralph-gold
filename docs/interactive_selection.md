@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # Interactive Task Selection
 
 The interactive task selection module allows users to manually choose which task to work on from a list of available tasks.

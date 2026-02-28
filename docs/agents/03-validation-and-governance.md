@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # Validation and governance
 
 ## Working with project instructions

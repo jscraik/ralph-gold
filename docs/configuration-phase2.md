@@ -1,3 +1,7 @@
+---
+last_validated: 2026-02-28
+---
+
 # Ralph Gold Phase 2 Configuration Guide
 
 This document describes the configuration options added in Phase 2 enhancements.
