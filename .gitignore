@@ -66,5 +66,8 @@ htmlcov/
 
 FORJAMIE.md
 
+# Harness artifacts
+.harness/
+.memory-metrics.json
 
 environment.toml
