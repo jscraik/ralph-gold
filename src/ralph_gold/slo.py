@@ -11,7 +11,7 @@ Phase 5: SLO tracking with error budget calculation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from .metrics import MetricsSnapshot
 

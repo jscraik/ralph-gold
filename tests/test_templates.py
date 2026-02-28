@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from ralph_gold.templates import (
     TaskTemplate,
@@ -564,7 +566,7 @@ def test_create_task_with_special_characters_in_title(tmp_path: Path):
 
     # Title with special characters
     variables = {"title": 'User\'s "login" & <logout> issues'}
-    task_id = create_task_from_template(bug_fix, variables, tracker)
+    create_task_from_template(bug_fix, variables, tracker)
 
     updated_data = json.loads(prd_path.read_text(encoding="utf-8"))
     new_task = updated_data["stories"][0]
@@ -594,7 +596,7 @@ def test_create_task_with_empty_acceptance_criteria(tmp_path: Path):
         variables=["title"],
     )
 
-    task_id = create_task_from_template(template, {"title": "Test"}, tracker)
+    create_task_from_template(template, {"title": "Test"}, tracker)
 
     updated_data = json.loads(prd_path.read_text(encoding="utf-8"))
     new_task = updated_data["stories"][0]
@@ -661,9 +663,6 @@ def test_json_task_id_extracts_number_correctly(tmp_path: Path):
 
 
 # Property-based tests using hypothesis
-
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 # Property 28: Template variable substitution
 # **Validates: Requirements 10.1**

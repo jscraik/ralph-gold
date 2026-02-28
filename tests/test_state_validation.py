@@ -6,8 +6,6 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-import pytest
-
 from ralph_gold.state_validation import (
     ValidationResult,
     validate_state_against_prd,
@@ -328,7 +326,7 @@ class TestValidateStateAgainstPrd:
         time.sleep(0.1)
         prd_path.touch()
 
-        result = validate_state_against_prd(tmp_path, prd_path, state_file)
+        validate_state_against_prd(tmp_path, prd_path, state_file)
 
         # Should not allow auto-cleanup if PRD was modified recently
         # (within 60 seconds of state modification)
@@ -512,7 +510,7 @@ Task 1
         }
         state_file.write_text(json.dumps(original_state), encoding="utf-8")
 
-        removed = cleanup_stale_task_ids(
+        cleanup_stale_task_ids(
             tmp_path, prd_path, state_file, dry_run=False
         )
 

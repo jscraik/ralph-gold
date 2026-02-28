@@ -6,8 +6,6 @@ import json
 import logging
 import os
 import re
-import shutil
-import subprocess
 import time
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -18,9 +16,9 @@ from .adaptive_timeout import calculate_adaptive_timeout
 from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
 from .authorization import AuthorizationError, EnforcementMode, load_authorization_checker
-from .config import Config, LoopModeConfig, RunnerConfig, load_config
+from .config import Config, GatesConfig, LoopModeConfig, RunnerConfig, load_config
 from .context_manager import check_context_health, load_progress_window
-from .evidence import EvidenceReceipt, extract_evidence
+from .evidence import EvidenceReceipt
 from .prd import SelectedTask, select_task_by_id, task_status_by_id
 from .receipts import CommandReceipt, NoFilesWrittenReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
@@ -375,7 +373,7 @@ def _read_text_if_exists(path: Path, limit_chars: int = 200_000) -> str:
         if len(text) > limit_chars:
             return text[:limit_chars] + "\n...<truncated>...\n"
         return text
-    except OSError as e:
+    except OSError:
         return ""
 
 
@@ -2915,10 +2913,6 @@ def _print_no_files_warning(receipt: NoFilesWrittenReceipt) -> None:
         "Receipt saved to: .ralph/receipts/no_files_written.json\n"
         "\n"
     )
-    cause_lines = "\n".join(f"  * {c}" for c in receipt.possible_causes)
-    remediation_lines = "\n".join(
-        f"  {line}" for line in receipt.remediation.split("\n")
-    )
 
     print(warning_box)
 
@@ -3174,7 +3168,7 @@ def run_loop(
                                 level="warning",
                             )
                         print_output(
-                            f"Run 'ralph state cleanup' to remove stale task IDs",
+                            "Run 'ralph state cleanup' to remove stale task IDs",
                             level="info",
                         )
 

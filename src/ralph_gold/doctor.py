@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .config import Config
-from .subprocess_helper import check_command_available, run_subprocess
+from .subprocess_helper import run_subprocess
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,6 @@ from ralph_gold.clean import (
     clean_all,
     clean_archives,
     clean_context,
-    clean_contexts,
     clean_logs,
     clean_receipts,
     format_bytes,

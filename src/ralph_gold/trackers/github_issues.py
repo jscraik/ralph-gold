@@ -19,10 +19,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-logger = logging.getLogger(__name__)
-
 from ..github_auth import GitHubAuth, GitHubAuthError, create_auth
 from ..prd import SelectedTask, TaskId
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -403,7 +403,7 @@ class GitHubIssuesTracker:
         for issue in issues:
             labels = issue.get("labels", [])
             if isinstance(labels, list):
-                label_names = [l.get("name", "") for l in labels if isinstance(l, dict)]
+                label_names = [lbl.get("name", "") for lbl in labels if isinstance(lbl, dict)]
                 if "blocked" not in label_names:
                     return False
         return True
@@ -489,7 +489,7 @@ class GitHubIssuesTracker:
         if issue is not None:
             labels = issue.get("labels", [])
             if isinstance(labels, list):
-                label_names = [l.get("name", "") for l in labels if isinstance(l, dict)]
+                label_names = [lbl.get("name", "") for lbl in labels if isinstance(lbl, dict)]
                 if "blocked" in label_names:
                     return "blocked"
             return "open"
@@ -502,7 +502,7 @@ class GitHubIssuesTracker:
             return "done"
         labels = issue.get("labels", [])
         if isinstance(labels, list):
-            label_names = [l.get("name", "") for l in labels if isinstance(l, dict)]
+            label_names = [lbl.get("name", "") for lbl in labels if isinstance(lbl, dict)]
             if "blocked" in label_names:
                 return "blocked"
         return "open"

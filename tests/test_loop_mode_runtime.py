@@ -5,8 +5,6 @@ import subprocess
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
-
 from ralph_gold.loop import IterationResult, load_state, run_iteration, run_loop
 from ralph_gold.config import load_config
 from ralph_gold.output import OutputConfig, get_output_config, set_output_config

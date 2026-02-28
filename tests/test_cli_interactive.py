@@ -231,7 +231,7 @@ prd = "tasks.md"
 
         # Run cmd_step - this will actually run, but that's okay
         # We just want to verify the selector wasn't called
-        result = cmd_step(args)
+        cmd_step(args)
 
         # Verify interactive selection was NOT called
         assert not mock_select.called

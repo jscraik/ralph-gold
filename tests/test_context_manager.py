@@ -6,9 +6,6 @@ and archiving functionality.
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from ralph_gold.context_manager import (

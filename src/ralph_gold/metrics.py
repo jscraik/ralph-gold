@@ -262,8 +262,6 @@ def create_metrics_from_iteration(
     Returns:
         IterationMetrics populated with provided data
     """
-    import time
-
     spec_chars_total = 0
     spec_chars_truncated = 0
     spec_files_included = 0

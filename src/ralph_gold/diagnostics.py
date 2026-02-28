@@ -683,7 +683,7 @@ def validate_specs_size(project_root: Path, cfg: Config) -> List[DiagnosticResul
     if spec_result.warnings:
         suggestions = [
             "Consider splitting large specs into smaller files",
-            f"Set [prompt].enable_limits = true in ralph.toml to enforce limits",
+            "Set [prompt].enable_limits = true in ralph.toml to enforce limits",
             "Use [prompt].max_specs_files to reduce the number of specs loaded",
         ]
         results.append(

@@ -7,6 +7,7 @@ calculate velocity for ETA estimation.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -14,6 +15,8 @@ from typing import Any, Dict, List, Optional
 
 from .prd import status_counts
 from .trackers import Tracker
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

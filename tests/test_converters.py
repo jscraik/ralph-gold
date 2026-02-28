@@ -400,5 +400,5 @@ def test_yaml_output_is_readable(tmp_json_prd: Path, tmp_path: Path):
 
     # Check proper indentation
     lines = content.split("\n")
-    task_lines = [l for l in lines if l.strip().startswith("- id:")]
+    task_lines = [line for line in lines if line.strip().startswith("- id:")]
     assert len(task_lines) == 3  # Should have 3 tasks

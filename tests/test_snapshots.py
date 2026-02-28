@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 
 from ralph_gold.snapshots import (
     cleanup_old_snapshots,
@@ -94,7 +98,7 @@ def test_create_snapshot_creates_git_stash(git_repo: Path) -> None:
     test_file = git_repo / "test.txt"
     test_file.write_text("modified content", encoding="utf-8")
 
-    snapshot = create_snapshot(git_repo, "my-snapshot", "Before refactor")
+    create_snapshot(git_repo, "my-snapshot", "Before refactor")
 
     # Verify stash was created
     result = subprocess.run(
@@ -255,13 +259,13 @@ def test_list_snapshots_multiple(git_repo: Path) -> None:
 
     # Create snapshots with changes
     test_file.write_text("version 1", encoding="utf-8")
-    snap1 = create_snapshot(git_repo, "snapshot-1", "First")
+    create_snapshot(git_repo, "snapshot-1", "First")
 
     test_file.write_text("version 2", encoding="utf-8")
-    snap2 = create_snapshot(git_repo, "snapshot-2", "Second")
+    create_snapshot(git_repo, "snapshot-2", "Second")
 
     test_file.write_text("version 3", encoding="utf-8")
-    snap3 = create_snapshot(git_repo, "snapshot-3", "Third")
+    create_snapshot(git_repo, "snapshot-3", "Third")
 
     snapshots = list_snapshots(git_repo)
     assert len(snapshots) == 3
@@ -348,7 +352,7 @@ def test_rollback_snapshot_restores_state(git_repo: Path) -> None:
     test_file.write_text("snapshot version", encoding="utf-8")
 
     # Create snapshot
-    snapshot = create_snapshot(git_repo, "state-rollback")
+    create_snapshot(git_repo, "state-rollback")
 
     # Load the state that was saved (includes snapshot metadata)
     saved_state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -484,19 +488,19 @@ def test_cleanup_old_snapshots_removes_oldest(git_repo: Path) -> None:
 
     # Create 5 snapshots
     test_file.write_text("snap 1", encoding="utf-8")
-    snap1 = create_snapshot(git_repo, "snap-1", "Oldest")
+    create_snapshot(git_repo, "snap-1", "Oldest")
 
     test_file.write_text("snap 2", encoding="utf-8")
-    snap2 = create_snapshot(git_repo, "snap-2", "Old")
+    create_snapshot(git_repo, "snap-2", "Old")
 
     test_file.write_text("snap 3", encoding="utf-8")
-    snap3 = create_snapshot(git_repo, "snap-3", "Middle")
+    create_snapshot(git_repo, "snap-3", "Middle")
 
     test_file.write_text("snap 4", encoding="utf-8")
-    snap4 = create_snapshot(git_repo, "snap-4", "Recent")
+    create_snapshot(git_repo, "snap-4", "Recent")
 
     test_file.write_text("snap 5", encoding="utf-8")
-    snap5 = create_snapshot(git_repo, "snap-5", "Newest")
+    create_snapshot(git_repo, "snap-5", "Newest")
 
     # Keep only 3 most recent
     removed = cleanup_old_snapshots(git_repo, keep_count=3)
@@ -564,10 +568,10 @@ def test_cleanup_old_snapshots_partial_failure(git_repo: Path) -> None:
     snap1 = create_snapshot(git_repo, "fail-1")
 
     test_file.write_text("fail 2", encoding="utf-8")
-    snap2 = create_snapshot(git_repo, "fail-2")
+    create_snapshot(git_repo, "fail-2")
 
     test_file.write_text("fail 3", encoding="utf-8")
-    snap3 = create_snapshot(git_repo, "fail-3")
+    create_snapshot(git_repo, "fail-3")
 
     # Remove one backup file manually to cause partial failure
     backup1 = git_repo / snap1.state_backup_path
@@ -586,15 +590,15 @@ def test_create_multiple_snapshots_incremental(git_repo: Path) -> None:
 
     # Snapshot 1
     test_file.write_text("version 1", encoding="utf-8")
-    snap1 = create_snapshot(git_repo, "version-1", "First version")
+    create_snapshot(git_repo, "version-1", "First version")
 
     # Snapshot 2
     test_file.write_text("version 2", encoding="utf-8")
-    snap2 = create_snapshot(git_repo, "version-2", "Second version")
+    create_snapshot(git_repo, "version-2", "Second version")
 
     # Snapshot 3
     test_file.write_text("version 3", encoding="utf-8")
-    snap3 = create_snapshot(git_repo, "version-3", "Third version")
+    create_snapshot(git_repo, "version-3", "Third version")
 
     # Verify all snapshots exist
     snapshots = list_snapshots(git_repo)
@@ -690,7 +694,7 @@ def test_rollback_preserves_other_snapshots(git_repo: Path) -> None:
 
     # Create a snapshot
     test_file.write_text("snap 1", encoding="utf-8")
-    snap1 = create_snapshot(git_repo, "snap-1")
+    create_snapshot(git_repo, "snap-1")
 
     # Verify snapshot was added to state
     current_state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -748,12 +752,6 @@ def test_snapshot_state_backup_path_format(git_repo: Path) -> None:
 # ============================================================================
 # Property-Based Tests (Task 7.4)
 # ============================================================================
-
-import shutil
-import tempfile
-
-from hypothesis import assume, given, settings, HealthCheck
-from hypothesis import strategies as st
 
 
 def _create_test_git_repo() -> Path:

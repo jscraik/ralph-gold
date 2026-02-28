@@ -32,7 +32,7 @@ from .output import (
     print_output,
     set_output_config,
 )
-from .path_utils import validate_project_path, validate_output_path
+from .path_utils import validate_project_path
 from .scaffold import init_project
 from .snapshots import (
     create_snapshot,
@@ -43,6 +43,8 @@ from .specs import check_specs, format_specs_check
 from .stats import calculate_stats, export_stats_csv, format_stats_report
 from .trackers import make_tracker
 from .watch import run_watch_mode
+
+logger = logging.getLogger(__name__)
 
 
 def _project_root() -> Path:
@@ -286,7 +288,6 @@ def _doctor_check_github(project_root: Path, args: argparse.Namespace) -> int:
                 )
             except OSError as e:
                 logger.debug("State load failed: %s", e)
-                state = {}
 
             return 0
         else:

@@ -25,7 +25,6 @@ from .adaptive_timeout import (
     estimate_task_complexity,
 )
 from .config import load_config
-from .prd import SelectedTask
 from .trackers import Tracker, make_tracker
 
 logger = logging.getLogger(__name__)
@@ -247,18 +246,18 @@ class BlockedTaskManager:
 
         if task_info.reason == BlockReason.NO_FILES.value:
             return (
-                f"Strategy: Investigate why agent wrote no files.\n"
-                f"  Check logs: .ralph/logs/iteration-*.log\n"
-                f"  Check receipts: .ralph/receipts/no_files_written.json\n"
-                f"  May need: Clarified task acceptance criteria or prompt adjustment"
+                "Strategy: Investigate why agent wrote no files.\n"
+                "  Check logs: .ralph/logs/iteration-*.log\n"
+                "  Check receipts: .ralph/receipts/no_files_written.json\n"
+                "  May need: Clarified task acceptance criteria or prompt adjustment"
             )
 
         if task_info.reason == BlockReason.GATE_FAILURE.value:
             return (
-                f"Strategy: Fix failing gates before retry.\n"
-                f"  Run: ralph gates\n"
-                f"  Or temporarily disable: gates.commands = [] in .ralph/ralph.toml\n"
-                f"  Document why gates cannot be fixed in .ralph/progress.md"
+                "Strategy: Fix failing gates before retry.\n"
+                "  Run: ralph gates\n"
+                "  Or temporarily disable: gates.commands = [] in .ralph/ralph.toml\n"
+                "  Document why gates cannot be fixed in .ralph/progress.md"
             )
 
         if task_info.reason == BlockReason.ATTEMPT_LIMIT.value:
@@ -277,8 +276,8 @@ class BlockedTaskManager:
             )
 
         return (
-            f"Strategy: Review task and determine appropriate action.\n"
-            f"  Manual intervention may be required."
+            "Strategy: Review task and determine appropriate action.\n"
+            "  Manual intervention may be required."
         )
 
     def unblock_task(

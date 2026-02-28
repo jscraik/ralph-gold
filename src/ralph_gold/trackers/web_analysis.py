@@ -30,7 +30,6 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import urljoin, urlparse
@@ -45,19 +44,19 @@ logger = logging.getLogger(__name__)
 
 # Optional dependencies for enhanced functionality
 try:
-    import aiohttp
+    import aiohttp  # noqa: F401
     AIOHTTP_AVAILABLE = True
 except ImportError:
     AIOHTTP_AVAILABLE = False
 
 try:
-    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup  # noqa: F401
     BS4_AVAILABLE = True
 except ImportError:
     BS4_AVAILABLE = False
 
 try:
-    from playwright.async_api import async_playwright
+    from playwright.async_api import async_playwright  # noqa: F401
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False

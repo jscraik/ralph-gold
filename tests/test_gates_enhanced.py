@@ -7,7 +7,6 @@ from ralph_gold.loop import (
     _discover_precommit_hook,
     _truncate_output,
     _format_gate_results,
-    _get_changed_files,
     _should_skip_gates,
     GateResult,
     run_gates,

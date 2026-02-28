@@ -15,8 +15,6 @@ from __future__ import annotations
 from pathlib import Path
 import time
 
-import pytest
-
 from ralph_gold.loop import (
     _snapshot_project_files,
     _check_files_written,
@@ -135,7 +133,6 @@ class TestCheckFilesWritten:
     def test_excludes_ralph_internal_files(self, tmp_path: Path) -> None:
         """Test that .ralph internal files don't count as written."""
         (tmp_path / "existing.py").write_text("old")
-        before = _snapshot_project_files(tmp_path)
 
         # Only .ralph files added
         (tmp_path / ".ralph").mkdir()

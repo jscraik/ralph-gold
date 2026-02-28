@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from ralph_gold.loop import dry_run_loop
 
@@ -115,7 +117,7 @@ def test_dry_run_does_not_execute_agents(ralph_project: Path, monkeypatch):
     monkeypatch.setattr(subprocess, "run", mock_run)
 
     # Run dry-run
-    result = dry_run_loop(ralph_project, "codex", 5)
+    dry_run_loop(ralph_project, "codex", 5)
 
     # Verify no agent processes were spawned
     # The mock agent command is ["echo", "mock-agent"]
@@ -133,7 +135,7 @@ def test_dry_run_does_not_modify_files(ralph_project: Path):
     prd_content = (ralph_project / "prd.json").read_text()
 
     # Run dry-run
-    result = dry_run_loop(ralph_project, "codex", 5)
+    dry_run_loop(ralph_project, "codex", 5)
 
     # Verify files are unchanged
     assert (ralph_project / "README.md").read_text() == readme_content
@@ -260,9 +262,6 @@ def test_dry_run_with_no_history(ralph_project: Path):
 
 # Property-Based Tests
 
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
-
 
 @given(
     max_iterations=st.integers(min_value=1, max_value=100),
@@ -337,7 +336,7 @@ prd = "prd.json"
 
     # Run dry-run
     try:
-        result = dry_run_loop(git_repo, "codex", max_iterations)
+        dry_run_loop(git_repo, "codex", max_iterations)
     except Exception:
         # Even if dry-run fails, it should not execute agents or modify files
         pass

@@ -3,8 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from ralph_gold.trackers.yaml_tracker import YamlTracker
 from ralph_gold.trackers import FileTracker
 from ralph_gold.prd import all_blocked as prd_all_blocked

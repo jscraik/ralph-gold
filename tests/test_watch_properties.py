@@ -51,7 +51,7 @@ def test_property_19_debouncing_single_execution(
     """
     # Setup
     debounce_seconds = debounce_ms / 1000.0
-    watch_cfg = WatchConfig(
+    WatchConfig(
         enabled=True,
         patterns=["**/*.py"],
         debounce_ms=debounce_ms,

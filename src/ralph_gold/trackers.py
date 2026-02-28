@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
 
-logger = logging.getLogger(__name__)
-
 from .config import Config
 from .prd import (
     SelectedTask,
@@ -27,6 +25,8 @@ from .prd import force_task_open as prd_force_open
 from .prd import is_task_done as prd_is_done
 from .prd import select_next_task as prd_select_next
 from .prd import task_counts as prd_counts
+
+logger = logging.getLogger(__name__)
 
 
 class Tracker(Protocol):

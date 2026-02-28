@@ -4,7 +4,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Import for type annotation only (avoid circular dependency at runtime)
 from typing import TYPE_CHECKING
@@ -667,7 +667,7 @@ def _coerce_bool(value: Any, default: bool) -> bool:
 def _load_toml(path: Path) -> Dict[str, Any]:
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
-    except (tomli.TOMLDecodeError, OSError) as e:
+    except (tomllib.TOMLDecodeError, OSError) as e:
         logger.debug("Failed to load TOML: %s", e)
         return {}
 

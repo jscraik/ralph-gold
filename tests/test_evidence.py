@@ -289,8 +289,7 @@ class TestExtractEvidence:
 
     def test_extract_evidence_truncates_context(self) -> None:
         """Test that context is truncated to 200 chars."""
-        long_context = "x" * 300
-        output = f"**Evidence**: src/file.py:42"
+        output = "**Evidence**: src/file.py:42"
         # Note: Current implementation doesn't capture context in regex
         # This test documents the behavior
         citations = extract_evidence(output)

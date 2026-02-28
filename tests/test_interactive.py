@@ -6,6 +6,8 @@ from io import StringIO
 from unittest.mock import patch
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from ralph_gold.interactive import (
     TaskChoice,
@@ -501,10 +503,6 @@ def test_select_task_interactive_search_no_results(sample_tasks):
 # Property-based tests using hypothesis
 
 
-from hypothesis import given, settings
-from hypothesis import strategies as st
-
-
 # Custom strategies for generating test data
 @st.composite
 def task_choice_strategy(draw: st.DrawFn) -> TaskChoice:
@@ -607,7 +605,7 @@ def test_property_10_blocked_filter_completeness(tasks: list[TaskChoice]):
             )
 
     # Test with show_blocked=False
-    result_without_blocked = format_task_list(tasks, show_blocked=False)
+    format_task_list(tasks, show_blocked=False)
 
     # Count how many unblocked tasks exist
     unblocked_count = sum(1 for t in tasks if not t.blocked)

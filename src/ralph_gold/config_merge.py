@@ -197,7 +197,6 @@ def merge_configs_text(
         if len(parts) == 1:
             # Replace top-level section
             section_name = parts[0]
-            section_pattern = re.compile(rf"^\[{re.escape(section_name)}\]")
 
             # Find section in template
             template_start, template_end, _ = _extract_section_lines(
@@ -269,7 +268,6 @@ def merge_configs_text(
         if len(parts) == 1:
             # Replace top-level section
             section_name = parts[0]
-            section_pattern = re.compile(rf"^\[{re.escape(section_name)}\]")
 
             # Find section in template
             template_start, template_end, _ = _extract_section_lines(

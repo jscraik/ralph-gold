@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-
-logger = logging.getLogger(__name__)
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple
+
+logger = logging.getLogger(__name__)
 
 PrdKind = Literal["json", "md", "beads", "web_analysis", "yaml", "github_issues"]
 

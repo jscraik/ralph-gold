@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ralph_gold.spec_loader import SpecLoadResult, load_specs_with_limits
 from ralph_gold.config import PromptConfig
 
