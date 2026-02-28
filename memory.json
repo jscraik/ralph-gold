@@ -1,0 +1,40 @@
+{
+  "repo": "ralph-gold",
+  "meta": {
+    "created_at": "2026-02-28T15:00:00Z",
+    "version": "1.0"
+  },
+  "preamble": {
+    "bootstrap": true,
+    "search": true
+  },
+  "closeout": {
+    "forjamie_updated": true,
+    "date": "2026-02-28"
+  },
+  "session_id": "repo:ralph-gold:setup:2026-02-28",
+  "entries": [
+    {
+      "level": "observation",
+      "content": "Installed @brainwav/coding-harness globally; package missing picomatch and @octokit deps in package.json",
+      "tags": ["repo:ralph-gold", "area:tooling", "type:bug"],
+      "session_id": "repo:ralph-gold:setup:2026-02-28",
+      "source": "harness-install",
+      "observed_at": "2026-02-28T15:00:00Z"
+    },
+    {
+      "level": "learning",
+      "content": "Gardener expects last_validated (snake_case) in YAML frontmatter, not lastValidated (camelCase)",
+      "tags": ["repo:ralph-gold", "area:docs", "type:pattern"],
+      "session_id": "repo:ralph-gold:setup:2026-02-28",
+      "source": "gardener-fix",
+      "observed_at": "2026-02-28T15:01:00Z"
+    }
+  ],
+  "summary": {
+    "total_entries": 2,
+    "observations": 1,
+    "learnings": 1,
+    "unresolved_questions": []
+  }
+}
