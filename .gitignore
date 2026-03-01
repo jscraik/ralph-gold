@@ -28,7 +28,6 @@ ENV/
 
 # uv
 .uv/
-uv.lock
 
 # Ralph runtime state (keep config files, ignore logs)
 .ralph/logs/
