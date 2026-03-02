@@ -38,6 +38,13 @@ class LoopModeConfig:
     batch_enabled: Optional[bool] = None
 
 
+@dataclass(frozen=True)
+class AdaptiveConfig:
+    enabled: bool = False
+    high_risk_threshold: float = 0.8
+    medium_risk_threshold: float = 0.4
+
+
 _LOOP_MODE_NAMES: Tuple[str, ...] = ("speed", "quality", "exploration")
 LOOP_MODE_NAMES: Tuple[str, ...] = _LOOP_MODE_NAMES
 
@@ -58,6 +65,7 @@ class LoopConfig:
     batch_enabled: bool = False
     mode: str = "speed"
     modes: Dict[str, LoopModeConfig] = field(default_factory=_default_loop_modes)
+    adaptive: AdaptiveConfig = field(default_factory=AdaptiveConfig)
 
     def __post_init__(self) -> None:
         """Validate LoopConfig values to prevent configuration errors.
@@ -635,6 +643,14 @@ def _coerce_int(value: Any, default: int) -> int:
         return default
 
 
+def _coerce_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (ValueError, TypeError) as e:
+        logger.debug("Coercion failed: %s", e)
+        return default
+
+
 def _parse_string_list(raw: Any, default: List[str]) -> List[str]:
     """Parse a list configuration value with type coercion.
 
@@ -840,6 +856,16 @@ def load_config(project_root: Path) -> Config:
             f"Must be one of: {', '.join(_LOOP_MODE_NAMES)}."
         )
 
+    adaptive_raw = loop_raw.get("adaptive", {}) or {}
+    if not isinstance(adaptive_raw, dict):
+        adaptive_raw = {}
+
+    adaptive = AdaptiveConfig(
+        enabled=_coerce_bool(adaptive_raw.get("enabled"), False),
+        high_risk_threshold=_coerce_float(adaptive_raw.get("high_risk_threshold"), 0.8),
+        medium_risk_threshold=_coerce_float(adaptive_raw.get("medium_risk_threshold"), 0.4),
+    )
+
     loop = LoopConfig(
         max_iterations=_coerce_int(loop_raw.get("max_iterations"), 10),
         no_progress_limit=_coerce_int(loop_raw.get("no_progress_limit"), 3),
@@ -853,6 +879,7 @@ def load_config(project_root: Path) -> Config:
         batch_enabled=_coerce_bool(loop_raw.get("batch_enabled"), False),
         mode=mode_name,
         modes=modes,
+        adaptive=adaptive,
     )
 
     # Default file layout: all durable memory files live in .ralph/

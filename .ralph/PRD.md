@@ -184,7 +184,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
 
 ### Adaptive Rigor (Task 10 - Broken Down)
 
-- [ ] Add AdaptiveConfig dataclass to config.py
+- [x] Add AdaptiveConfig dataclass to config.py
   - Add `AdaptiveConfig` with `enabled: bool` and risk thresholds
   - Add `adaptive: AdaptiveConfig` to `LoopConfig`
   - Parse `[loop.adaptive]` section
