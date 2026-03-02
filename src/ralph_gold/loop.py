@@ -666,6 +666,7 @@ def load_state(state_path: Path) -> Dict[str, Any]:
             "history": [],
             "task_attempts": {},
             "blocked_tasks": {},
+            "area_risk_scores": {},
             "session_id": "",
             "snapshots": [],
         }
@@ -678,6 +679,7 @@ def load_state(state_path: Path) -> Dict[str, Any]:
         state.setdefault("noProgressStreak", 0)
         state.setdefault("task_attempts", {})
         state.setdefault("blocked_tasks", {})
+        state.setdefault("area_risk_scores", {})
         state.setdefault("session_id", "")
         state.setdefault("snapshots", [])
         return state
@@ -691,6 +693,7 @@ def load_state(state_path: Path) -> Dict[str, Any]:
             "history": [],
             "task_attempts": {},
             "blocked_tasks": {},
+            "area_risk_scores": {},
             "session_id": "",
             "snapshots": [],
         }
@@ -1356,6 +1359,21 @@ def _ensure_feature_branch(
     return branch
 
 
+def _update_state_metrics(state: Dict[str, Any]) -> None:
+    """Update flow metrics and risk scores in state from history."""
+    try:
+        stats = calculate_stats(state)
+        state["flow_metrics"] = {
+            "tasks_per_hour": stats.tasks_per_hour,
+            "blocked_task_rate": stats.blocked_task_rate,
+            "success_rate": stats.success_rate,
+            "updated_at": utc_now_iso(),
+        }
+        state["area_risk_scores"] = stats.area_risk_scores
+    except Exception as e:
+        logger.debug(f"Failed to update metrics in state: {e}")
+
+
 def run_iteration(
     project_root: Path,
     agent: str,
@@ -1519,6 +1537,7 @@ def run_iteration(
                     }
                 )
                 state["history"] = history[-200:]
+                _update_state_metrics(state)
                 save_state(state_path, state)
 
                 return IterationResult(
@@ -2550,6 +2569,15 @@ def run_iteration(
     history = state.get("history", [])
     if not isinstance(history, list):
         history = []
+        
+    # Get changed files for history tracking
+    changed_files = []
+    try:
+        changed_paths = _get_changed_files(project_root)
+        changed_files = [str(f.relative_to(project_root)) for f in changed_paths]
+    except Exception as e:
+        logger.debug(f"Failed to get changed files for history: {e}")
+
     history.append(
         {
             "ts": ts,
@@ -2594,6 +2622,7 @@ def run_iteration(
             "timed_out": bool(timed_out),
             "commit_action": commit_action,
             "commit_return_code": commit_rc,
+            "changed_files": changed_files,
             "gate_results": [
                 {
                     "cmd": r.cmd,
@@ -2609,17 +2638,8 @@ def run_iteration(
     if not state.get("session_id"):
         state["session_id"] = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
 
-    # Update flow metrics in state
-    try:
-        stats = calculate_stats(state)
-        state["flow_metrics"] = {
-            "tasks_per_hour": stats.tasks_per_hour,
-            "blocked_task_rate": stats.blocked_task_rate,
-            "success_rate": stats.success_rate,
-            "updated_at": utc_now_iso(),
-        }
-    except Exception as e:
-        logger.debug(f"Failed to update flow metrics in state: {e}")
+    # Update flow metrics and risk scores in state
+    _update_state_metrics(state)
 
     save_state(state_path, state)
 

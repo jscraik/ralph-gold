@@ -132,3 +132,4 @@ Keep entries short; delete nothing; add clarifications when you learn.
 - [20260302T064536Z] iter 83 mode=prd status=DONE checks=PASS story=S28 agent=gemini branch=main log=20260302T064536Z-iter0083-gemini.log
 2026-03-02 Iteration 84: Completed task 29 (Add AdaptiveConfig dataclass). Added AdaptiveConfig, updated LoopConfig and load_config, and added tests. Gate: `uv run pytest -q tests/test_config.py` (pass).
 - [20260302T064859Z] iter 84 mode=prd status=DONE checks=PASS story=S29 agent=gemini branch=main log=20260302T064859Z-iter0084-gemini.log
+- [20260302T065045Z] iter 85 mode=prd status=DONE checks=PASS story=S30 agent=gemini branch=main log=20260302T065045Z-iter0085-gemini.log

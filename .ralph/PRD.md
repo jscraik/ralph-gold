@@ -190,7 +190,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Parse `[loop.adaptive]` section
   - Test: `uv run pytest -q tests/test_config.py -k test_adaptive` passes
 
-- [ ] Add failure tracking to state.json
+- [x] Add failure tracking to state.json
   - Track failures per file/area
   - Calculate risk score based on history
   - Store in `area_risk_scores` field

@@ -47,6 +47,7 @@ class IterationStats:
     success_rate: float
     blocked_task_rate: float = 0.0
     tasks_per_hour: float = 0.0
+    area_risk_scores: Dict[str, float] = field(default_factory=dict)
     task_stats: Dict[str, TaskStats] = field(default_factory=dict)
 
 
@@ -94,6 +95,35 @@ def _parse_iso(ts_str: str) -> datetime | None:
         return None
 
 
+def _extract_area(cmd: str) -> str | None:
+    """Extract file or area path from gate command.
+
+    Looks for common command patterns like:
+    - pytest src/auth
+    - ruff check src/ui
+    - mypy src/core
+    """
+    if not cmd:
+        return None
+
+    # Handle common tool prefixes
+    parts = cmd.split()
+    if not parts:
+        return None
+
+    # Common patterns: [uv run] [tool] [flags] [path]
+    # We look for parts that look like paths (contain /) or common src directories
+    for part in reversed(parts):
+        # Skip flags
+        if part.startswith("-"):
+            continue
+        # Look for src/ or tests/ patterns
+        if part.startswith("src/") or part.startswith("tests/") or "/" in part:
+            return part.strip()
+
+    return None
+
+
 def calculate_stats(state: Dict[str, Any]) -> IterationStats:
     """Calculate statistics from state.json history.
 
@@ -121,6 +151,7 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
             max_duration_seconds=0.0,
             success_rate=0.0,
             tasks_per_hour=0.0,
+            area_risk_scores={},
             task_stats={},
         )
 
@@ -135,6 +166,10 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
 
     # Track per-task statistics
     task_data: Dict[str, Dict[str, Any]] = {}
+
+    # Track area failures/successes
+    area_attempts: Dict[str, int] = {}
+    area_failures: Dict[str, int] = {}
 
     for entry in history:
         if not isinstance(entry, dict):
@@ -180,6 +215,27 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
         else:
             task_data[task_id]["failures"] += 1
 
+        # Track area-specific failures/successes from gate results
+        gate_results = entry.get("gate_results", [])
+        if isinstance(gate_results, list):
+            for res in gate_results:
+                if not isinstance(res, dict):
+                    continue
+                cmd = res.get("cmd", "")
+                area = _extract_area(cmd)
+                if area:
+                    area_attempts[area] = area_attempts.get(area, 0) + 1
+                    if res.get("return_code", 0) != 0:
+                        area_failures[area] = area_failures.get(area, 0) + 1
+
+        # Track failures per file if changed_files available
+        changed_files = entry.get("changed_files", [])
+        if isinstance(changed_files, list):
+            for file_path in changed_files:
+                area_attempts[file_path] = area_attempts.get(file_path, 0) + 1
+                if not success:
+                    area_failures[file_path] = area_failures.get(file_path, 0) + 1
+
     # Calculate overall statistics
     total = len(history)
     avg_duration = _safe_mean(durations)
@@ -205,6 +261,12 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
         if total_seconds > 0:
             tasks_per_hour = successful_count / (total_seconds / 3600)
 
+    # Calculate area risk scores
+    area_risk_scores: Dict[str, float] = {}
+    for area, attempts in area_attempts.items():
+        failures = area_failures.get(area, 0)
+        area_risk_scores[area] = failures / attempts if attempts > 0 else 0.0
+
     # Build per-task statistics
     task_stats: Dict[str, TaskStats] = {}
     for task_id, data in task_data.items():
@@ -229,6 +291,7 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
         success_rate=success_rate,
         blocked_task_rate=blocked_task_rate,
         tasks_per_hour=tasks_per_hour,
+        area_risk_scores=area_risk_scores,
         task_stats=task_stats,
     )
 

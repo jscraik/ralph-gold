@@ -803,3 +803,73 @@ def test_flow_state(tmp_path: Path):
     assert stats.tasks_per_hour > 0
     assert stats.blocked_task_rate == 0.5
     assert stats.success_rate == 0.5
+
+
+def test_risk_tracking():
+    """Test tracking of failures per area and risk score calculation."""
+    state = {
+        "history": [
+            {
+                "iteration": 1,
+                "story_id": "task-1",
+                "gates_ok": False,
+                "gate_results": [
+                    {"cmd": "pytest src/auth", "return_code": 1}
+                ],
+                "log": "iter1.log"
+            },
+            {
+                "iteration": 2,
+                "story_id": "task-2",
+                "gates_ok": True,
+                "gate_results": [
+                    {"cmd": "pytest src/auth", "return_code": 0}
+                ],
+                "log": "iter2.log"
+            },
+            {
+                "iteration": 3,
+                "story_id": "task-3",
+                "gates_ok": False,
+                "gate_results": [
+                    {"cmd": "pytest src/ui", "return_code": 1}
+                ],
+                "log": "iter3.log"
+            }
+        ]
+    }
+    stats = calculate_stats(state)
+
+    # Risk scores should be in stats object
+    assert hasattr(stats, "area_risk_scores")
+    
+    # src/auth: 1 failure, 1 success -> 0.5 risk
+    # src/ui: 1 failure, 0 success -> 1.0 risk
+    assert stats.area_risk_scores.get("src/auth") == 0.5
+    assert stats.area_risk_scores.get("src/ui") == 1.0
+
+
+def test_file_risk_tracking():
+    """Test tracking of failures per file based on changed_files and success."""
+    state = {
+        "history": [
+            {
+                "iteration": 1,
+                "story_id": "task-1",
+                "gates_ok": False,
+                "changed_files": ["src/logic.py", "tests/test_logic.py"],
+            },
+            {
+                "iteration": 2,
+                "story_id": "task-2",
+                "gates_ok": True,
+                "changed_files": ["src/logic.py"],
+            }
+        ]
+    }
+    stats = calculate_stats(state)
+
+    # src/logic.py: 1 failure (iter 1), 1 success (iter 2) -> 0.5 risk
+    # tests/test_logic.py: 1 failure (iter 1) -> 1.0 risk
+    assert stats.area_risk_scores.get("src/logic.py") == 0.5
+    assert stats.area_risk_scores.get("tests/test_logic.py") == 1.0
