@@ -366,6 +366,68 @@ def _md_force_task_open(prd: MdPrd, task_id: str) -> bool:
     return False
 
 
+def detect_task_complexity(title: str, acceptance: List[str]) -> Dict[str, Any]:
+    """Analyze a task for complexity and vagueness.
+
+    Args:
+        title: Task title
+        acceptance: List of acceptance criteria
+
+    Returns:
+        Dictionary with complexity metrics:
+        - vague: bool (True if title is vague)
+        - acceptance_count: int (number of acceptance criteria)
+        - has_test_commands: bool (True if any acceptance criteria look like test commands)
+    """
+    # 1. Vague task detection
+    # Common vague patterns like "Implement feature", "Define structure"
+    vague_verbs = {"define", "implement", "create", "add", "setup", "configure", "fix", "update"}
+    vague_nouns = {"structure", "feature", "logic", "ui", "stuff", "thing", "task", "code"}
+
+    title_words = [w.strip(".,!?:;").lower() for w in title.split() if w.strip()]
+    is_vague = False
+
+    if len(title_words) <= 3:
+        # Check if it contains vague words
+        has_vague_verb = any(w in vague_verbs for w in title_words)
+        has_vague_noun = any(w in vague_nouns for w in title_words)
+
+        if len(title_words) <= 2 and (has_vague_verb or has_vague_noun):
+            is_vague = True
+        elif has_vague_verb and has_vague_noun:
+            is_vague = True
+
+    # 2. Count acceptance criteria lines
+    acc_count = len(acceptance)
+
+    # 3. Flag tasks without test commands
+    # Look for patterns that suggest automated or manual test steps
+    test_patterns = [
+        r"test[:\s]",
+        r"verify[:\s]",
+        r"check[:\s]",
+        r"run\b",
+        r"pytest",
+        r"npm test",
+        r"cargo test",
+        r"uv run",
+        r"assert",
+        r"passes",
+    ]
+    has_test_commands = False
+    for item in acceptance:
+        item_lower = item.lower()
+        if any(re.search(p, item_lower) for p in test_patterns):
+            has_test_commands = True
+            break
+
+    return {
+        "vague": is_vague,
+        "acceptance_count": acc_count,
+        "has_test_commands": has_test_commands,
+    }
+
+
 def select_next_task(
     prd_path: Path, exclude_ids: Optional[Set[str]] = None
 ) -> Optional[SelectedTask]:

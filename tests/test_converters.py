@@ -449,3 +449,37 @@ def test_quick_tag_markdown(tmp_path: Path):
 
     assert tasks[0]["is_quick"] is True
     assert tasks[1]["is_quick"] is False
+
+
+def test_complexity():
+    """Test task complexity detection."""
+    from ralph_gold.prd import detect_task_complexity
+
+    # Vague task examples
+    assert detect_task_complexity("Implement feature", [])["vague"] is True
+    assert detect_task_complexity("Define structure", [])["vague"] is True
+    assert detect_task_complexity("Setup logic", [])["vague"] is True
+    assert detect_task_complexity("Update ui", [])["vague"] is True
+
+    # Non-vague task examples
+    assert detect_task_complexity("Add JWT-based authentication", [])["vague"] is False
+    assert (
+        detect_task_complexity("Create user profile UI components", [])["vague"] is False
+    )
+
+    # Acceptance criteria counting
+    assert detect_task_complexity("Task", [])["acceptance_count"] == 0
+    assert detect_task_complexity("Task", ["One", "Two"])["acceptance_count"] == 2
+
+    # Test command detection
+    assert (
+        detect_task_complexity("Task", ["User can login"])["has_test_commands"] is False
+    )
+    assert (
+        detect_task_complexity("Task", ["Verify: user can login"])["has_test_commands"]
+        is True
+    )
+    assert (
+        detect_task_complexity("Task", ["uv run pytest"])["has_test_commands"] is True
+    )
+    assert detect_task_complexity("Task", ["check output"])["has_test_commands"] is True

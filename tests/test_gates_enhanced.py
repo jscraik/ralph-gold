@@ -479,7 +479,7 @@ def test_calculate_max_risk_prefix_match():
 def test_adaptive_rigor_high_risk(tmp_path: Path):
     """Test that gates are tightened (fail_fast disabled) for high risk."""
     from ralph_gold.loop import run_gates
-    from ralph_gold.config import GatesConfig, SmartGateConfig, LlmJudgeConfig, AdaptiveConfig
+    from ralph_gold.config import GatesConfig, LlmJudgeConfig, AdaptiveConfig
     from unittest.mock import patch
 
     pass_script = tmp_path / "pass.sh"
@@ -525,7 +525,7 @@ def test_adaptive_rigor_high_risk(tmp_path: Path):
 def test_adaptive_rigor_low_risk(tmp_path: Path):
     """Test that standard gates (fail_fast enabled) are used for low risk."""
     from ralph_gold.loop import run_gates
-    from ralph_gold.config import GatesConfig, SmartGateConfig, LlmJudgeConfig, AdaptiveConfig
+    from ralph_gold.config import GatesConfig, LlmJudgeConfig, AdaptiveConfig
     from unittest.mock import patch
 
     pass_script = tmp_path / "pass.sh"
@@ -573,7 +573,6 @@ def test_adaptive_integration_high_risk_forces_judge(tmp_path: Path):
         LoopConfig,
         FilesConfig,
         GatesConfig,
-        SmartGateConfig,
         LlmJudgeConfig,
         GitConfig,
         TrackerConfig,

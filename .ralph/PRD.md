@@ -202,7 +202,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Mixed changes follow strictest path
   - Test: `uv run pytest -q tests/test_gates_enhanced.py -k test_adaptive` passes
 
-- [ ] Integrate adaptive rigor into loop
+- [-] Integrate adaptive rigor into loop
   - Calculate risk before each iteration
   - Adjust gate requirements accordingly
   - Log risk level and gate adjustments
@@ -210,7 +210,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
 
 ### Plan Validation (Task 13 - Broken Down)
 
-- [ ] Add task complexity detector to prd.py
+- [x] Add task complexity detector to prd.py
   - Detect vague tasks (e.g., "Define structure", "Implement feature")
   - Count acceptance criteria lines
   - Flag tasks without test commands

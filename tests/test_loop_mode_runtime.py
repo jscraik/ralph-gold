@@ -519,7 +519,7 @@ def test_adaptive(tmp_path: Path) -> None:
     subprocess.run(["git", "commit", "-m", "Add risky file"], cwd=project_root, check=True, capture_output=True)
 
     from dataclasses import replace
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
     with patch("ralph_gold.loop._get_changed_files") as mock_files, \
          patch("ralph_gold.trackers.FileTracker.is_task_done", return_value=True), \
          patch("ralph_gold.loop.run_subprocess") as mock_run_sub:
