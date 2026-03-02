@@ -428,6 +428,55 @@ def detect_task_complexity(title: str, acceptance: List[str]) -> Dict[str, Any]:
     }
 
 
+def validate_prd(prd_path: Path) -> List[str]:
+    """Validate PRD tasks for quality and complexity issues.
+
+    Args:
+        prd_path: Path to the PRD file
+
+    Returns:
+        List of warning strings. Empty list if everything is fine.
+    """
+    warnings = []
+    tasks = get_all_tasks(prd_path)
+    if not tasks:
+        return []
+
+    for t in tasks:
+        # Only check open or blocked tasks - done tasks don't need breakdown
+        if t["status"] == "done":
+            continue
+
+        title = t.get("title", "Untitled")
+        acceptance = t.get("acceptance", [])
+        tid = t.get("id", "Unknown")
+
+        complexity = detect_task_complexity(title, acceptance)
+
+        if complexity["vague"]:
+            warnings.append(
+                f"Task {tid} ('{title}') title is vague. Consider a more specific title."
+            )
+
+        if complexity["acceptance_count"] == 0:
+            warnings.append(
+                f"Task {tid} ('{title}') has no acceptance criteria. Please add specific check items."
+            )
+        elif complexity["acceptance_count"] > 10:
+            warnings.append(
+                f"Task {tid} ('{title}') has many ({complexity['acceptance_count']}) acceptance criteria. "
+                "Consider breaking it into smaller tasks."
+            )
+
+        if not complexity["has_test_commands"]:
+            warnings.append(
+                f"Task {tid} ('{title}') is missing test/verify commands in acceptance criteria. "
+                "Consider adding automated test steps."
+            )
+
+    return warnings
+
+
 def select_next_task(
     prd_path: Path, exclude_ids: Optional[Set[str]] = None
 ) -> Optional[SelectedTask]:
@@ -825,6 +874,7 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                         "status": t.status,
                         "depends_on": list(t.depends_on),
                         "is_quick": t.is_quick,
+                        "acceptance": list(t.acceptance),
                     }
                 )
         else:
@@ -847,6 +897,10 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                         else ("blocked" if _story_blocked(s) else "open")
                     )
                     depends = _story_depends(s)
+                    acc = s.get("acceptance", [])
+                    if not isinstance(acc, list):
+                        acc = []
+                    acceptance = [str(x).strip() for x in acc if str(x).strip()]
                     tasks.append(
                         {
                             "id": str(sid),
@@ -854,6 +908,7 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                             "status": status,
                             "depends_on": depends,
                             "is_quick": is_quick,
+                            "acceptance": acceptance,
                         }
                     )
     except (json.JSONDecodeError, OSError) as e:

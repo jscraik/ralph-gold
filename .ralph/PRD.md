@@ -216,7 +216,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Flag tasks without test commands
   - Test: `uv run pytest -q tests/test_converters.py -k test_complexity` passes
 
-- [ ] Add validate_prd() function
+- [x] Add validate_prd() function
   - Check all tasks for complexity issues
   - Return list of warnings
   - Suggest breaking down complex tasks

@@ -483,3 +483,89 @@ def test_complexity():
         detect_task_complexity("Task", ["uv run pytest"])["has_test_commands"] is True
     )
     assert detect_task_complexity("Task", ["check output"])["has_test_commands"] is True
+
+
+def test_validate(tmp_path: Path):
+    """Test PRD validation and complexity checks."""
+    from ralph_gold.prd import validate_prd
+    import json
+
+    # 1. Test vague task
+    prd = {
+        "stories": [
+            {
+                "id": "1",
+                "title": "Implement feature",
+                "status": "open",
+                "acceptance": ["Done"],
+            }
+        ]
+    }
+    path = tmp_path / "vague.json"
+    path.write_text(json.dumps(prd))
+    warnings = validate_prd(path)
+    assert any("vague" in w.lower() for w in warnings)
+
+    # 2. Test missing acceptance criteria
+    prd = {
+        "stories": [
+            {
+                "id": "2",
+                "title": "Add JWT authentication",
+                "status": "open",
+                "acceptance": [],
+            }
+        ]
+    }
+    path = tmp_path / "no_acc.json"
+    path.write_text(json.dumps(prd))
+    warnings = validate_prd(path)
+    assert any("no acceptance criteria" in w.lower() for w in warnings)
+
+    # 3. Test too many acceptance criteria
+    prd = {
+        "stories": [
+            {
+                "id": "3",
+                "title": "Add JWT authentication",
+                "status": "open",
+                "acceptance": ["Item " + str(i) for i in range(11)],
+            }
+        ]
+    }
+    path = tmp_path / "complex.json"
+    path.write_text(json.dumps(prd))
+    warnings = validate_prd(path)
+    assert any("breaking it into smaller tasks" in w.lower() for w in warnings)
+
+    # 4. Test missing test commands
+    prd = {
+        "stories": [
+            {
+                "id": "4",
+                "title": "Add JWT authentication",
+                "status": "open",
+                "acceptance": ["User can login"],
+            }
+        ]
+    }
+    path = tmp_path / "no_tests.json"
+    path.write_text(json.dumps(prd))
+    warnings = validate_prd(path)
+    assert any("missing test/verify commands" in w.lower() for w in warnings)
+
+    # 5. Test good task
+    prd = {
+        "stories": [
+            {
+                "id": "5",
+                "title": "Add JWT authentication",
+                "status": "open",
+                "acceptance": ["Verify: user can login with uv run pytest"],
+            }
+        ]
+    }
+    path = tmp_path / "good.json"
+    path.write_text(json.dumps(prd))
+    warnings = validate_prd(path)
+    assert len(warnings) == 0
