@@ -365,3 +365,35 @@ def format_stats_report(stats: IterationStats, by_task: bool = False) -> str:
     lines.append("=" * 60)
 
     return "\n".join(lines)
+
+
+def format_flow_report(stats: IterationStats) -> str:
+    """Format flow metrics as human-readable report.
+
+    Args:
+        stats: The IterationStats object to format
+
+    Returns:
+        Formatted string report with flow metrics
+    """
+    lines: List[str] = []
+
+    # Header
+    lines.append("=" * 60)
+    lines.append("Ralph Gold - Flow Metrics")
+    lines.append("=" * 60)
+    lines.append("")
+
+    # Flow metrics
+    lines.append(f"  Velocity:              {stats.tasks_per_hour:.2f} tasks/hour")
+    lines.append(f"  Blocked Task Rate:     {stats.blocked_task_rate:.1%}")
+    lines.append("")
+
+    # Success rate as additional context for flow
+    lines.append(f"  Overall Success Rate:  {stats.success_rate:.1%}")
+    lines.append(f"  Total Iterations:      {stats.total_iterations}")
+    lines.append("")
+
+    lines.append("=" * 60)
+
+    return "\n".join(lines)

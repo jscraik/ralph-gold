@@ -144,17 +144,17 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Return metrics in stats output
   - Test: `uv run pytest -q tests/test_stats.py -k test_blocked_rate` passes
 
-- [ ] Add ralph stats --flow command
+- [x] Add ralph stats --flow command
   - Add `--flow` flag to stats command
   - Display velocity and blocked rate
   - Support JSON output format
   - Test: `uv run pytest -q tests/test_cli_stats.py -k test_flow` passes
 
-- [ ] Record flow metrics in state.json
+- [x] Record flow metrics in state.json
   - Add `flow_metrics` field to state
   - Update after each iteration
   - Include velocity and momentum indicators
-  - Test: `uv run pytest -q tests/test_stats.py -k test_flow_state` passes
+  - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_flow_metrics` passes
 
 ### Context-Aware Prompts (Task 9 - Broken Down)
 

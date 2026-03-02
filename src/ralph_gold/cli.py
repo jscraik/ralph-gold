@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -40,7 +40,7 @@ from .snapshots import (
     rollback_snapshot,
 )
 from .specs import check_specs, format_specs_check
-from .stats import calculate_stats, export_stats_csv, format_stats_report
+from .stats import calculate_stats, export_stats_csv, format_flow_report, format_stats_report
 from .trackers import make_tracker
 from .watch import run_watch_mode
 
@@ -457,6 +457,11 @@ def cmd_stats(args: argparse.Namespace) -> int:
     root = _project_root()
     state_path = root / ".ralph" / "state.json"
 
+    # Handle --format override
+    if getattr(args, "format", None):
+        cfg = get_output_config()
+        set_output_config(replace(cfg, format=args.format))
+
     # Check if state file exists
     if not state_path.exists():
         print_output("No state.json found. Run some iterations first.", level="normal")
@@ -498,14 +503,19 @@ def cmd_stats(args: argparse.Namespace) -> int:
             "cmd": "stats",
             "exported": exported,
             "export_path": str(export_path) if export_path else None,
-            "stats": stats,
+            "stats": asdict(stats),
         }
         print_json_output(payload)
         return 0
 
     # Display formatted report
     by_task = args.by_task
-    report = format_stats_report(stats, by_task=by_task)
+    flow = getattr(args, "flow", False)
+
+    if flow:
+        report = format_flow_report(stats)
+    else:
+        report = format_stats_report(stats, by_task=by_task)
     print_output(report, level="normal")
 
     return 0
@@ -3394,6 +3404,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--by-task",
         action="store_true",
         help="Show detailed per-task breakdown",
+    )
+    p_stats.add_argument(
+        "--flow",
+        action="store_true",
+        help="Display velocity and blocked task rate metrics",
+    )
+    p_stats.add_argument(
+        "--format",
+        choices=["text", "json"],
+        help="Output format (overrides config)",
     )
     p_stats.add_argument(
         "--export",

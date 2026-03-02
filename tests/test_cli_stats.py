@@ -179,3 +179,95 @@ def test_stats_command_export(tmp_path: Path):
     assert "Overall Statistics" in csv_content
     assert "Per-Task Statistics" in csv_content
     assert "Total Iterations" in csv_content
+
+
+def test_flow(tmp_path: Path):
+    """Test that the stats command displays flow metrics."""
+    # Create a minimal ralph project with state
+    ralph_dir = tmp_path / ".ralph"
+    ralph_dir.mkdir()
+
+    # Create state with some history
+    state = {
+        "createdAt": "2024-01-01T00:00:00Z",
+        "session_id": "test",
+        "history": [
+            {
+                "iteration": 1,
+                "ts": "2024-01-01T00:00:00Z",
+                "duration_seconds": 3600.0,
+                "story_id": "task-1",
+                "gates_ok": True,
+                "blocked": False,
+                "return_code": 0,
+            },
+            {
+                "iteration": 2,
+                "ts": "2024-01-01T02:00:00Z",
+                "duration_seconds": 3600.0,
+                "story_id": "task-2",
+                "gates_ok": True,
+                "blocked": True,
+                "return_code": 0,
+            },
+        ],
+    }
+    (ralph_dir / "state.json").write_text(json.dumps(state))
+
+    result = subprocess.run(
+        ["uv", "run", "python", "-m", "ralph_gold.cli", "stats", "--flow"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "Ralph Gold - Flow Metrics" in result.stdout
+    assert "Velocity:" in result.stdout
+    assert "Blocked Task Rate:" in result.stdout
+    assert "tasks/hour" in result.stdout
+
+
+def test_flow_json(tmp_path: Path):
+    """Test that the stats command supports JSON output format with flow metrics."""
+    # Create a minimal ralph project with state
+    ralph_dir = tmp_path / ".ralph"
+    ralph_dir.mkdir()
+
+    # Create state with some history
+    state = {
+        "createdAt": "2024-01-01T00:00:00Z",
+        "session_id": "test",
+        "history": [
+            {
+                "iteration": 1,
+                "ts": "2024-01-01T00:00:00Z",
+                "duration_seconds": 3600.0,
+                "story_id": "task-1",
+                "gates_ok": True,
+                "blocked": False,
+                "return_code": 0,
+            }
+        ],
+    }
+    (ralph_dir / "state.json").write_text(json.dumps(state))
+
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "ralph_gold.cli",
+            "stats",
+            "--format",
+            "json",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert "stats" in data
+    assert "tasks_per_hour" in data["stats"]
+    assert "blocked_task_rate" in data["stats"]

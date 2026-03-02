@@ -24,6 +24,7 @@ from .receipts import CommandReceipt, NoFilesWrittenReceipt, SmartGateSkipReceip
 from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
 from .state_validation import validate_state_against_prd
+from .stats import calculate_stats
 from .subprocess_helper import (
     SubprocessResult,
     run_subprocess,
@@ -2571,6 +2572,19 @@ def run_iteration(
     state["history"] = history[-200:]
     if not state.get("session_id"):
         state["session_id"] = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+
+    # Update flow metrics in state
+    try:
+        stats = calculate_stats(state)
+        state["flow_metrics"] = {
+            "tasks_per_hour": stats.tasks_per_hour,
+            "blocked_task_rate": stats.blocked_task_rate,
+            "success_rate": stats.success_rate,
+            "updated_at": utc_now_iso(),
+        }
+    except Exception as e:
+        logger.debug(f"Failed to update flow metrics in state: {e}")
+
     save_state(state_path, state)
 
     attempt_record_path.write_text(

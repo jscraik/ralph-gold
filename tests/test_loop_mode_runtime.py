@@ -379,3 +379,38 @@ def test_run_loop_stream_flag_is_forwarded_to_iteration(tmp_path: Path, monkeypa
     )
 
     assert captured["stream"] is True
+
+
+def test_flow_metrics_recorded_in_state(tmp_path: Path) -> None:
+    project_root = _init_git_repo(tmp_path)
+    (project_root / ".ralph").mkdir()
+
+    config = dedent(
+        """
+        [loop]
+        max_iterations = 5
+        rate_limit_per_hour = 0
+        runner_timeout_seconds = 900
+
+        [runners.codex]
+        argv = ["echo", "mock-agent"]
+
+        [files]
+        prd = "prd.json"
+        """
+    ).strip() + "\n"
+
+    (project_root / ".ralph" / "ralph.toml").write_text(config, encoding="utf-8")
+    _write_prd(project_root)
+
+    cfg = load_config(project_root)
+    # Run one iteration
+    run_iteration(project_root, agent="codex", cfg=cfg, iteration=1)
+
+    state = load_state(project_root / ".ralph" / "state.json")
+    assert "flow_metrics" in state
+    metrics = state["flow_metrics"]
+    assert "tasks_per_hour" in metrics
+    assert "blocked_task_rate" in metrics
+    assert "success_rate" in metrics
+    assert "updated_at" in metrics

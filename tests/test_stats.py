@@ -776,3 +776,30 @@ def test_blocked_attempts_per_task():
 
     assert "task-2" in stats.task_stats
     assert stats.task_stats["task-2"].blocked_attempts == 0
+
+
+def test_flow_state(tmp_path: Path):
+    """Test that flow metrics are correctly calculated from history."""
+    state = {
+        "history": [
+            {
+                "ts": "2026-03-02T10:00:00Z",
+                "duration_seconds": 360.0,
+                "gates_ok": True,
+                "blocked": False,
+                "story_id": "task-1",
+            },
+            {
+                "ts": "2026-03-02T10:10:00Z",
+                "duration_seconds": 360.0,
+                "gates_ok": True,
+                "blocked": True,
+                "story_id": "task-2",
+            },
+        ]
+    }
+    stats = calculate_stats(state)
+
+    assert stats.tasks_per_hour > 0
+    assert stats.blocked_task_rate == 0.5
+    assert stats.success_rate == 0.5
