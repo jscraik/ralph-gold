@@ -170,7 +170,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Skip non-critical quality checks
   - Test: `uv run pytest -q tests/test_templates.py -k test_prompt_hotfix` passes
 
-- [ ] Create PROMPT_exploration.md template
+- [x] Create PROMPT_exploration.md template
   - Add template for exploration tasks
   - Emphasize learning and experimentation
   - Allow longer iterations

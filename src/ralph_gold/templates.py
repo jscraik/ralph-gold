@@ -132,6 +132,20 @@ def load_builtin_templates() -> dict[str, TaskTemplate]:
             variables=["title"],
             metadata={"version": "1.0", "builtin": True},
         ),
+        "exploration": TaskTemplate(
+            name="exploration",
+            description="Template for exploration and learning tasks",
+            title_template="Explore: {title}",
+            acceptance_criteria=[
+                "Hypothesis or goal is clearly stated",
+                "Experiments are conducted and results are documented",
+                "Key findings (successes, failures, lessons) are recorded",
+                "Next steps or recommendations are defined",
+            ],
+            priority="low",
+            variables=["title"],
+            metadata={"version": "1.0", "builtin": True},
+        ),
     }
 
 
