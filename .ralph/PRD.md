@@ -124,7 +124,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Return None if no quick tasks available
   - Test: `uv run pytest -q tests/test_progress.py -k test_quick_batch` passes
 
-- [-] Execute quick batches in single iteration
+- [x] Execute quick batches in single iteration
   - Modify loop to handle batch execution
   - Keep separate receipts for each task in batch
   - Update progress for all tasks in batch
@@ -202,7 +202,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Mixed changes follow strictest path
   - Test: `uv run pytest -q tests/test_gates_enhanced.py -k test_adaptive` passes
 
-- [-] Integrate adaptive rigor into loop
+- [x] Integrate adaptive rigor into loop
   - Calculate risk before each iteration
   - Adjust gate requirements accordingly
   - Log risk level and gate adjustments

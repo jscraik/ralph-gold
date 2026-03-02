@@ -568,3 +568,73 @@ def test_adaptive(tmp_path: Path) -> None:
         assert len(gate_results) == 2
         assert gate_results[0]["return_code"] == 1
         assert gate_results[1]["return_code"] == 0
+
+
+def test_batch_exec(tmp_path: Path) -> None:
+    """Test batch execution of quick tasks."""
+    from ralph_gold.loop import _run_batch
+    from ralph_gold.prd import SelectedTask
+
+    project_root = _init_git_repo(tmp_path)
+    (project_root / ".ralph").mkdir()
+
+    config_text = dedent(
+        """
+        [loop]
+        max_iterations = 5
+        mode = "speed"
+
+        [gates]
+        commands = []
+        fail_fast = true
+
+        [runners.codex]
+        argv = ["echo", "mock-agent"]
+
+        [files]
+        prd = "prd.json"
+        """
+    ).strip() + "\n"
+
+    (project_root / ".ralph" / "ralph.toml").write_text(config_text, encoding="utf-8")
+
+    # Create PRD with 3 quick tasks
+    prd = {
+        "stories": [
+            {"id": "quick-1", "title": "[QUICK] First quick task", "status": "todo"},
+            {"id": "quick-2", "title": "[QUICK] Second quick task", "status": "todo"},
+            {"id": "quick-3", "title": "[QUICK] Third quick task", "status": "todo"},
+        ]
+    }
+    (project_root / "prd.json").write_text(json.dumps(prd, indent=2), encoding="utf-8")
+
+    cfg = load_config(project_root)
+
+    # Create mock tasks for batch
+    tasks = [
+        SelectedTask(id="quick-1", title="[QUICK] First quick task", acceptance=[], kind="md"),
+        SelectedTask(id="quick-2", title="[QUICK] Second quick task", acceptance=[], kind="md"),
+        SelectedTask(id="quick-3", title="[QUICK] Third quick task", acceptance=[], kind="md"),
+    ]
+
+    # Run batch
+    from unittest.mock import patch
+    with patch("ralph_gold.loop.run_subprocess") as mock_run_sub:
+        mock_run_sub.return_value = SubprocessResult(returncode=0, stdout="", stderr="")
+
+        results = _run_batch(
+            project_root=project_root,
+            agent="codex",
+            cfg=cfg,
+            iteration=1,
+            tasks=tasks,
+            stream=False,
+        )
+
+    # Verify all tasks processed
+    assert len(results) == 3, f"Expected 3 results, got {len(results)}"
+
+    # Verify each task was processed
+    for i, res in enumerate(results):
+        assert res.return_code == 0, f"Task {i} failed"
+        assert res.story_id == f"quick-{i + 1}"

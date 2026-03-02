@@ -942,6 +942,54 @@ def _should_skip_gates(
     return True  # All files match skip patterns
 
 
+def _run_batch(
+    project_root: Path,
+    agent: str,
+    cfg: Config,
+    iteration: int,
+    tasks: List[SelectedTask],
+    stream: bool = False,
+) -> List[IterationResult]:
+    """Execute multiple quick tasks in a single iteration.
+
+    Each task gets its own receipt file, and progress is updated for all tasks.
+
+    Args:
+        project_root: Project root directory
+        agent: Agent/runner to use
+        cfg: Configuration
+        iteration: Current iteration number
+        tasks: List of quick tasks to execute
+        stream: Whether to stream output
+
+    Returns:
+        List of iteration results for each task
+    """
+    results: List[IterationResult] = []
+
+    for idx, task in enumerate(tasks):
+        logger.info(f"Batch task {idx + 1}/{len(tasks)}: {task.title}")
+
+        # Run iteration for this specific task
+        res = run_iteration(
+            project_root,
+            agent=agent,
+            cfg=cfg,
+            iteration=iteration,
+            task_override=task,
+            stream=stream,
+        )
+        results.append(res)
+
+        # If a task fails, stop the batch
+        if res.return_code != 0:
+            logger.warning(f"Batch stopped: task {task.id} failed")
+            break
+
+    logger.info(f"Batch complete: {len(results)}/{len(tasks)} tasks processed")
+    return results
+
+
 def run_gates(
     project_root: Path,
     commands: List[str],
@@ -3481,8 +3529,43 @@ def run_loop(
     limit = max_iterations if max_iterations is not None else cfg.loop.max_iterations
     start_iter = next_iteration_number(project_root)
 
+    # Batch execution support: run multiple quick tasks in one iteration
+    batch_mode_enabled = getattr(cfg.loop, "batch_mode", False) or (
+        hasattr(cfg, "quick") and getattr(cfg.quick, "enabled", False)
+    )
+
     for offset in range(limit):
         i = start_iter + offset
+
+        # Check for quick batch before each iteration
+        if batch_mode_enabled and hasattr(tracker, "get_quick_batch"):
+            try:
+                quick_batch = tracker.get_quick_batch(limit=3)
+                if quick_batch and len(quick_batch) > 1:
+                    logger.info(f"Batch mode: executing {len(quick_batch)} quick tasks")
+                    batch_results = _run_batch(
+                        project_root=project_root,
+                        agent=agent,
+                        cfg=cfg,
+                        iteration=i,
+                        tasks=quick_batch,
+                        stream=stream,
+                    )
+                    results.extend(batch_results)
+
+                    # Check if done after batch
+                    try:
+                        done = tracker.all_done()
+                    except OSError:
+                        done = False
+
+                    if done:
+                        print("All tasks completed successfully")
+                        break
+                    continue
+            except Exception as e:
+                logger.debug(f"Batch mode check failed: {e}")
+
         res = run_iteration(
             project_root,
             agent=agent,

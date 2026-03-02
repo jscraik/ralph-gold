@@ -3718,20 +3718,7 @@
     "20": 1,
     "32": 1
   },
-  "blocked_tasks": {
-    "20": {
-      "blocked_at": "2026-03-02T05:36:19.216032+00:00",
-      "attempts": 1,
-      "reason": "task not marked done (agent exited successfully but task not completed)",
-      "attempt_id": "20260302-052439-iter0076"
-    },
-    "32": {
-      "blocked_at": "2026-03-02T07:10:39.643604+00:00",
-      "attempts": 1,
-      "reason": "task not marked done (agent exited successfully but task not completed)",
-      "attempt_id": "20260302-065737-iter0087"
-    }
-  },
+  "blocked_tasks": {},
   "session_id": "20260119-093701",
   "flow_metrics": {
     "tasks_per_hour": 0.0,
