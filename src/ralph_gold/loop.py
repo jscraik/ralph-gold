@@ -25,6 +25,13 @@ from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
 from .state_validation import validate_state_against_prd
 from .stats import calculate_stats
+from .interventions import (
+    synthesize_recommendation,
+    write_recommendation,
+    append_event,
+    InterventionEvent,
+    ensure_interventions_dir,
+)
 from .subprocess_helper import (
     SubprocessResult,
     run_subprocess,
@@ -3012,6 +3019,58 @@ def run_iteration(
         + "\n",
         encoding="utf-8",
     )
+
+    # Intervention synthesis: generate recommendations from failure patterns
+    if cfg.interventions.enabled:
+        try:
+            interventions_dir = ensure_interventions_dir(project_root)
+
+            # Record this iteration as an intervention event
+            intervention_event = InterventionEvent(
+                iteration=iteration,
+                task_id=str(story_id) if story_id else "",
+                no_files_written=no_files,
+                gates_ok=gates_ok,
+                evidence_count=evidence_count,
+                timed_out=timed_out if 'timed_out' in dir() else False,
+                syntax_error=False,  # Will be detected from gate results
+                dominant_failure=None,  # Will be classified
+                timestamp=iso_utc(),
+            )
+
+            # Determine dominant failure for this event
+            failures = []
+            if no_files:
+                failures.append("no_files_reinforcement")
+            if gates_ok is False:
+                failures.append("gate_failure_pattern")
+            if timed_out if 'timed_out' in dir() else False:
+                failures.append("timeout_churn")
+            if failures:
+                intervention_event.dominant_failure = failures[0]
+
+            # Append event to log
+            append_event(interventions_dir, intervention_event)
+
+            # Synthesize recommendation from recent history
+            recommendation = synthesize_recommendation(
+                state_history=state.get("history", []),
+                task_id=str(story_id) if story_id else None,
+                receipts_dir=receipts_dir,
+                lookback=cfg.interventions.lookback_iterations,
+                confidence_threshold=cfg.interventions.confidence_threshold,
+            )
+
+            if recommendation:
+                write_recommendation(interventions_dir, recommendation)
+                logger.info(
+                    f"Intervention recommendation generated: {recommendation.category} "
+                    f"(confidence: {recommendation.confidence_level})"
+                )
+
+        except Exception as e:
+            # Intervention failures are non-blocking
+            logger.warning(f"Intervention synthesis failed: {e}")
 
     return IterationResult(
         iteration=iteration,

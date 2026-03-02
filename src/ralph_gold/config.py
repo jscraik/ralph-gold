@@ -45,6 +45,23 @@ class AdaptiveConfig:
     medium_risk_threshold: float = 0.4
 
 
+@dataclass(frozen=True)
+class InterventionConfig:
+    """Configuration for the adaptive intervention recommendation engine.
+
+    The intervention engine analyzes failure patterns and generates
+    structured recommendations for prompt/timeout/mode adjustments.
+    All recommendations are advisory-only in v1 (not auto-applied).
+    """
+    enabled: bool = False
+    policy_mode: str = "recommend-only"  # recommend-only | auto-apply-low-risk
+    lookback_iterations: int = 30
+    confidence_threshold: str = "medium"  # low | medium | high
+    dedupe_window_iterations: int = 10
+    max_recommendations_per_task: int = 3
+    retention_days: int = 30
+
+
 _LOOP_MODE_NAMES: Tuple[str, ...] = ("speed", "quality", "exploration")
 LOOP_MODE_NAMES: Tuple[str, ...] = _LOOP_MODE_NAMES
 
@@ -648,6 +665,7 @@ class Config:
     init: InitConfig = field(default_factory=InitConfig)
     adaptive_timeout: AdaptiveTimeoutConfig = field(default_factory=AdaptiveTimeoutConfig)
     unblock: UnblockConfig = field(default_factory=UnblockConfig)
+    interventions: InterventionConfig = field(default_factory=InterventionConfig)
 
 
 # -------------------------
@@ -703,6 +721,15 @@ def _coerce_bool(value: Any, default: bool) -> bool:
         if v in {"false", "0", "no", "n", "off"}:
             return False
     return default
+
+
+def _coerce_str(value: Any, default: str) -> str:
+    """Coerce a value to string with a default fallback."""
+    if isinstance(value, str):
+        return value.strip()
+    if value is None:
+        return default
+    return str(value)
 
 
 def _load_toml(path: Path) -> Dict[str, Any]:
@@ -1619,6 +1646,21 @@ def load_config(project_root: Path) -> Config:
         allow_batch_unblock=_coerce_bool(unblock_raw.get("allow_batch_unblock"), True),
     )
 
+    # Parse interventions configuration
+    interventions_raw = data.get("interventions", {}) or {}
+    if not isinstance(interventions_raw, dict):
+        interventions_raw = {}
+
+    interventions = InterventionConfig(
+        enabled=_coerce_bool(interventions_raw.get("enabled"), False),
+        policy_mode=_coerce_str(interventions_raw.get("policy_mode"), "recommend-only"),
+        lookback_iterations=_coerce_int(interventions_raw.get("lookback_iterations"), 30),
+        confidence_threshold=_coerce_str(interventions_raw.get("confidence_threshold"), "medium"),
+        dedupe_window_iterations=_coerce_int(interventions_raw.get("dedupe_window_iterations"), 10),
+        max_recommendations_per_task=_coerce_int(interventions_raw.get("max_recommendations_per_task"), 3),
+        retention_days=_coerce_int(interventions_raw.get("retention_days"), 30),
+    )
+
     return Config(
         loop=loop,
         files=files,
@@ -1642,4 +1684,5 @@ def load_config(project_root: Path) -> Config:
         init=init,
         adaptive_timeout=adaptive_timeout,
         unblock=unblock,
+        interventions=interventions,
     )

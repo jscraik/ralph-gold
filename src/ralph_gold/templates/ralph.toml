@@ -128,6 +128,18 @@ check_typescript = false
 python_command = "python -m py_compile"
 typescript_command = "npx tsc --noEmit"
 
+[interventions]
+# Adaptive Intervention Recommendation Engine.
+# Analyzes failure patterns and generates recommendations for prompt/timeout/mode adjustments.
+# All recommendations are advisory-only in v1 (not auto-applied).
+enabled = false
+policy_mode = "recommend-only"       # recommend-only | auto-apply-low-risk
+lookback_iterations = 30             # Number of iterations to analyze
+confidence_threshold = "medium"      # low | medium | high
+dedupe_window_iterations = 10        # Prevent duplicate recommendations
+max_recommendations_per_task = 3     # Limit recommendations per task
+retention_days = 30                  # How long to keep recommendations
+
 [repoprompt]
 # Repo Prompt integration (rp-cli).
 enabled = false
