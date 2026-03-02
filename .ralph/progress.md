@@ -124,3 +124,5 @@ Keep entries short; delete nothing; add clarifications when you learn.
 - [20260302T062741Z] iter 78 mode=prd status=DONE checks=PASS story=S22 agent=gemini branch=main log=20260302T062741Z-iter0078-gemini.log
 [2026-03-02T06:40:07Z] DONE task 23 (Add ralph stats --flow command): Added --flow flag, format_flow_report, and state.json flow_metrics recording. Tests passing.
 - [20260302T063648Z] iter 79 mode=prd status=DONE checks=PASS story=S23 agent=gemini branch=main log=20260302T063648Z-iter0079-gemini.log
+2026-03-02 Iteration 80: Task 25 complete. Created PROMPT_docs.md template and added 'docs' TaskTemplate to templates.py. Updated tests/test_templates.py with test_prompt_docs (passes).
+- [20260302T064039Z] iter 80 mode=prd status=DONE checks=PASS story=S25 agent=gemini branch=main log=20260302T064039Z-iter0080-gemini.log

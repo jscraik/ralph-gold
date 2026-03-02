@@ -158,7 +158,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
 
 ### Context-Aware Prompts (Task 9 - Broken Down)
 
-- [ ] Create PROMPT_docs.md template
+- [x] Create PROMPT_docs.md template
   - Add template for documentation tasks
   - Emphasize clarity and examples
   - Include docs-specific acceptance criteria

@@ -103,6 +103,21 @@ def load_builtin_templates() -> dict[str, TaskTemplate]:
             variables=["title"],
             metadata={"version": "1.0", "builtin": True},
         ),
+        "docs": TaskTemplate(
+            name="docs",
+            description="Template for documentation tasks",
+            title_template="Docs: {title}",
+            acceptance_criteria=[
+                "Content is clear, concise, and accurate",
+                "Examples are provided for complex concepts",
+                "Formatting is consistent with project style",
+                "All internal and external links are valid",
+                "No spelling or grammatical errors",
+            ],
+            priority="low",
+            variables=["title"],
+            metadata={"version": "1.0", "builtin": True},
+        ),
     }
 
 

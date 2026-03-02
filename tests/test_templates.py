@@ -25,11 +25,12 @@ def test_load_builtin_templates():
     """Test that built-in templates are loaded correctly."""
     templates = load_builtin_templates()
 
-    # Should have 3 built-in templates
-    assert len(templates) == 3
+    # Should have 4 built-in templates
+    assert len(templates) == 4
     assert "bug-fix" in templates
     assert "feature" in templates
     assert "refactor" in templates
+    assert "docs" in templates
 
     # Check bug-fix template
     bug_fix = templates["bug-fix"]
@@ -51,6 +52,13 @@ def test_load_builtin_templates():
     assert refactor.name == "refactor"
     assert refactor.priority == "low"
     assert refactor.title_template == "Refactor: {title}"
+
+    # Check docs template
+    docs = templates["docs"]
+    assert docs.name == "docs"
+    assert docs.priority == "low"
+    assert docs.title_template == "Docs: {title}"
+    assert len(docs.acceptance_criteria) == 5
 
 
 def test_load_custom_templates_no_directory(tmp_path: Path):
@@ -451,11 +459,12 @@ def test_list_templates_builtin_only(tmp_path: Path):
     """Test listing templates with only built-in templates."""
     templates = list_templates(tmp_path)
 
-    assert len(templates) == 3
+    assert len(templates) == 4
     names = [t.name for t in templates]
     assert "bug-fix" in names
     assert "feature" in names
     assert "refactor" in names
+    assert "docs" in names
 
 
 def test_list_templates_with_custom(tmp_path: Path):
@@ -475,7 +484,7 @@ def test_list_templates_with_custom(tmp_path: Path):
 
     templates = list_templates(tmp_path)
 
-    assert len(templates) == 4
+    assert len(templates) == 5
     names = [t.name for t in templates]
     assert "custom" in names
 
@@ -499,8 +508,8 @@ def test_list_templates_custom_overrides_builtin(tmp_path: Path):
 
     templates = list_templates(tmp_path)
 
-    # Should still have 3 templates (custom overrides built-in)
-    assert len(templates) == 3
+    # Should still have 4 templates (custom overrides built-in)
+    assert len(templates) == 4
 
     bug_fix = next(t for t in templates if t.name == "bug-fix")
     assert bug_fix.description == "Custom bug fix template"
@@ -531,6 +540,26 @@ def test_list_templates_sorted_by_name(tmp_path: Path):
     assert names == sorted(names)
 
 
+def test_prompt_docs():
+    """Test the documentation template."""
+    templates = load_builtin_templates()
+    assert "docs" in templates
+    docs = templates["docs"]
+    assert docs.name == "docs"
+    assert "Docs:" in docs.title_template
+    assert len(docs.acceptance_criteria) >= 5
+    # Should include docs-specific criteria
+    content = " ".join(docs.acceptance_criteria).lower()
+    assert "clear" in content or "clarity" in content
+    assert "examples" in content
+
+    # Check if PROMPT_docs.md exists in the templates directory
+    template_dir = Path(__file__).parent.parent / "src" / "ralph_gold" / "templates"
+    prompt_docs = template_dir / "PROMPT_docs.md"
+    assert prompt_docs.exists()
+    assert "Documentation Acceptance Criteria" in prompt_docs.read_text()
+
+
 def test_list_templates_handles_load_error(tmp_path: Path):
     """Test that list_templates handles custom template load errors gracefully."""
     templates_dir = tmp_path / ".ralph" / "templates"
@@ -542,7 +571,7 @@ def test_list_templates_handles_load_error(tmp_path: Path):
 
     # Should still return built-in templates
     templates = list_templates(tmp_path)
-    assert len(templates) == 3
+    assert len(templates) == 4
 
 
 # Test edge cases
