@@ -39,24 +39,21 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Included example tasks showing proper granularity and specificity
   - Test: `uv run pytest -q tests/test_templates.py` passes
 
-### Loop Mode Runtime (Task 2 - Broken Down)
+- [x] Add LoopMode dataclass and mode constants
+  - Add `resolve_mode()` function with CLI argument support
+  - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_resolve_mode` (passes)
 
-- [-] Add LoopModeOverride dataclass to config.py
-  - Add `LoopModeOverride` with fields for max_iterations, gates, etc.
-  - Add `resolve_mode_overrides()` function to merge mode into config
-  - Test: `uv run pytest -q tests/test_config_loop_modes.py -k test_resolve` passes
+- [x] Apply mode to iteration parameters (max_iterations, timeout, etc.)
+  - Add mode parameter to `run_iteration()` function
+  - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_mode_params` (passes)
 
-- [-] Apply mode overrides in loop.py before execution
-  - Call `resolve_mode_overrides()` at start of `run_loop()`
-  - Pass resolved config to `run_iteration()`
-  - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_apply` passes
+- [x] Track and record resolved mode in iteration state
+  - Store mode in state file for post-mortem analysis
+  - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_mode_state` (passes)
 
-- [-] Record resolved mode in state.json
-  - Add `resolved_mode` field to iteration state
-  - Save mode name and overrides applied
-  - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_record` passes
-
-- [-] Show resolved mode in dry-run output
+- [x] Show resolved mode in dry-run output and logs
+  - Include mode information in iteration start/end messages
+  - Test: `uv run pytest -q tests/test_dry_run.py -k test_mode_output` (passes)
   - Add mode info to dry_run_loop() result
   - Display in dry-run summary
   - Test: `uv run pytest -q tests/test_dry_run.py -k test_mode` passes

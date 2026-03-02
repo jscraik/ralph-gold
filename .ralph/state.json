@@ -2839,48 +2839,6 @@
     "20": 1
   },
   "blocked_tasks": {
-    "1": {
-      "blocked_at": "2026-01-19T11:21:07.883880+00:00",
-      "attempts": 4,
-      "reason": "unknown",
-      "attempt_id": "20260119-111759-iter0021"
-    },
-    "3": {
-      "blocked_at": "2026-01-19T10:11:53.153343+00:00",
-      "attempts": 3,
-      "reason": "unknown",
-      "attempt_id": "20260119-100653-iter0009"
-    },
-    "2": {
-      "blocked_at": "2026-01-19T11:36:08.049879+00:00",
-      "attempts": 3,
-      "reason": "runner failed",
-      "attempt_id": "20260119-112107-iter0022"
-    },
-    "6": {
-      "blocked_at": "2026-03-02T04:21:00.731916+00:00",
-      "attempts": 1,
-      "reason": "runner failed",
-      "attempt_id": "20260302-042100-iter0062"
-    },
-    "7": {
-      "blocked_at": "2026-03-02T04:21:43.136205+00:00",
-      "attempts": 1,
-      "reason": "runner failed",
-      "attempt_id": "20260302-042135-iter0063"
-    },
-    "8": {
-      "blocked_at": "2026-03-02T04:32:41.274391+00:00",
-      "attempts": 1,
-      "reason": "task not marked done (agent exited successfully but task not completed)",
-      "attempt_id": "20260302-042642-iter0064"
-    },
-    "9": {
-      "blocked_at": "2026-03-02T04:38:12.073578+00:00",
-      "attempts": 1,
-      "reason": "runner failed",
-      "attempt_id": "20260302-043811-iter0065"
-    },
     "20": {
       "blocked_at": "2026-03-02T05:36:19.216032+00:00",
       "attempts": 1,
