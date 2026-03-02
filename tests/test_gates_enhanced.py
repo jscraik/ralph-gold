@@ -434,6 +434,226 @@ def test_smart_gate_disabled_by_default(tmp_path: Path):
     assert results[0].return_code == 0
 
 
+# ----------------------------------------------------------------------
+# Adaptive Rigor Tests
+# ----------------------------------------------------------------------
+
+
+def test_calculate_max_risk():
+    """Test max risk calculation from changed files."""
+    from ralph_gold.loop import _calculate_max_risk
+    from pathlib import Path
+
+    project_root = Path("/project")
+    changed_files = [
+        project_root / "src/core.py",
+        project_root / "src/auth.py",
+    ]
+    area_risk_scores = {
+        "src/core.py": 0.2,
+        "src/auth.py": 0.9,
+    }
+
+    risk = _calculate_max_risk(project_root, changed_files, area_risk_scores)
+    assert risk == 0.9
+
+
+def test_calculate_max_risk_prefix_match():
+    """Test max risk calculation with directory prefix matching."""
+    from ralph_gold.loop import _calculate_max_risk
+    from pathlib import Path
+
+    project_root = Path("/project")
+    changed_files = [
+        project_root / "src/auth/login.py",
+    ]
+    area_risk_scores = {
+        "src/auth": 0.8,
+        "src/core": 0.1,
+    }
+
+    risk = _calculate_max_risk(project_root, changed_files, area_risk_scores)
+    assert risk == 0.8
+
+
+def test_adaptive_rigor_high_risk(tmp_path: Path):
+    """Test that gates are tightened (fail_fast disabled) for high risk."""
+    from ralph_gold.loop import run_gates
+    from ralph_gold.config import GatesConfig, SmartGateConfig, LlmJudgeConfig, AdaptiveConfig
+    from unittest.mock import patch
+
+    pass_script = tmp_path / "pass.sh"
+    pass_script.write_text("#!/bin/sh\nexit 0\n")
+    pass_script.chmod(0o755)
+
+    fail_script = tmp_path / "fail.sh"
+    fail_script.write_text("#!/bin/sh\nexit 1\n")
+    fail_script.chmod(0o755)
+
+    # Config with fail_fast=True
+    cfg = GatesConfig(
+        commands=[str(fail_script), str(pass_script)],
+        llm_judge=LlmJudgeConfig(enabled=False),
+        fail_fast=True,
+    )
+
+    # Mock high risk (0.9 > high_risk_threshold=0.8)
+    area_risk_scores = {"src/high_risk.py": 0.9}
+    
+    with patch("ralph_gold.loop._get_changed_files") as mock_get_files:
+        mock_get_files.return_value = [tmp_path / "src/high_risk.py"]
+        
+        # We need to pass adaptive config somehow. 
+        # run_gates signature might need to change or we use a wrapper.
+        # Acceptance criteria: Mixed changes follow strictest path.
+        
+        adaptive_cfg = AdaptiveConfig(enabled=True, high_risk_threshold=0.8)
+        
+        ok, results = run_gates(
+            tmp_path, 
+            cfg.commands, 
+            cfg, 
+            adaptive=adaptive_cfg, 
+            area_risk_scores=area_risk_scores
+        )
+        
+        assert ok is False
+        # Tightened rigor should have disabled fail_fast, so both gates ran
+        assert len(results) == 2
+
+
+def test_adaptive_rigor_low_risk(tmp_path: Path):
+    """Test that standard gates (fail_fast enabled) are used for low risk."""
+    from ralph_gold.loop import run_gates
+    from ralph_gold.config import GatesConfig, SmartGateConfig, LlmJudgeConfig, AdaptiveConfig
+    from unittest.mock import patch
+
+    pass_script = tmp_path / "pass.sh"
+    pass_script.write_text("#!/bin/sh\nexit 0\n")
+    pass_script.chmod(0o755)
+
+    fail_script = tmp_path / "fail.sh"
+    fail_script.write_text("#!/bin/sh\nexit 1\n")
+    fail_script.chmod(0o755)
+
+    # Config with fail_fast=True
+    cfg = GatesConfig(
+        commands=[str(fail_script), str(pass_script)],
+        llm_judge=LlmJudgeConfig(enabled=False),
+        fail_fast=True,
+    )
+
+    # Mock low risk (0.1 < medium_risk_threshold=0.4)
+    area_risk_scores = {"src/low_risk.py": 0.1}
+    
+    with patch("ralph_gold.loop._get_changed_files") as mock_get_files:
+        mock_get_files.return_value = [tmp_path / "src/low_risk.py"]
+        
+        adaptive_cfg = AdaptiveConfig(enabled=True, medium_risk_threshold=0.4)
+        
+        ok, results = run_gates(
+            tmp_path, 
+            cfg.commands, 
+            cfg, 
+            adaptive=adaptive_cfg, 
+            area_risk_scores=area_risk_scores
+        )
+        
+        assert ok is False
+        # Low rigor should respect fail_fast=True, so only 1 gate ran
+        assert len(results) == 1
+
+
+def test_adaptive_integration_high_risk_forces_judge(tmp_path: Path):
+    """Test that high-risk areas force enable llm_judge in run_iteration."""
+    from unittest.mock import patch, MagicMock
+    from ralph_gold.loop import run_iteration
+    from ralph_gold.config import (
+        Config,
+        LoopConfig,
+        FilesConfig,
+        GatesConfig,
+        SmartGateConfig,
+        LlmJudgeConfig,
+        GitConfig,
+        TrackerConfig,
+        ParallelConfig,
+        AdaptiveTimeoutConfig,
+        AdaptiveConfig,
+        AuthorizationConfig,
+    )
+    from ralph_gold.prd import SelectedTask
+
+    project_root = tmp_path
+    (project_root / ".ralph").mkdir()
+    (project_root / "PRD.md").write_text("# PRD\n- [ ] Task 1")
+
+    cfg = Config(
+        loop=LoopConfig(
+            adaptive=AdaptiveConfig(enabled=True, high_risk_threshold=0.8)
+        ),
+        files=FilesConfig(prd="PRD.md"),
+        runners={"claude": MagicMock()},
+        gates=GatesConfig(
+            commands=["echo 'gate'"],
+            # llm_judge is DISABLED in config
+            llm_judge=LlmJudgeConfig(enabled=False, agent="claude"),
+        ),
+        git=GitConfig(),
+        tracker=TrackerConfig(kind="markdown"),
+        parallel=ParallelConfig(),
+        adaptive_timeout=AdaptiveTimeoutConfig(enabled=False),
+        authorization=AuthorizationConfig(enabled=False),
+    )
+
+    task = SelectedTask(id="1", title="Task 1", kind="md", acceptance=[])
+
+    # Mock risk score: 0.9 (HIGH RISK)
+    area_risk_scores = {"src/critical.py": 0.9}
+
+    with patch("ralph_gold.loop._get_changed_files") as mock_get_files, \
+         patch("ralph_gold.loop.run_gates") as mock_run_gates, \
+         patch("ralph_gold.loop.run_subprocess") as mock_run_sub, \
+         patch("ralph_gold.loop.make_tracker") as mock_make_tracker, \
+         patch("ralph_gold.loop._get_runner") as mock_get_runner, \
+         patch("ralph_gold.loop.build_prompt", return_value="prompt"), \
+         patch("ralph_gold.loop.build_runner_invocation", return_value=(["echo"], None)), \
+         patch("ralph_gold.loop.ensure_git_repo"), \
+         patch("ralph_gold.loop.git_head", return_value="abc"), \
+         patch("ralph_gold.loop.load_state") as mock_load_state, \
+         patch("ralph_gold.loop.build_judge_prompt", return_value="judge prompt"), \
+         patch("ralph_gold.loop.parse_judge_signal", return_value=True):
+
+        # Setup state mock with risk scores
+        mock_load_state.return_value = {
+            "history": [],
+            "area_risk_scores": area_risk_scores
+        }
+
+        # Setup tracker mock
+        tracker = MagicMock()
+        tracker.claim_next_task.return_value = task
+        tracker.counts.return_value = (0, 1)
+        tracker.branch_name.return_value = None
+        tracker.is_task_done.return_value = True # Judge only runs if task is done
+        mock_make_tracker.return_value = tracker
+
+        mock_get_files.return_value = [project_root / "src/critical.py"]
+        mock_run_gates.return_value = (True, [])
+        mock_run_sub.return_value = MagicMock(
+            success=True, returncode=0, stdout="JUDGE_SIGNAL: true", stderr=""
+        )
+        mock_get_runner.return_value = MagicMock(argv=["echo"])
+
+        result = run_iteration(project_root, "claude", cfg=cfg, iteration=1)
+
+        # Judge SHOULD have run even though it was disabled in cfg
+        assert result.judge_ok is True
+        # Verify build_judge_prompt was called
+        from ralph_gold.loop import build_judge_prompt
+        assert build_judge_prompt.called
+
+
 def test_changed_files(tmp_path: Path):
     """Test get_changed_files function."""
     import subprocess

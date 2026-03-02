@@ -196,7 +196,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Store in `area_risk_scores` field
   - Test: `uv run pytest -q tests/test_stats.py -k test_risk_tracking` passes
 
-- [ ] Add adaptive gate selection logic
+- [x] Add adaptive gate selection logic
   - Tighten gates for high-risk areas
   - Use standard gates for low-risk areas
   - Mixed changes follow strictest path

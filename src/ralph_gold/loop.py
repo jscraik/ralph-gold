@@ -16,7 +16,7 @@ from .adaptive_timeout import calculate_adaptive_timeout
 from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
 from .authorization import AuthorizationError, EnforcementMode, load_authorization_checker
-from .config import Config, GatesConfig, LoopModeConfig, RunnerConfig, load_config
+from .config import AdaptiveConfig, Config, GatesConfig, LoopModeConfig, RunnerConfig, load_config
 from .context_manager import check_context_health, load_progress_window
 from .evidence import EvidenceReceipt
 from .prd import SelectedTask, select_task_by_id, task_status_by_id
@@ -308,6 +308,44 @@ def parse_judge_signal(output: str) -> Optional[bool]:
 
 def _safe_task_dirname(task_id: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_.-]+", "_", task_id.strip()) or "unknown"
+
+
+def _calculate_max_risk(
+    project_root: Path, changed_files: List[Path], area_risk_scores: Dict[str, float]
+) -> float:
+    """Calculate maximum risk score for changed files.
+
+    Args:
+        project_root: Project root directory
+        changed_files: List of absolute file paths that were modified
+        area_risk_scores: Risk scores per area from state history
+
+    Returns:
+        Maximum risk score found (0.0 to 1.0)
+    """
+    if not area_risk_scores or not changed_files:
+        return 0.0
+
+    max_risk = 0.0
+    for file_path in changed_files:
+        try:
+            rel_path = str(file_path.relative_to(project_root))
+        except ValueError:
+            continue
+
+        # Direct file match
+        if rel_path in area_risk_scores:
+            max_risk = max(max_risk, area_risk_scores[rel_path])
+            continue
+
+        # Directory prefix match
+        # Matches if rel_path is inside an area directory
+        for area, risk in area_risk_scores.items():
+            area_norm = area.rstrip("/")
+            if rel_path.startswith(area_norm + "/"):
+                max_risk = max(max_risk, risk)
+
+    return max_risk
 
 
 def _ensure_dir(path: Path) -> Path:
@@ -905,20 +943,36 @@ def _should_skip_gates(
 
 
 def run_gates(
-    project_root: Path, commands: List[str], cfg: GatesConfig
+    project_root: Path,
+    commands: List[str],
+    cfg: GatesConfig,
+    adaptive: Optional[AdaptiveConfig] = None,
+    area_risk_scores: Optional[Dict[str, float]] = None,
 ) -> Tuple[bool, List[GateResult]]:
-    """Run all configured gates with fail-fast and pre-commit hook support."""
+    """Run all configured gates with fail-fast and pre-commit hook support.
+
+    If adaptive config and risk scores are provided, gates may be tightened
+    (e.g., fail_fast disabled) for high-risk areas.
+    """
+    all_commands = list(commands)
+    changed_files = _get_changed_files(project_root)
 
     # Smart gate filtering: skip gates when only matching files change
     if cfg.smart.enabled and cfg.smart.skip_gates_for:
-        changed_files = _get_changed_files(project_root)
         if changed_files and _should_skip_gates(
-            changed_files, cfg.smart.skip_gates_for, project_root
+            changed_files, cfg.smart.skip_patterns if hasattr(cfg.smart, 'skip_patterns') else cfg.smart.skip_gates_for, project_root
         ):
             # All changed files match skip patterns - skip all gates
             return True, []
 
-    all_commands = list(commands)
+    # Adaptive rigor: tighten gates for high-risk areas
+    effective_fail_fast = cfg.fail_fast
+    if adaptive and adaptive.enabled and area_risk_scores and changed_files:
+        risk = _calculate_max_risk(project_root, changed_files, area_risk_scores)
+        if risk >= adaptive.medium_risk_threshold:
+            # Medium risk: disable fail_fast to see all failures
+            effective_fail_fast = False
+            logger.info(f"Adaptive gates: risk score {risk:.2f} >= {adaptive.medium_risk_threshold}, disabling fail_fast")
 
     # Optional: prepend prek if enabled and config exists.
     if cfg.prek.enabled:
@@ -952,7 +1006,7 @@ def run_gates(
 
         if res.return_code != 0:
             ok = False
-            if cfg.fail_fast:
+            if effective_fail_fast:
                 break
 
     return ok, results
@@ -1914,20 +1968,22 @@ def run_iteration(
     gate_cmds = cfg.gates.commands if cfg.gates.commands else []
     gates_ok: Optional[bool] = None
     gate_results: List[GateResult] = []
+    area_risk_scores = state.get("area_risk_scores", {})
 
     if (gate_cmds or cfg.gates.precommit_hook or cfg.gates.prek.enabled) and not skip_gates:
-        # Smart gate filtering: skip gates when only matching files change
-        should_skip = False
-        if cfg.gates.smart.enabled and cfg.gates.smart.skip_gates_for:
+        # run_gates handles smart gate filtering and adaptive rigor
+        gates_ok, gate_results = run_gates(
+            project_root,
+            gate_cmds,
+            cfg.gates,
+            adaptive=cfg.loop.adaptive,
+            area_risk_scores=area_risk_scores
+        )
+        
+        # Check if smart gates skipped (empty results but ok) to record receipt
+        if gates_ok and not gate_results and cfg.gates.smart.enabled and cfg.gates.smart.skip_gates_for:
             changed_files = _get_changed_files(project_root)
-            if changed_files and _should_skip_gates(
-                changed_files, cfg.gates.smart.skip_gates_for, project_root
-            ):
-                should_skip = True
-                gates_ok = True
-                gate_results = []
-                
-                # Record skip decision
+            if _should_skip_gates(changed_files, cfg.gates.smart.skip_gates_for, project_root):
                 write_receipt(
                     receipts_dir / "smart_gates_skip.json",
                     SmartGateSkipReceipt(
@@ -1940,11 +1996,17 @@ def run_iteration(
                     ),
                 )
                 logger.info("Smart gates: skipping all gates (all changed files match skip patterns)")
-
-        if not should_skip:
-            gates_ok, gate_results = run_gates(project_root, gate_cmds, cfg.gates)
     else:
         gates_ok, gate_results = None, []
+
+    # Adaptive rigor for LLM judge: force enable for high-risk areas
+    effective_judge_enabled = cfg.gates.llm_judge.enabled
+    if cfg.loop.adaptive.enabled and area_risk_scores and not effective_judge_enabled:
+        changed_files = _get_changed_files(project_root)
+        risk = _calculate_max_risk(project_root, changed_files, area_risk_scores)
+        if risk >= cfg.loop.adaptive.high_risk_threshold:
+            effective_judge_enabled = True
+            logger.info(f"Adaptive gates: high risk score {risk:.2f} >= {cfg.loop.adaptive.high_risk_threshold}, enabling llm_judge")
 
     gate_summaries: List[str] = []
     for idx, gr in enumerate(gate_results, start=1):
@@ -2014,7 +2076,7 @@ def run_iteration(
     judge_cfg = cfg.gates.llm_judge
     judge_result: Optional[LlmJudgeResult] = None
     judge_ok: Optional[bool] = None
-    if judge_cfg.enabled and story_id is not None and gates_ok is not False:
+    if effective_judge_enabled and story_id is not None and gates_ok is not False:
         try:
             done_now = tracker.is_task_done(story_id)
         except Exception as e:
