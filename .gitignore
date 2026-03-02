@@ -34,6 +34,10 @@ ENV/
 .ralph/archive/
 .ralph/*.state
 .ralph/USER_PROFILE.md
+.ralph/attempts/
+.ralph/receipts/
+.ralph/context/
+.ralph/interventions/
 
 # IDEs
 .vscode/

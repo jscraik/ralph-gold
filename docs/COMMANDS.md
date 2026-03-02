@@ -48,6 +48,8 @@ Ralph-gold provides a comprehensive CLI for managing the development loop. This 
 | `ralph watch` | Watch files and run gates automatically |
 | `ralph clean` | Clean old logs and artifacts |
 | `ralph state` | State management commands |
+| `ralph sync` | Reconcile state.json with PRD |
+| `ralph interventions` | View intervention recommendations |
 | `ralph completion` | Generate shell completion scripts |
 | `ralph convert` | Convert PRD between formats |
 | `ralph bridge` | VS Code JSON-RPC bridge |
@@ -561,6 +563,93 @@ ralph state cleanup --dry-run
 
 # Force cleanup without prompts
 ralph state cleanup --force
+```
+
+---
+
+### `ralph sync`
+
+Reconcile state.json with PRD to fix inconsistent task states.
+
+```bash
+ralph sync [OPTIONS]
+```
+
+**Options:**
+- `--dry-run`: Show what would change without making changes
+- `--force`: Make changes without confirmation
+
+**Behavior:**
+- Compares task states between state.json and PRD
+- Identifies tasks marked complete in PRD but not in state (and vice versa)
+- Optionally syncs blocked states based on PRD dependencies
+- Updates state.json to match PRD reality
+
+**When to use:**
+- After manual PRD edits
+- When tasks show incorrect status
+- After importing/merging PRD changes
+- To fix "false blocked" task states
+
+**Examples:**
+```bash
+# Preview what would change
+ralph sync --dry-run
+
+# Sync state with PRD
+ralph sync
+
+# Force sync without prompts
+ralph sync --force
+```
+
+---
+
+### `ralph interventions`
+
+View intervention recommendations from the adaptive intervention engine.
+
+```bash
+ralph interventions [OPTIONS]
+```
+
+**Options:**
+- `--latest`: Show only the latest recommendation
+- `--all`: Show all recommendations
+- `--json`: Output as JSON
+
+**Behavior:**
+- Displays recommendations generated from failure pattern analysis
+- Shows category, confidence, rationale, and suggested actions
+- Includes prompt patches, timeout hints, and mode hints
+
+**Recommendation Categories:**
+- `no_files_reinforcement`: Agent not writing files
+- `gate_failure_pattern`: Repeated gate failures
+- `timeout_churn`: Repeated timeouts
+- `low_evidence_completion`: Complete but no evidence
+- `syntax_error_pattern`: Repeated syntax errors
+
+**Configuration:**
+Enable in `.ralph/ralph.toml`:
+```toml
+[interventions]
+enabled = true
+policy_mode = "recommend-only"
+lookback_iterations = 30
+confidence_threshold = "medium"
+```
+
+**Examples:**
+```bash
+# View latest recommendation
+ralph interventions --latest
+
+# View all recommendations
+ralph interventions --all
+
+# JSON output for scripting
+ralph interventions --json
 ```
 
 ---

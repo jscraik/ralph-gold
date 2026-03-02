@@ -33,7 +33,7 @@ from .output import (
     set_output_config,
 )
 from .path_utils import validate_project_path
-from .prd import select_next_task, validate_prd
+from .prd import validate_prd
 from .scaffold import init_project
 from .snapshots import (
     create_snapshot,
