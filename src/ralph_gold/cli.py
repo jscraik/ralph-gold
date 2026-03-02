@@ -3220,6 +3220,89 @@ def cmd_retry_blocked(args: argparse.Namespace) -> int:
     return 0 if fail_count == 0 else 1
 
 
+def cmd_sync(args: argparse.Namespace) -> int:
+    """Sync state.json with PRD to remove stale blocked entries.
+
+    This command reconciles state.json blocked_tasks with PRD status.
+    Tasks marked done in PRD but still in blocked_tasks are removed.
+    """
+    root = _project_root()
+    from .config import load_config
+    from .prd import is_markdown_prd, _load_md_prd, _load_json_prd
+    from .loop import load_state, save_state
+
+    cfg = load_config(root)
+    prd_path = root / cfg.files.prd
+    state_path = root / ".ralph" / "state.json"
+
+    if not prd_path.exists():
+        print_output(f"❌ PRD file not found: {prd_path}", level="error")
+        return 1
+
+    if not state_path.exists():
+        print_output("⚠️  No state.json found. Nothing to sync.", level="warning")
+        return 0
+
+    # Load PRD tasks and find done task IDs
+    done_task_ids: set[str] = set()
+    if is_markdown_prd(prd_path):
+        prd = _load_md_prd(prd_path)
+        done_task_ids = {t.id for t in prd.tasks if t.status == "done"}
+    else:
+        prd = _load_json_prd(prd_path)
+        if prd:
+            stories = prd.get("stories", [])
+            for s in stories:
+                if isinstance(s, dict) and s.get("done"):
+                    # Use story id if available
+                    if "id" in s:
+                        done_task_ids.add(str(s["id"]))
+                    elif "title" in s:
+                        # Fallback: use title-based id
+                        done_task_ids.add(s["title"])
+
+    # Load state
+    state = load_state(state_path)
+    blocked_tasks = state.get("blocked_tasks", {})
+    if not isinstance(blocked_tasks, dict):
+        blocked_tasks = {}
+
+    # Find stale entries (blocked but done in PRD)
+    stale_ids = []
+    for task_id in list(blocked_tasks.keys()):
+        if task_id in done_task_ids or str(task_id) in done_task_ids:
+            stale_ids.append(task_id)
+
+    if not stale_ids:
+        print_output("✅ State is already in sync with PRD.", level="normal")
+        return 0
+
+    # Remove stale entries
+    for task_id in stale_ids:
+        del state["blocked_tasks"][task_id]
+        if args.verbose:
+            print_output(f"  Removed blocked entry for task {task_id}", level="normal")
+
+    # Also clean up task_attempts for done tasks if requested
+    if args.clean_attempts:
+        task_attempts = state.get("task_attempts", {})
+        for task_id in stale_ids:
+            if task_id in task_attempts:
+                del state["task_attempts"][task_id]
+                if args.verbose:
+                    print_output(f"  Removed attempt history for task {task_id}", level="normal")
+
+    # Save updated state
+    save_state(state_path, state)
+
+    print_output(f"✅ Synced state with PRD: removed {len(stale_ids)} stale blocked entries", level="normal")
+
+    if not args.verbose and stale_ids:
+        print_output("   Run with --verbose to see removed task IDs", level="normal")
+
+    return 0
+
+
 def cmd_tui(args: argparse.Namespace) -> int:
     root = _project_root()
     from .tui import run_tui
@@ -4237,6 +4320,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show what would be done without actually unblocking",
     )
     p_retry_blocked.set_defaults(func=cmd_retry_blocked)
+
+    # Sync command: reconcile state.json with PRD
+    p_sync = sub.add_parser(
+        "sync",
+        help="Sync state.json with PRD to remove stale blocked entries"
+    )
+    p_sync.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show detailed output including removed task IDs",
+    )
+    p_sync.add_argument(
+        "--clean-attempts",
+        action="store_true",
+        help="Also remove attempt history for synced tasks",
+    )
+    p_sync.set_defaults(func=cmd_sync)
 
     p_tui = sub.add_parser("tui", help="Interactive control surface (TUI)")
     p_tui.set_defaults(func=cmd_tui)

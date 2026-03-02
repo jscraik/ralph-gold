@@ -196,12 +196,32 @@ class SmartGateConfig:
 
 
 @dataclass(frozen=True)
+class PrdUpdateGateConfig:
+    """Configuration for PRD update verification gate."""
+    enabled: bool = False
+    require_checkbox_change: bool = True  # Require [ ] -> [x] change
+    allow_auto_mark: bool = False  # Allow auto-marking if work detected
+
+
+@dataclass(frozen=True)
+class SyntaxCheckGateConfig:
+    """Configuration for syntax check gate."""
+    enabled: bool = False
+    check_python: bool = True
+    check_typescript: bool = False
+    python_command: str = "python -m py_compile"
+    typescript_command: str = "npx tsc --noEmit"
+
+
+@dataclass(frozen=True)
 class GatesConfig:
     commands: List[str]
     llm_judge: LlmJudgeConfig
     review: ReviewConfig = field(default_factory=ReviewConfig)
     prek: PrekConfig = field(default_factory=PrekConfig)
     smart: SmartGateConfig = field(default_factory=SmartGateConfig)
+    prd_update: PrdUpdateGateConfig = field(default_factory=PrdUpdateGateConfig)
+    syntax_check: SyntaxCheckGateConfig = field(default_factory=SyntaxCheckGateConfig)
     precommit_hook: bool = False
     fail_fast: bool = True
     output_mode: str = "summary"  # full|summary|errors_only
@@ -1073,12 +1093,36 @@ def load_config(project_root: Path) -> Config:
         skip_gates_for=skip_gates_for,
     )
 
+    # Parse prd_update gate config
+    prd_update_raw = gates_raw.get("prd_update", {}) or {}
+    if not isinstance(prd_update_raw, dict):
+        prd_update_raw = {}
+    prd_update = PrdUpdateGateConfig(
+        enabled=_coerce_bool(prd_update_raw.get("enabled"), False),
+        require_checkbox_change=_coerce_bool(prd_update_raw.get("require_checkbox_change"), True),
+        allow_auto_mark=_coerce_bool(prd_update_raw.get("allow_auto_mark"), False),
+    )
+
+    # Parse syntax_check gate config
+    syntax_check_raw = gates_raw.get("syntax_check", {}) or {}
+    if not isinstance(syntax_check_raw, dict):
+        syntax_check_raw = {}
+    syntax_check = SyntaxCheckGateConfig(
+        enabled=_coerce_bool(syntax_check_raw.get("enabled"), False),
+        check_python=_coerce_bool(syntax_check_raw.get("check_python"), True),
+        check_typescript=_coerce_bool(syntax_check_raw.get("check_typescript"), False),
+        python_command=str(syntax_check_raw.get("python_command", "python -m py_compile")),
+        typescript_command=str(syntax_check_raw.get("typescript_command", "npx tsc --noEmit")),
+    )
+
     gates = GatesConfig(
         commands=gate_cmds,
         llm_judge=llm_judge,
         review=review,
         prek=prek,
         smart=smart,
+        prd_update=prd_update,
+        syntax_check=syntax_check,
         precommit_hook=_coerce_bool(
             gates_raw.get("precommit_hook", gates_raw.get("precommitHook")), False
         ),

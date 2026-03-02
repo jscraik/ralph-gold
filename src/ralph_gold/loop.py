@@ -16,7 +16,7 @@ from .adaptive_timeout import calculate_adaptive_timeout
 from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
 from .authorization import AuthorizationError, EnforcementMode, load_authorization_checker
-from .config import AdaptiveConfig, Config, GatesConfig, LoopModeConfig, RunnerConfig, load_config
+from .config import AdaptiveConfig, Config, GatesConfig, LoopModeConfig, RunnerConfig, SyntaxCheckGateConfig, load_config
 from .context_manager import check_context_health, load_progress_window
 from .evidence import EvidenceReceipt
 from .prd import SelectedTask, select_task_by_id, task_status_by_id
@@ -1067,6 +1067,181 @@ def run_gates(
     return ok, results
 
 
+def _check_prd_update(
+    project_root: Path,
+    prd_path: Path,
+    task_id: str,
+    prd_content_before: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Check if PRD was updated with task completion.
+
+    Args:
+        project_root: Project root directory
+        prd_path: Path to PRD file
+        task_id: Task ID to check
+        prd_content_before: PRD content before iteration (optional)
+
+    Returns:
+        Tuple of (success, message)
+    """
+    if not prd_path.exists():
+        return False, f"PRD file not found: {prd_path}"
+
+    try:
+        prd_content = prd_path.read_text(encoding="utf-8")
+
+        # Check if task is marked done in current PRD
+        # Look for [x] with task context (id nearby)
+        import re
+
+        # Pattern to find task and check if marked done
+        # Matches: - [x] ... task-id or similar patterns
+        task_pattern = rf"-\s*\[x\][^\n]*{re.escape(task_id)}"
+        if re.search(task_pattern, prd_content, re.IGNORECASE):
+            return True, f"Task {task_id} marked done in PRD"
+
+        # Also check for markdown format with id in line
+        done_pattern = rf"^\s*-\s*\[x\].*{re.escape(task_id)}"
+        if re.search(done_pattern, prd_content, re.MULTILINE | re.IGNORECASE):
+            return True, f"Task {task_id} marked done in PRD"
+
+        # Check if PRD changed at all (if we have before content)
+        if prd_content_before is not None:
+            if prd_content != prd_content_before:
+                return True, "PRD was modified (content changed)"
+            return False, "PRD was not updated"
+
+        return False, f"Task {task_id} not marked done in PRD"
+
+    except Exception as e:
+        return False, f"Error checking PRD: {e}"
+
+
+def _check_syntax(
+    project_root: Path,
+    changed_files: List[Path],
+    cfg: "SyntaxCheckGateConfig",
+) -> Tuple[bool, List[GateResult]]:
+    """Run syntax checks on changed files.
+
+    Args:
+        project_root: Project root directory
+        changed_files: List of changed file paths
+        cfg: Syntax check configuration
+
+    Returns:
+        Tuple of (all_passed, results)
+    """
+    results: List[GateResult] = []
+    all_ok = True
+
+    if not cfg.enabled:
+        return True, []
+
+    # Collect files to check
+    python_files = []
+    typescript_files = []
+
+    for f in changed_files:
+        if f.suffix == ".py":
+            python_files.append(f)
+        elif f.suffix in (".ts", ".tsx"):
+            typescript_files.append(f)
+
+    # Check Python files
+    if cfg.check_python and python_files:
+        for py_file in python_files:
+            cmd = f"{cfg.python_command} {py_file}"
+            res = _run_gate_command(project_root, cmd)
+            results.append(res)
+            if res.return_code != 0:
+                all_ok = False
+                logger.warning(f"Syntax error in {py_file}: {res.stderr[:200]}")
+
+    # Check TypeScript files
+    if cfg.check_typescript and typescript_files:
+        for ts_file in typescript_files:
+            cmd = f"{cfg.typescript_command} {ts_file}"
+            res = _run_gate_command(project_root, cmd)
+            results.append(res)
+            if res.return_code != 0:
+                all_ok = False
+                logger.warning(f"TypeScript error in {ts_file}: {res.stderr[:200]}")
+
+    return all_ok, results
+
+
+def sync_blocked_state_with_prd(
+    project_root: Path,
+    prd_path: Path,
+    state_path: Path,
+    verbose: bool = False,
+) -> int:
+    """Sync blocked_tasks in state.json with PRD status.
+
+    Removes blocked entries for tasks that are marked done in PRD.
+    This prevents stale blocked state from persisting when PRD is manually updated.
+
+    Args:
+        project_root: Project root directory
+        prd_path: Path to PRD file
+        state_path: Path to state.json
+        verbose: If True, log removed task IDs
+
+    Returns:
+        Number of stale entries removed
+    """
+    from .prd import is_markdown_prd, _load_md_prd, _load_json_prd
+
+    if not prd_path.exists() or not state_path.exists():
+        return 0
+
+    # Load PRD tasks and find done task IDs
+    done_task_ids: set[str] = set()
+    try:
+        if is_markdown_prd(prd_path):
+            prd = _load_md_prd(prd_path)
+            done_task_ids = {t.id for t in prd.tasks if t.status == "done"}
+        else:
+            prd = _load_json_prd(prd_path)
+            if prd:
+                stories = prd.get("stories", [])
+                for s in stories:
+                    if isinstance(s, dict) and s.get("done"):
+                        if "id" in s:
+                            done_task_ids.add(str(s["id"]))
+    except Exception as e:
+        logger.debug(f"Failed to load PRD for sync: {e}")
+        return 0
+
+    # Load state
+    try:
+        state = load_state(state_path)
+    except Exception as e:
+        logger.debug(f"Failed to load state for sync: {e}")
+        return 0
+
+    blocked_tasks = state.get("blocked_tasks", {})
+    if not isinstance(blocked_tasks, dict) or not blocked_tasks:
+        return 0
+
+    # Find and remove stale entries
+    stale_ids = []
+    for task_id in list(blocked_tasks.keys()):
+        if task_id in done_task_ids or str(task_id) in done_task_ids:
+            stale_ids.append(task_id)
+            del state["blocked_tasks"][task_id]
+
+    if stale_ids:
+        save_state(state_path, state)
+        if verbose:
+            logger.info(f"Auto-synced state: removed {len(stale_ids)} stale blocked entries")
+        else:
+            logger.debug(f"Auto-synced state: removed {len(stale_ids)} stale blocked entries")
+
+    return len(stale_ids)
+
+
 def dry_run_loop(
     project_root: Path,
     agent: str,
@@ -1802,6 +1977,15 @@ def run_iteration(
     context_dir = _ensure_dir(state_dir / "context" / task_dirname / attempt_id)
     attempt_record_path = attempts_dir / f"{attempt_id}.json"
 
+    # Capture PRD content before agent runs (for PRD update gate)
+    prd_path = project_root / cfg.files.prd
+    prd_content_before: Optional[str] = None
+    if cfg.gates.prd_update.enabled and prd_path.exists():
+        try:
+            prd_content_before = prd_path.read_text(encoding="utf-8")
+        except Exception as e:
+            logger.debug(f"Failed to read PRD before iteration: {e}")
+
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     log_path = logs_dir / f"{ts}-iter{iteration:04d}-{agent}.log"
 
@@ -2064,6 +2248,32 @@ def run_iteration(
             )
     else:
         gates_ok, gate_results = None, []
+
+    # Syntax check gate: verify no syntax errors in changed files
+    if cfg.gates.syntax_check.enabled and not skip_gates:
+        syntax_ok, syntax_results = _check_syntax(project_root, changed_files, cfg.gates.syntax_check)
+        gate_results.extend(syntax_results)
+        if not syntax_ok:
+            gates_ok = False
+            logger.warning("Syntax check gate failed")
+
+    # PRD update gate: verify PRD was updated with task completion
+    if cfg.gates.prd_update.enabled and not skip_gates and story_id is not None:
+        prd_ok, prd_message = _check_prd_update(
+            project_root, prd_path, str(story_id), prd_content_before
+        )
+        prd_result = GateResult(
+            cmd="prd_update_check",
+            return_code=0 if prd_ok else 1,
+            duration_seconds=0.0,
+            stdout=prd_message,
+            stderr="",
+            is_precommit_hook=False,
+        )
+        gate_results.append(prd_result)
+        if not prd_ok:
+            gates_ok = False
+            logger.warning(f"PRD update gate failed: {prd_message}")
 
     # Adaptive rigor for LLM judge: force enable for high-risk areas
     effective_judge_enabled = cfg.gates.llm_judge.enabled
@@ -3521,6 +3731,10 @@ def run_loop(
     state = load_state(state_path)
     state["noProgressStreak"] = 0
     save_state(state_path, state)
+
+    # Auto-sync blocked state with PRD (P2: Blocked state auto-sync)
+    prd_path = project_root / cfg.files.prd
+    sync_blocked_state_with_prd(project_root, prd_path, state_path, verbose=False)
 
     tracker = make_tracker(project_root, cfg)
     allow_exit_without_all_done = tracker.kind == "beads"

@@ -112,6 +112,22 @@ agent = "claude"
 prompt = ".ralph/PROMPT_judge.md"
 max_diff_chars = 30000
 
+[gates.prd_update]
+# PRD update verification gate.
+# Fails iteration if PRD checkbox was not updated when task completes.
+enabled = false
+require_checkbox_change = true
+allow_auto_mark = false
+
+[gates.syntax_check]
+# Syntax check gate - verifies no syntax errors in changed files.
+# Runs py_compile for Python, tsc for TypeScript.
+enabled = false
+check_python = true
+check_typescript = false
+python_command = "python -m py_compile"
+typescript_command = "npx tsc --noEmit"
+
 [repoprompt]
 # Repo Prompt integration (rp-cli).
 enabled = false
