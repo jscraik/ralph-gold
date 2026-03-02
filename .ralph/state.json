@@ -76,7 +76,22 @@
     1772428665.815664,
     1772428837.792814,
     1772429079.631294,
-    1772429779.241418
+    1772429779.241418,
+    1772432860.676456,
+    1772433408.1788301,
+    1772433639.443448,
+    1772433772.9922838,
+    1772433868.1827998,
+    1772433935.97781,
+    1772434139.587732,
+    1772434244.833981,
+    1772434434.919426,
+    1772434657.060897,
+    1772435439.66509,
+    1772435623.4929018,
+    1772435701.269762,
+    1772435917.39257,
+    1772436085.219626
   ],
   "noProgressStreak": 0,
   "history": [
@@ -2815,6 +2830,870 @@
       "commit_return_code": 0,
       "gate_results": [],
       "log": "20260302T052439Z-iter0076-gemini.log"
+    },
+    {
+      "ts": "20260302T062555Z",
+      "iteration": 77,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "21",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 105.19,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-062555-iter0077",
+      "receipts_dir": ".ralph/receipts/21/20260302-062555-iter0077",
+      "context_dir": ".ralph/context/21/20260302-062555-iter0077",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T062555Z-iter0077-gemini.log"
+    },
+    {
+      "ts": "20260302T062741Z",
+      "iteration": 78,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "22",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 546.75,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-062741-iter0078",
+      "receipts_dir": ".ralph/receipts/22/20260302-062741-iter0078",
+      "context_dir": ".ralph/context/22/20260302-062741-iter0078",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T062741Z-iter0078-gemini.log"
+    },
+    {
+      "ts": "20260302T063648Z",
+      "iteration": 79,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "23",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 230.55,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-063648-iter0079",
+      "receipts_dir": ".ralph/receipts/23/20260302-063648-iter0079",
+      "context_dir": ".ralph/context/23/20260302-063648-iter0079",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T063648Z-iter0079-gemini.log"
+    },
+    {
+      "ts": "20260302T064039Z",
+      "iteration": 80,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "25",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 132.85,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-064039-iter0080",
+      "receipts_dir": ".ralph/receipts/25/20260302-064039-iter0080",
+      "context_dir": ".ralph/context/25/20260302-064039-iter0080",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T064039Z-iter0080-gemini.log"
+    },
+    {
+      "ts": "20260302T064253Z",
+      "iteration": 81,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "26",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 94.5,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-064253-iter0081",
+      "receipts_dir": ".ralph/receipts/26/20260302-064253-iter0081",
+      "context_dir": ".ralph/context/26/20260302-064253-iter0081",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T064253Z-iter0081-gemini.log"
+    },
+    {
+      "ts": "20260302T064428Z",
+      "iteration": 82,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "27",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 67.09,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-064428-iter0082",
+      "receipts_dir": ".ralph/receipts/27/20260302-064428-iter0082",
+      "context_dir": ".ralph/context/27/20260302-064428-iter0082",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T064428Z-iter0082-gemini.log"
+    },
+    {
+      "ts": "20260302T064536Z",
+      "iteration": 83,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "28",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 202.92,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-064536-iter0083",
+      "receipts_dir": ".ralph/receipts/28/20260302-064536-iter0083",
+      "context_dir": ".ralph/context/28/20260302-064536-iter0083",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T064536Z-iter0083-gemini.log"
+    },
+    {
+      "ts": "20260302T064859Z",
+      "iteration": 84,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "29",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 104.53,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-064859-iter0084",
+      "receipts_dir": ".ralph/receipts/29/20260302-064859-iter0084",
+      "context_dir": ".ralph/context/29/20260302-064859-iter0084",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T064859Z-iter0084-gemini.log"
+    },
+    {
+      "ts": "20260302T065045Z",
+      "iteration": 85,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "30",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 189.43,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-065045-iter0085",
+      "receipts_dir": ".ralph/receipts/30/20260302-065045-iter0085",
+      "context_dir": ".ralph/context/30/20260302-065045-iter0085",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "gate_results": [],
+      "log": "20260302T065045Z-iter0085-gemini.log"
+    },
+    {
+      "ts": "20260302T065355Z",
+      "iteration": 86,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "31",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 221.44,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-065355-iter0086",
+      "receipts_dir": ".ralph/receipts/31/20260302-065355-iter0086",
+      "context_dir": ".ralph/context/31/20260302-065355-iter0086",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [
+        ".ralph/state.json"
+      ],
+      "gate_results": [],
+      "log": "20260302T065355Z-iter0086-gemini.log"
+    },
+    {
+      "ts": "20260302T065737Z",
+      "iteration": 87,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "branch": "main",
+      "story_id": "32",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 781.93,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": true,
+      "attempt_id": "20260302-065737-iter0087",
+      "receipts_dir": ".ralph/receipts/32/20260302-065737-iter0087",
+      "context_dir": ".ralph/context/32/20260302-065737-iter0087",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [
+        ".ralph/PRD.md",
+        ".ralph/progress.md",
+        ".ralph/state.json"
+      ],
+      "gate_results": [],
+      "log": "20260302T065737Z-iter0087-gemini.log"
+    },
+    {
+      "ts": "20260302T071039Z",
+      "iteration": 88,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "risk_score": 0.0,
+      "branch": "main",
+      "story_id": "33",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 183.14,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-071039-iter0088",
+      "receipts_dir": ".ralph/receipts/33/20260302-071039-iter0088",
+      "context_dir": ".ralph/context/33/20260302-071039-iter0088",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [
+        ".ralph/state.json"
+      ],
+      "gate_results": [],
+      "log": "20260302T071039Z-iter0088-gemini.log"
+    },
+    {
+      "ts": "20260302T071343Z",
+      "iteration": 89,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "risk_score": 0.0,
+      "branch": "main",
+      "story_id": "34",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 77.09,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-071343-iter0089",
+      "receipts_dir": ".ralph/receipts/34/20260302-071343-iter0089",
+      "context_dir": ".ralph/context/34/20260302-071343-iter0089",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [
+        ".ralph/state.json"
+      ],
+      "gate_results": [],
+      "log": "20260302T071343Z-iter0089-gemini.log"
+    },
+    {
+      "ts": "20260302T071501Z",
+      "iteration": 90,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "risk_score": 0.0,
+      "branch": "main",
+      "story_id": "35",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 215.44,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-071501-iter0090",
+      "receipts_dir": ".ralph/receipts/35/20260302-071501-iter0090",
+      "context_dir": ".ralph/context/35/20260302-071501-iter0090",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [
+        ".ralph/state.json"
+      ],
+      "gate_results": [],
+      "log": "20260302T071501Z-iter0090-gemini.log"
+    },
+    {
+      "ts": "20260302T071837Z",
+      "iteration": 91,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "risk_score": 0.0,
+      "branch": "main",
+      "story_id": "36",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 167.14,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-071837-iter0091",
+      "receipts_dir": ".ralph/receipts/36/20260302-071837-iter0091",
+      "context_dir": ".ralph/context/36/20260302-071837-iter0091",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [
+        ".ralph/state.json"
+      ],
+      "gate_results": [],
+      "log": "20260302T071837Z-iter0091-gemini.log"
     }
   ],
   "snapshots": [
@@ -2836,7 +3715,8 @@
     "7": 1,
     "8": 1,
     "9": 1,
-    "20": 1
+    "20": 1,
+    "32": 1
   },
   "blocked_tasks": {
     "20": {
@@ -2844,7 +3724,24 @@
       "attempts": 1,
       "reason": "task not marked done (agent exited successfully but task not completed)",
       "attempt_id": "20260302-052439-iter0076"
+    },
+    "32": {
+      "blocked_at": "2026-03-02T07:10:39.643604+00:00",
+      "attempts": 1,
+      "reason": "task not marked done (agent exited successfully but task not completed)",
+      "attempt_id": "20260302-065737-iter0087"
     }
   },
-  "session_id": "20260119-093701"
+  "session_id": "20260119-093701",
+  "flow_metrics": {
+    "tasks_per_hour": 0.0,
+    "blocked_task_rate": 0.25,
+    "success_rate": 0.0,
+    "updated_at": "2026-03-02T07:21:25.227354+00:00"
+  },
+  "area_risk_scores": {
+    ".ralph/state.json": 1.0,
+    ".ralph/PRD.md": 1.0,
+    ".ralph/progress.md": 1.0
+  }
 }
