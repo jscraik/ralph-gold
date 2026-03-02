@@ -141,3 +141,7 @@ Keep entries short; delete nothing; add clarifications when you learn.
 2026-03-02 Iteration 89: Completed task 34 (Add validate_prd() function). Updated get_all_tasks() to include acceptance criteria. Added validate_prd() with complexity checks (vague titles, missing/excessive acceptance, missing test commands). Added test_validate() to tests/test_converters.py. Gates: uv run pytest -q tests/test_converters.py -k test_validate (PASS).
 - [20260302T071343Z] iter 89 mode=prd status=DONE checks=PASS story=S34 agent=gemini branch=main log=20260302T071343Z-iter0089-gemini.log
 - [20260302T071501Z] iter 90 mode=prd status=DONE checks=PASS story=S35 agent=gemini branch=main log=20260302T071501Z-iter0090-gemini.log
+
+2026-03-02 Iteration 91: Completed task 36 (Add --strict flag to ralph regen-plan). Verified that the flag was already implemented in CLI and functional. Renamed test to test_strict in tests/test_cli_templates.py to match acceptance criteria. Gate: uv run pytest -q tests/test_cli_templates.py -k test_strict (pass).
+- [20260302T072032Z] iter 91 mode=prd status=DONE checks=PASS story=S36 agent=gemini branch=main log=20260302T072032Z-iter0091-gemini.log
+- [20260302T071837Z] iter 91 mode=prd status=DONE checks=PASS story=S36 agent=gemini branch=main log=20260302T071837Z-iter0091-gemini.log

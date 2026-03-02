@@ -262,8 +262,8 @@ max_iterations = 10
     assert exc_info.value.code == 2
 
 
-def test_validate(tmp_path: Path, monkeypatch, capsys):
-    """Test 'ralph regen-plan' validation integration."""
+def test_strict(tmp_path: Path, monkeypatch, capsys):
+    """Test 'ralph regen-plan' validation integration with --strict flag."""
     # Setup a minimal Ralph project
     ralph_dir = tmp_path / ".ralph"
     ralph_dir.mkdir()

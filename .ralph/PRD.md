@@ -228,7 +228,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Continue unless --strict flag used
   - Test: `uv run pytest -q tests/test_cli_templates.py -k test_validate` passes
 
-- [ ] Add --strict flag to ralph regen-plan
+- [x] Add --strict flag to ralph regen-plan
   - Fail if any validation warnings found
   - Exit with code 1 and clear error message
   - Show how to fix each issue
