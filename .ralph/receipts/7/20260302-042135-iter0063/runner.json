@@ -1,0 +1,21 @@
+{
+  "name": "runner",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "returncode": 1,
+  "started_at": "2026-03-02T04:21:35.932229+00:00",
+  "ended_at": "2026-03-02T04:21:43.112245+00:00",
+  "duration_seconds": 7.179965019226074,
+  "stdout_path": ".ralph/logs/20260302T042135Z-iter0063-codex.log",
+  "stderr_path": null,
+  "notes": {
+    "prompt_hash": "1d6b096378a4295047f1c9d0da689ad53bc37f51809e9818684e2770947cc8b0",
+    "stdout_tail": "",
+    "stderr_tail": "OpenAI Codex v0.107.0-alpha.5 (research preview)\n--------\nworkdir: /Users/jamiecraik/dev/ralph-gold\nmodel: gpt-5.3-codex-spark\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\nreasoning effort: high\nreasoning summaries: concise\nsession id: 019cacc7-bacf-7670-8b03-02f972a80079\n--------\nuser\nYou are operating inside the Ralph Gold loop.\n\nRules:\n- Do exactly ONE task per iteration.\n- Use the Memory Files below as the source of truth (especi\n... [truncated 24917 chars] ...\n done without gate verification.\n- Implementing team-only workflows or heavyweight process.\n\n## Edge Cases\n- No state history available (flow stats should degrade gracefully).\n- Only docs/config changes (gates should skip without error).\n- Mixed file changes across risk levels (adaptive rigor should apply the strictest path).\n- Batch selection with dependencies (batching must respect `Depends on:` entries).\n\n\n</PROJECT_MEMORY>\n\nExit protocol (required):\nAt the very end of your output, print exactly one line:\nEXIT_SIGNAL: true  OR  EXIT_SIGNAL: false\n\n\nmcp: greptile starting\nmcp: codexRepo starting\nmcp: github starting\nmcp: openaiDeveloperDocs starting\nmcp: context7 starting\nmcp: stitch starting\nmcp: codex_apps starting\nmcp: filesystem starting\nmcp: local-memory starting\nmcp: linear starting\nmcp: local-memory ready\nmcp: github ready\nmcp: filesystem ready\nmcp: codexRepo ready\nmcp: stitch ready\nmcp: openaiDeveloperDocs ready\nmcp: context7 ready\nmcp: greptile ready\nmcp: linear ready\nmcp: codex_apps ready\nmcp startup: ready: local-memory, github, filesystem, codexRepo, stitch, openaiDeveloperDocs, context7, greptile, linear, codex_apps\nERROR: {\n  \"type\": \"error\",\n  \"error\": {\n    \"type\": \"invalid_request_error\",\n    \"code\": \"unsupported_parameter\",\n    \"message\": \"Unsupported parameter: 'reasoning.summary' is not supported with the 'gpt-5.3-codex-spark' model.\",\n    \"param\": \"reasoning.summary\"\n  },\n  \"status\": 400\n}\n"
+  },
+  "_schema": "ralph_gold.receipt.v1"
+}

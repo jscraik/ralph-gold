@@ -2,7 +2,8 @@
 
 import subprocess
 from pathlib import Path
-from ralph_gold.config import GatesConfig, GatesSmartConfig, LlmJudgeConfig
+from ralph_gold.config import GatesConfig, SmartGateConfig, LlmJudgeConfig
+from ralph_gold.gates import get_changed_files
 from ralph_gold.loop import (
     _discover_precommit_hook,
     _truncate_output,
@@ -334,7 +335,7 @@ def test_smart_gate_filters_with_git_repo(tmp_path: Path):
         fail_fast=True,
         output_mode="summary",
         max_output_lines=50,
-        smart=GatesSmartConfig(enabled=True, skip_gates_for=["**/*.md"]),
+        smart=SmartGateConfig(enabled=True, skip_gates_for=["**/*.md"]),
     )
 
     # Modify README.md (should skip gates)
@@ -350,7 +351,7 @@ def test_smart_gate_filters_with_git_repo(tmp_path: Path):
 def test_smart_gate_runs_for_code_changes(tmp_path: Path):
     """Test that gates run when code files change even with smart filtering enabled."""
     import subprocess
-    from ralph_gold.config import GatesSmartConfig
+    from ralph_gold.config import SmartGateConfig
 
     # Initialize a git repo
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
@@ -376,7 +377,7 @@ def test_smart_gate_runs_for_code_changes(tmp_path: Path):
         fail_fast=True,
         output_mode="summary",
         max_output_lines=50,
-        smart=GatesSmartConfig(enabled=True, skip_gates_for=["**/*.md"]),
+        smart=SmartGateConfig(enabled=True, skip_gates_for=["**/*.md"]),
     )
 
     # Create a Python file (should run gates)
@@ -419,7 +420,7 @@ def test_smart_gate_disabled_by_default(tmp_path: Path):
         fail_fast=True,
         output_mode="summary",
         max_output_lines=50,
-        smart=GatesSmartConfig(enabled=False, skip_gates_for=["**/*.md"]),
+        smart=SmartGateConfig(enabled=False, skip_gates_for=["**/*.md"]),
     )
 
     # Modify README.md (should NOT skip gates when disabled)
@@ -431,3 +432,148 @@ def test_smart_gate_disabled_by_default(tmp_path: Path):
     assert ok is True
     assert len(results) == 1
     assert results[0].return_code == 0
+
+
+def test_changed_files(tmp_path: Path):
+    """Test get_changed_files function."""
+    import subprocess
+
+    # 1. Not a git repo
+    not_git = tmp_path / "not_git"
+    not_git.mkdir()
+    assert get_changed_files(not_git) == []
+
+    # 2. Empty git repo (no HEAD)
+    git_repo = tmp_path / "git_repo"
+    git_repo.mkdir()
+    subprocess.run(["git", "init"], cwd=git_repo, check=True, capture_output=True)
+    assert get_changed_files(git_repo) == []
+
+    # 3. Git repo with commits and changes
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=git_repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=git_repo, check=True, capture_output=True)
+    
+    readme = git_repo / "README.md"
+    readme.write_text("# Initial")
+    subprocess.run(["git", "add", "README.md"], cwd=git_repo, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=git_repo, check=True, capture_output=True)
+    
+    # Modify existing file (unstaged)
+    readme.write_text("# Updated")
+    # Create new file (untracked)
+    new_file = git_repo / "new.py"
+    new_file.write_text("print('new')")
+    
+    changed = get_changed_files(git_repo)
+    # git diff --name-only HEAD shows changes since last commit (unstaged + staged)
+    # Untracked files are NOT shown.
+    assert readme in [p.resolve() for p in changed]
+    assert new_file not in [p.resolve() for p in changed]
+    assert len(changed) == 1
+
+    # Add new file (staged)
+    subprocess.run(["git", "add", "new.py"], cwd=git_repo, check=True, capture_output=True)
+    changed = get_changed_files(git_repo)
+    # Use resolve() to handle Path comparison safely
+    assert readme.resolve() in [p.resolve() for p in changed]
+    assert new_file.resolve() in [p.resolve() for p in changed]
+    assert len(changed) == 2
+
+
+def test_integration(tmp_path: Path):
+    """Test integration of smart gates into run_iteration."""
+    from unittest.mock import patch, MagicMock
+    from ralph_gold.loop import run_iteration
+    from ralph_gold.config import (
+        Config,
+        LoopConfig,
+        FilesConfig,
+        GatesConfig,
+        SmartGateConfig,
+        GitConfig,
+        TrackerConfig,
+        ParallelConfig,
+        AdaptiveTimeoutConfig,
+        AuthorizationConfig,
+    )
+    from ralph_gold.prd import SelectedTask
+
+    project_root = tmp_path
+    (project_root / ".ralph").mkdir()
+    (project_root / "PRD.md").write_text("# PRD\n- [ ] Task 1")
+
+    cfg = Config(
+        loop=LoopConfig(),
+        files=FilesConfig(prd="PRD.md"),
+        runners={"claude": MagicMock()},
+        gates=GatesConfig(
+            commands=["echo 'gate'"],
+            llm_judge=MagicMock(),
+            smart=SmartGateConfig(enabled=True, skip_gates_for=["**/*.md"]),
+        ),
+        git=GitConfig(),
+        tracker=TrackerConfig(kind="markdown"),
+        parallel=ParallelConfig(),
+        adaptive_timeout=AdaptiveTimeoutConfig(enabled=False),
+        authorization=AuthorizationConfig(enabled=False),
+    )
+
+    task = SelectedTask(id="1", title="Task 1", kind="md", acceptance=[])
+
+    # Mock all external dependencies of run_iteration
+    with patch("ralph_gold.loop.get_changed_files") as mock_get_files, \
+        patch("ralph_gold.loop.run_gates") as mock_run_gates, \
+        patch("ralph_gold.loop.run_subprocess") as mock_run_sub, \
+        patch("ralph_gold.loop.make_tracker") as mock_make_tracker, \
+        patch("ralph_gold.loop._get_runner") as mock_get_runner, \
+        patch("ralph_gold.loop.build_prompt", return_value="prompt"), \
+        patch(
+            "ralph_gold.loop.build_runner_invocation", return_value=(["echo"], None)
+        ), \
+        patch("ralph_gold.loop.ensure_git_repo"), \
+        patch("ralph_gold.loop.git_head", return_value="abc"):
+
+        # Setup tracker mock
+        tracker = MagicMock()
+        tracker.claim_next_task.return_value = task
+        tracker.counts.return_value = (0, 1)
+        tracker.branch_name.return_value = None
+        tracker.kind = "markdown"
+        mock_make_tracker.return_value = tracker
+
+        mock_run_sub.return_value = MagicMock(
+            success=True, returncode=0, stdout="DONE", stderr=""
+        )
+        mock_get_runner.return_value = MagicMock(argv=["echo"])
+
+        # 1. Test skip: only README.md changed
+        mock_get_files.return_value = [project_root / "README.md"]
+
+        result = run_iteration(project_root, "claude", cfg=cfg, iteration=1)
+
+        # Should NOT have called run_gates
+        assert mock_run_gates.call_count == 0
+        assert result.gates_ok is True
+
+        # Check if receipt was written
+        receipt_dir = project_root / ".ralph" / "receipts" / "1" / f"{result.attempt_id}"
+        receipt_path = receipt_dir / "smart_gates_skip.json"
+        assert receipt_path.exists()
+        
+        import json
+        receipt_data = json.loads(receipt_path.read_text())
+        assert receipt_data["task_id"] == "1"
+        assert "All changed files" in receipt_data["reason"]
+        assert "README.md" in receipt_data["changed_files"][0]
+        assert "**/*.md" in receipt_data["patterns"]
+
+        # 2. Test run: Python file changed
+        mock_get_files.return_value = [project_root / "main.py"]
+        mock_run_gates.return_value = (True, [])
+        mock_run_gates.reset_mock()
+
+        result = run_iteration(project_root, "claude", cfg=cfg, iteration=2)
+
+        # Should HAVE called run_gates
+        assert mock_run_gates.call_count == 1
+        assert result.gates_ok is True

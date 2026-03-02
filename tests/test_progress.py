@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pytest
 
@@ -14,6 +14,7 @@ from ralph_gold.progress import (
     format_burndown_chart,
     format_progress_bar,
 )
+from ralph_gold.prd import SelectedTask, TaskId
 
 
 # Mock tracker for testing
@@ -23,10 +24,50 @@ class MockTracker:
     def __init__(self, completed: int, total: int):
         self._completed = completed
         self._total = total
+        self.kind = "mock"
 
     def counts(self) -> tuple[int, int]:
         """Return (completed, total) task counts."""
         return (self._completed, self._total)
+
+    def select_next_task(self, exclude_ids: Optional[Set[str]] = None) -> Optional[SelectedTask]:
+        return None
+
+    def peek_next_task(self) -> Optional[SelectedTask]:
+        return None
+
+    def claim_next_task(self) -> Optional[SelectedTask]:
+        return None
+
+    def all_done(self) -> bool:
+        return self._completed == self._total
+
+    def all_blocked(self) -> bool:
+        return False
+
+    def is_task_done(self, task_id: TaskId) -> bool:
+        return False
+
+    def force_task_open(self, task_id: TaskId) -> bool:
+        return True
+
+    def block_task(self, task_id: TaskId, reason: str) -> bool:
+        return True
+
+    def get_task_by_id(self, task_id: TaskId) -> Optional[SelectedTask]:
+        return None
+
+    def get_task_status(self, task_id: TaskId) -> str:
+        return "open"
+
+    def branch_name(self) -> Optional[str]:
+        return None
+
+    def get_quick_batch(self, limit: int = 3) -> Optional[List[SelectedTask]]:
+        return None
+
+    def get_parallel_groups(self) -> Dict[str, List[SelectedTask]]:
+        return {"default": []}
 
 
 def test_calculate_progress_basic():
@@ -572,3 +613,22 @@ def test_calculate_progress_blocked_tasks():
 
     # Currently always 0 (would need PRD parsing for actual blocked count)
     assert metrics.blocked_tasks == 0
+
+
+def test_quick_batch():
+    """Test get_quick_batch functionality."""
+    class QuickBatchMockTracker(MockTracker):
+        def get_quick_batch(self, limit=3):
+            return [
+                SelectedTask(id="1", title="Quick 1", kind="md", is_quick=True),
+                SelectedTask(id="2", title="Quick 2", kind="md", is_quick=True),
+            ]
+    
+    tracker = QuickBatchMockTracker(completed=0, total=2)
+    batch = tracker.get_quick_batch(limit=3)
+    
+    assert batch is not None
+    assert len(batch) == 2
+    assert batch[0].id == "1"
+    assert batch[1].id == "2"
+    assert all(t.is_quick for t in batch)

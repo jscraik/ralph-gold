@@ -14,6 +14,7 @@ from .prd import (
     SelectedTask,
     TaskId,
     get_prd_branch_name,
+    get_quick_batch as prd_get_quick_batch,
     is_markdown_prd,
     select_task_by_id as prd_select_by_id,
     task_status_by_id as prd_task_status_by_id,
@@ -63,6 +64,8 @@ class Tracker(Protocol):
     def get_task_status(self, task_id: TaskId) -> str: ...
 
     def branch_name(self) -> Optional[str]: ...
+
+    def get_quick_batch(self, limit: int = 3) -> Optional[List[SelectedTask]]: ...
 
     def get_parallel_groups(self) -> Dict[str, List[SelectedTask]]:
         """Return tasks grouped by parallel group.
@@ -119,6 +122,9 @@ class FileTracker:
 
     def branch_name(self) -> Optional[str]:
         return get_prd_branch_name(self.prd_path)
+
+    def get_quick_batch(self, limit: int = 3) -> Optional[List[SelectedTask]]:
+        return prd_get_quick_batch(self.prd_path, limit=limit)
 
     def get_parallel_groups(self) -> Dict[str, List[SelectedTask]]:
         """Return all tasks in default group (sequential execution)."""
@@ -337,6 +343,13 @@ class BeadsTracker:
         return "missing"
 
     def branch_name(self) -> Optional[str]:
+        return None
+
+    def get_quick_batch(self, limit: int = 3) -> Optional[List[SelectedTask]]:
+        """Beads doesn't support quick batches natively.
+
+        Return None to fall back to single task selection.
+        """
         return None
 
     def get_parallel_groups(self) -> Dict[str, List[SelectedTask]]:

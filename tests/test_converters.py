@@ -402,3 +402,50 @@ def test_yaml_output_is_readable(tmp_json_prd: Path, tmp_path: Path):
     lines = content.split("\n")
     task_lines = [line for line in lines if line.strip().startswith("- id:")]
     assert len(task_lines) == 3  # Should have 3 tasks
+
+
+def test_quick_tag_json(tmp_path: Path):
+    """Test [QUICK] tag detection in JSON PRD."""
+    prd = {
+        "stories": [
+            {
+                "id": 1,
+                "title": "[QUICK] Fix typo",
+                "priority": 1,
+            },
+            {
+                "id": 2,
+                "title": "Normal task",
+                "priority": 2,
+            },
+        ]
+    }
+
+    path = tmp_path / "prd.json"
+    path.write_text(json.dumps(prd))
+
+    yaml_data = convert_json_to_yaml(path, infer_groups=False)
+    tasks = yaml_data["tasks"]
+
+    assert tasks[0]["is_quick"] is True
+    assert tasks[1]["is_quick"] is False
+
+
+def test_quick_tag_markdown(tmp_path: Path):
+    """Test [QUICK] tag detection in Markdown PRD."""
+    content = """# Project
+
+## Tasks
+
+- [ ] [QUICK] Fix typo
+- [ ] Normal task
+"""
+
+    path = tmp_path / "prd.md"
+    path.write_text(content)
+
+    yaml_data = convert_markdown_to_yaml(path, infer_groups=False)
+    tasks = yaml_data["tasks"]
+
+    assert tasks[0]["is_quick"] is True
+    assert tasks[1]["is_quick"] is False

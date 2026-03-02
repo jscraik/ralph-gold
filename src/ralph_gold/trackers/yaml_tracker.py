@@ -112,6 +112,10 @@ class YamlTracker:
         depends_on = [str(dep) for dep in depends_on]
 
         group = str(task_data.get("group", "default"))
+        is_quick = bool(task_data.get("is_quick", False))
+        if not is_quick:
+            is_quick = "[QUICK]" in title.upper()
+
         return SelectedTask(
             id=task_id,
             title=title,
@@ -119,6 +123,7 @@ class YamlTracker:
             acceptance=acceptance,
             depends_on=depends_on,
             group=group,
+            is_quick=is_quick,
         )
 
     def select_next_task(
@@ -302,6 +307,45 @@ class YamlTracker:
             if branch:
                 return str(branch)
         return None
+
+    def get_quick_batch(self, limit: int = 3) -> Optional[List[SelectedTask]]:
+        """Return up to `limit` quick tasks that are ready."""
+        # Collect completed task IDs
+        completed_ids: Set[str] = set()
+        for task_data in self.data["tasks"]:
+            if task_data.get("completed", False):
+                completed_ids.add(str(task_data.get("id")))
+
+        batch: List[SelectedTask] = []
+        for task_data in self.data["tasks"]:
+            if task_data.get("completed", False) or task_data.get("blocked", False):
+                continue
+
+            # Check if it's a quick task
+            title = str(task_data.get("title", ""))
+            is_quick = bool(task_data.get("is_quick", False))
+            if not is_quick:
+                is_quick = "[QUICK]" in title.upper()
+            if not is_quick:
+                continue
+
+            # Check dependencies
+            depends_on = task_data.get("depends_on", [])
+            if not isinstance(depends_on, list):
+                depends_on = []
+
+            if depends_on:
+                all_deps_satisfied = all(
+                    str(dep) in completed_ids for dep in depends_on
+                )
+                if not all_deps_satisfied:
+                    continue
+
+            batch.append(self._task_from_data(task_data))
+            if len(batch) >= limit:
+                break
+
+        return batch if batch else None
 
     def get_parallel_groups(self) -> Dict[str, List[SelectedTask]]:
         """Return tasks grouped by parallel group.

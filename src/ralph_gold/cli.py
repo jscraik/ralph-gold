@@ -1669,13 +1669,33 @@ def cmd_step(args: argparse.Namespace) -> int:
         print_output(str(exc), level="error")
         return 2
 
-    try:
-        mode_override = _normalize_cli_mode(getattr(args, "mode", None))
-    except ValueError as exc:
-        print_output(str(exc), level="error")
-        return 2
+    mode_override = None
+    batch_override = None
+    timeout_override = None
+
+    if getattr(args, "quick", False):
+        mode_override = "speed"
+    elif getattr(args, "batch", False):
+        mode_override = "speed"
+        batch_override = True
+    elif getattr(args, "explore", False):
+        mode_override = "exploration"
+        timeout_override = 3600
+    elif getattr(args, "hotfix", False):
+        mode_override = "speed"
+    else:
+        try:
+            mode_override = _normalize_cli_mode(getattr(args, "mode", None))
+        except ValueError as exc:
+            print_output(str(exc), level="error")
+            return 2
+
     if mode_override:
         cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
+    if batch_override is not None:
+        cfg = replace(cfg, loop=replace(cfg.loop, batch_enabled=batch_override))
+    if timeout_override is not None:
+        cfg = replace(cfg, loop=replace(cfg.loop, runner_timeout_seconds=timeout_override))
 
     # Ad-hoc overrides (useful for loop.sh mode switching)
     # Validate file paths to prevent path traversal attacks
@@ -1858,6 +1878,7 @@ def cmd_step(args: argparse.Namespace) -> int:
             allow_done_target=allow_done_target,
             allow_blocked_target=allow_blocked_target,
             reopen_if_needed=reopen_target,
+            skip_gates=bool(getattr(args, "hotfix", False)),
         )
     except RuntimeError as e:
         # Handle rate-limit and other runtime errors
@@ -1915,13 +1936,35 @@ def cmd_run(args: argparse.Namespace) -> int:
         print_output(str(exc), level="error")
         return 2
 
-    try:
-        mode_override = _normalize_cli_mode(getattr(args, "mode", None))
-    except ValueError as exc:
-        print_output(str(exc), level="error")
-        return 2
+    mode_override = None
+    batch_override = None
+    timeout_override = None
+    max_iterations = args.max_iterations
+
+    if getattr(args, "quick", False):
+        mode_override = "speed"
+        max_iterations = 1
+    elif getattr(args, "batch", False):
+        mode_override = "speed"
+        batch_override = True
+    elif getattr(args, "explore", False):
+        mode_override = "exploration"
+        timeout_override = 3600
+    elif getattr(args, "hotfix", False):
+        mode_override = "speed"
+    else:
+        try:
+            mode_override = _normalize_cli_mode(getattr(args, "mode", None))
+        except ValueError as exc:
+            print_output(str(exc), level="error")
+            return 2
+
     if mode_override:
         cfg = replace(cfg, loop=replace(cfg.loop, mode=mode_override))
+    if batch_override is not None:
+        cfg = replace(cfg, loop=replace(cfg.loop, batch_enabled=batch_override))
+    if timeout_override is not None:
+        cfg = replace(cfg, loop=replace(cfg.loop, runner_timeout_seconds=timeout_override))
 
     # Validate file paths to prevent path traversal attacks
     if args.prompt_file:
@@ -1936,6 +1979,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     max_workers = getattr(args, "max_workers", None)
     dry_run = getattr(args, "dry_run", False)
     stream = getattr(args, "stream", False)
+    target_task_id = (
+        str(getattr(args, "task_id", "")).strip()
+        if getattr(args, "task_id", None) is not None
+        else ""
+    )
+
     if parallel and stream:
         print_output(
             "INFO: --stream is only supported in sequential mode and will be ignored "
@@ -1948,12 +1997,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         results = run_loop(
             root,
             agent=agent,
-            max_iterations=args.max_iterations,
+            max_iterations=max_iterations,
             cfg=cfg,
             parallel=parallel,
             max_workers=max_workers,
             dry_run=dry_run,
             stream=stream,
+            skip_gates=bool(getattr(args, "hotfix", False)),
+            target_task_id=target_task_id or None,
         )
     except RuntimeError as e:
         # Handle rate-limit and other runtime errors
@@ -3851,11 +3902,34 @@ def build_parser() -> argparse.ArgumentParser:
         default="codex",
         help="Runner to use (codex|claude|copilot or custom runner name)",
     )
-    p_step.add_argument(
+
+    p_step_mode = p_step.add_mutually_exclusive_group()
+    p_step_mode.add_argument(
         "--mode",
         choices=LOOP_MODE_NAMES,
         help="Override loop.mode (speed|quality|exploration)",
     )
+    p_step_mode.add_argument(
+        "--quick",
+        action="store_true",
+        help="Run exactly one iteration in speed mode (mode=speed, max_iterations=1)",
+    )
+    p_step_mode.add_argument(
+        "--batch",
+        action="store_true",
+        help="Run multiple quick tasks in speed mode (mode=speed, batch_enabled=true)",
+    )
+    p_step_mode.add_argument(
+        "--explore",
+        action="store_true",
+        help="Run in exploration mode with extended timeouts (mode=exploration, timeout=3600s)",
+    )
+    p_step_mode.add_argument(
+        "--hotfix",
+        action="store_true",
+        help="Run in speed mode and skip all quality gates (mode=speed, skip_gates=true)",
+    )
+
     p_step.add_argument(
         "--prompt-file",
         default=None,
@@ -3878,6 +3952,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_step.add_argument(
         "--task-id",
+        "--task",
         default=None,
         help="Execute a specific task ID instead of auto-selecting next task",
     )
@@ -3907,10 +3982,39 @@ def build_parser() -> argparse.ArgumentParser:
         default="codex",
         help="Runner to use (codex|claude|copilot or custom)",
     )
-    p_run.add_argument(
+
+    p_run_mode = p_run.add_mutually_exclusive_group()
+    p_run_mode.add_argument(
         "--mode",
         choices=LOOP_MODE_NAMES,
         help="Override loop.mode (speed|quality|exploration)",
+    )
+    p_run_mode.add_argument(
+        "--quick",
+        action="store_true",
+        help="Run exactly one iteration in speed mode (mode=speed, max_iterations=1)",
+    )
+    p_run_mode.add_argument(
+        "--batch",
+        action="store_true",
+        help="Run multiple quick tasks in speed mode (mode=speed, batch_enabled=true)",
+    )
+    p_run_mode.add_argument(
+        "--explore",
+        action="store_true",
+        help="Run in exploration mode with extended timeouts (mode=exploration, timeout=3600s)",
+    )
+    p_run_mode.add_argument(
+        "--hotfix",
+        action="store_true",
+        help="Run in speed mode and skip all quality gates (mode=speed, skip_gates=true)",
+    )
+
+    p_run.add_argument(
+        "--task-id",
+        "--task",
+        default=None,
+        help="Execute a specific task ID instead of auto-selecting next task",
     )
     p_run.add_argument(
         "--max-iterations", type=int, default=None, help="Override loop.max_iterations"

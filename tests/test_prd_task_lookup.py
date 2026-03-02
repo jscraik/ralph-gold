@@ -3,10 +3,54 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ralph_gold.prd import select_task_by_id, task_status_by_id
+from ralph_gold.prd import get_quick_batch, select_task_by_id, task_status_by_id
 
 
-def test_markdown_task_lookup_and_status(tmp_path: Path) -> None:
+def test_markdown_get_quick_batch(tmp_path: Path) -> None:
+    prd_path = tmp_path / "PRD.md"
+    prd_path.write_text(
+        """# PRD
+
+## Tasks
+
+- [x] Done task
+- [ ] [QUICK] Quick 1
+- [ ] Regular task
+- [ ] [QUICK] Quick 2
+- [ ] [QUICK] Blocked Quick
+  - Depends on: 3
+""",
+        encoding="utf-8",
+    )
+
+    batch = get_quick_batch(prd_path, limit=3)
+    assert batch is not None
+    assert len(batch) == 2
+    assert batch[0].title == "[QUICK] Quick 1"
+    assert batch[1].title == "[QUICK] Quick 2"
+    # Blocked Quick should not be in batch because it depends on 3 (Regular task) which is not done
+
+
+def test_json_get_quick_batch(tmp_path: Path) -> None:
+    prd_path = tmp_path / "PRD.json"
+    prd_path.write_text(
+        json.dumps(
+            {
+                "stories": [
+                    {"id": "1", "title": "[QUICK] Quick 1"},
+                    {"id": "2", "title": "Regular task"},
+                    {"id": "3", "title": "[QUICK] Quick 2"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    batch = get_quick_batch(prd_path, limit=2)
+    assert batch is not None
+    assert len(batch) == 2
+    assert batch[0].title == "[QUICK] Quick 1"
+    assert batch[1].title == "[QUICK] Quick 2"
     prd_path = tmp_path / "PRD.md"
     prd_path.write_text(
         """# PRD

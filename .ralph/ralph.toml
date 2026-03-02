@@ -37,7 +37,7 @@ branch_strategy = "none"
 base_branch = ""
 branch_prefix = "ralph/"
 
-auto_commit = false
+auto_commit = true
 commit_message_template = "ralph: {story_id} {title}"
 amend_if_needed = true
 
@@ -129,3 +129,8 @@ argv = ["claude", "-p"]
 
 [runners.copilot]
 argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]
+
+[runners.gemini]
+# Use --yolo for non-interactive mode (auto-approve all tools)
+# Empty string after -p allows stdin to be used
+argv = ["gemini", "-p", "", "--yolo"]

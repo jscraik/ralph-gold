@@ -35,6 +35,7 @@ class LoopModeConfig:
     runner_timeout_seconds: Optional[int] = None
     max_attempts_per_task: Optional[int] = None
     skip_blocked_tasks: Optional[bool] = None
+    batch_enabled: Optional[bool] = None
 
 
 _LOOP_MODE_NAMES: Tuple[str, ...] = ("speed", "quality", "exploration")
@@ -54,6 +55,7 @@ class LoopConfig:
     runner_timeout_seconds: int = 900  # 15m default (Codex can be slow)
     max_attempts_per_task: int = 3
     skip_blocked_tasks: bool = True
+    batch_enabled: bool = False
     mode: str = "speed"
     modes: Dict[str, LoopModeConfig] = field(default_factory=_default_loop_modes)
 
@@ -177,7 +179,7 @@ class PrekConfig:
 
 
 @dataclass(frozen=True)
-class GatesSmartConfig:
+class SmartGateConfig:
     enabled: bool = False
     skip_gates_for: List[str] = field(default_factory=list)
 
@@ -188,7 +190,7 @@ class GatesConfig:
     llm_judge: LlmJudgeConfig
     review: ReviewConfig = field(default_factory=ReviewConfig)
     prek: PrekConfig = field(default_factory=PrekConfig)
-    smart: GatesSmartConfig = field(default_factory=GatesSmartConfig)
+    smart: SmartGateConfig = field(default_factory=SmartGateConfig)
     precommit_hook: bool = False
     fail_fast: bool = True
     output_mode: str = "summary"  # full|summary|errors_only
@@ -719,6 +721,11 @@ def _parse_loop_mode_config(raw: Any) -> LoopModeConfig:
             if raw.get("skip_blocked_tasks") is not None
             else None
         ),
+        batch_enabled=(
+            _coerce_bool(raw.get("batch_enabled"), None)
+            if raw.get("batch_enabled") is not None
+            else None
+        ),
     )
 
 
@@ -840,6 +847,7 @@ def load_config(project_root: Path) -> Config:
         runner_timeout_seconds=_coerce_int(loop_raw.get("runner_timeout_seconds"), 900),
         max_attempts_per_task=_coerce_int(loop_raw.get("max_attempts_per_task"), 3),
         skip_blocked_tasks=_coerce_bool(loop_raw.get("skip_blocked_tasks"), True),
+        batch_enabled=_coerce_bool(loop_raw.get("batch_enabled"), False),
         mode=mode_name,
         modes=modes,
     )
@@ -1010,7 +1018,7 @@ def load_config(project_root: Path) -> Config:
         skip_gates_for = [str(x) for x in skip_raw if str(x).strip()]
     elif isinstance(skip_raw, str) and skip_raw.strip():
         skip_gates_for = [skip_raw.strip()]
-    smart = GatesSmartConfig(
+    smart = SmartGateConfig(
         enabled=_coerce_bool(
             smart_raw.get("enabled", gates_raw.get("smart_enabled")), False
         ),

@@ -72,7 +72,29 @@ class NoFilesWrittenReceipt:
     remediation: str = ""
 
 
-def write_receipt(path: Path, receipt: CommandReceipt | NoFilesWrittenReceipt) -> None:
+@dataclass(frozen=True)
+class SmartGateSkipReceipt:
+    """Receipt emitted when gates are skipped due to smart filtering.
+
+    Attributes:
+        task_id: The task ID that was being executed
+        iteration: The iteration number when this occurred
+        ts: ISO timestamp of the decision
+        reason: Why the gates were skipped
+        changed_files: List of files that were changed
+        patterns: Patterns that triggered the skip
+    """
+    task_id: str
+    iteration: int
+    ts: str
+    reason: str
+    changed_files: List[str] = field(default_factory=list)
+    patterns: List[str] = field(default_factory=list)
+
+
+def write_receipt(
+    path: Path, receipt: CommandReceipt | NoFilesWrittenReceipt | SmartGateSkipReceipt
+) -> None:
     """Write receipt to file atomically.
 
     Atomic writes prevent partial state files from being read and ensure

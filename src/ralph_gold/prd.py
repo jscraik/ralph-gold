@@ -25,6 +25,7 @@ class SelectedTask:
     acceptance: List[str] = field(default_factory=list)
     depends_on: List[str] = field(default_factory=list)
     group: str = "default"
+    is_quick: bool = False
 
 
 @dataclass
@@ -36,6 +37,7 @@ class MdTask:
     indent: int
     acceptance: List[str]
     depends_on: List[str] = field(default_factory=list)
+    is_quick: bool = False
 
     @property
     def done(self) -> bool:
@@ -265,6 +267,7 @@ def _parse_md_prd(text: str) -> MdPrd:
             status = _marker_to_status(m.group(2))
             title = m.group(4).strip()
             indent = len(line) - len(line.lstrip(" "))
+            is_quick = "[QUICK]" in title.upper()
             tasks.append(
                 MdTask(
                     id=str(len(tasks) + 1),
@@ -273,6 +276,7 @@ def _parse_md_prd(text: str) -> MdPrd:
                     line_index=li,
                     indent=indent,
                     acceptance=[],
+                    is_quick=is_quick,
                 )
             )
 
@@ -387,13 +391,14 @@ def select_next_task(
                 kind="md",
                 acceptance=list(t.acceptance),
                 depends_on=list(t.depends_on),
+                is_quick=t.is_quick,
             )
         return None
 
-    prd = _load_json_prd(prd_path)
-    if prd is None:
+    json_prd = _load_json_prd(prd_path)
+    if json_prd is None:
         return None
-    story = _select_next_story(prd, exclude_ids=exclude_ids)
+    story = _select_next_story(json_prd, exclude_ids=exclude_ids)
     if not story:
         return None
     sid = story.get("id", story.get("story_id", story.get("key")))
@@ -401,6 +406,7 @@ def select_next_task(
         return None
     sid_str = str(sid)
     title = str(story.get("title", "")).strip() or f"Story {sid_str}"
+    is_quick = "[QUICK]" in title.upper()
     acc = story.get("acceptance", [])
     if not isinstance(acc, list):
         acc = []
@@ -412,6 +418,7 @@ def select_next_task(
         kind="json",
         acceptance=acceptance,
         depends_on=depends,
+        is_quick=is_quick,
     )
 
 
@@ -430,13 +437,14 @@ def select_task_by_id(prd_path: Path, task_id: TaskId) -> Optional[SelectedTask]
                 kind="md",
                 acceptance=list(t.acceptance),
                 depends_on=list(t.depends_on),
+                is_quick=t.is_quick,
             )
         return None
 
-    prd = _load_json_prd(prd_path)
-    if prd is None:
+    json_prd = _load_json_prd(prd_path)
+    if json_prd is None:
         return None
-    stories = prd.get("stories", [])
+    stories = json_prd.get("stories", [])
     if not isinstance(stories, list):
         return None
     for story in stories:
@@ -446,6 +454,7 @@ def select_task_by_id(prd_path: Path, task_id: TaskId) -> Optional[SelectedTask]
         if sid is None or str(sid) != tid:
             continue
         title = str(story.get("title", "")).strip() or f"Story {tid}"
+        is_quick = "[QUICK]" in title.upper()
         acc = story.get("acceptance", [])
         if not isinstance(acc, list):
             acc = []
@@ -457,6 +466,7 @@ def select_task_by_id(prd_path: Path, task_id: TaskId) -> Optional[SelectedTask]
             kind="json",
             acceptance=acceptance,
             depends_on=depends,
+            is_quick=is_quick,
         )
     return None
 
@@ -752,6 +762,7 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                         "title": t.title,
                         "status": t.status,
                         "depends_on": list(t.depends_on),
+                        "is_quick": t.is_quick,
                     }
                 )
         else:
@@ -767,6 +778,7 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                     if sid is None:
                         continue
                     title = str(s.get("title", "")).strip() or f"Story {sid}"
+                    is_quick = "[QUICK]" in title.upper()
                     status = (
                         "done"
                         if _story_done(s)
@@ -779,9 +791,45 @@ def get_all_tasks(prd_path: Path) -> List[Dict[str, Any]]:
                             "title": title,
                             "status": status,
                             "depends_on": depends,
+                            "is_quick": is_quick,
                         }
                     )
     except (json.JSONDecodeError, OSError) as e:
         logger.debug("Failed to load JSON PRD: %s", e)
         return None
     return tasks
+
+
+def get_quick_batch(
+    prd_path: Path, exclude_ids: Optional[Set[str]] = None, limit: int = 3
+) -> Optional[List[SelectedTask]]:
+    """Return up to `limit` quick tasks that are ready to be worked on."""
+    all_tasks = get_all_tasks(prd_path)
+    if not all_tasks:
+        return None
+
+    exclude = exclude_ids or set()
+    done_ids = {t["id"] for t in all_tasks if t["status"] == "done"}
+
+    batch: List[SelectedTask] = []
+    for t in all_tasks:
+        if t["id"] in exclude:
+            continue
+        if t["status"] != "open":
+            continue
+        if not t.get("is_quick"):
+            continue
+
+        # Check dependencies
+        deps = t.get("depends_on", [])
+        if deps and not _deps_satisfied(deps, done_ids):
+            continue
+
+        # Add to batch
+        task_details = select_task_by_id(prd_path, t["id"])
+        if task_details:
+            batch.append(task_details)
+            if len(batch) >= limit:
+                break
+
+    return batch if batch else None

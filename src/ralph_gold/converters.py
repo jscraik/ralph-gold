@@ -77,6 +77,8 @@ def convert_json_to_yaml(json_path: Path, infer_groups: bool = False) -> Dict[st
         ValueError: If JSON is invalid
     """
     prd = _load_json_prd(json_path)
+    if prd is None:
+        raise ValueError(f"Invalid or missing JSON PRD: {json_path}")
 
     # Extract metadata
     metadata: Dict[str, Any] = {}
@@ -114,6 +116,7 @@ def convert_json_to_yaml(json_path: Path, infer_groups: bool = False) -> Dict[st
         # Required fields
         task["id"] = story.get("id", len(tasks) + 1)
         task["title"] = story.get("title", f"Task {task['id']}")
+        task["is_quick"] = "[QUICK]" in task["title"].upper()
 
         # Optional fields
         if "description" in story and story["description"]:
@@ -207,6 +210,7 @@ def convert_markdown_to_yaml(
             "id": task_id,
             "title": md_task.title,
             "completed": md_task.status == "done",
+            "is_quick": md_task.is_quick,
         }
         if md_task.status == "blocked":
             task["blocked"] = True

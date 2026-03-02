@@ -98,8 +98,8 @@ _ralph_completion() {
     local harness_ci_flags="--days --limit --dataset --output --baseline --agent --mode --isolation --execution-mode --max-cases --bucket --enforce-regression-threshold --no-enforce-regression-threshold --require-baseline --allow-missing-baseline --baseline-missing-policy --include-failures --exclude-failures --redact --pinned-input --append-pinned --no-append-pinned --max-cases-per-task --strict-targeting --allow-non-strict-targeting --continue-on-target-error --stop-on-target-error"
     local resume_flags="--clear --auto"
     local clean_flags="--logs-days --archives-days --receipts-days --context-days --dry-run"
-    local step_flags="--agent --mode --prompt-file --prd-file --dry-run --interactive --task-id --allow-done-target --allow-blocked-target --reopen-target"
-    local run_flags="--agent --mode --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run --stream"
+    local step_flags="--agent --mode --quick --batch --explore --hotfix --prompt-file --prd-file --dry-run --interactive --task-id --task --allow-done-target --allow-blocked-target --reopen-target"
+    local run_flags="--agent --mode --quick --batch --explore --hotfix --task-id --task --max-iterations --prompt-file --prd-file --parallel --max-workers --dry-run --stream"
     local supervise_flags="--agent --mode --max-runtime-seconds --heartbeat-seconds --sleep-seconds-between-runs --on-no-progress-limit --on-rate-limit --notify --no-notify --notify-backend --notify-command"
     local status_flags="--graph --detailed --chart"
     local serve_flags="--host --port"
@@ -527,12 +527,17 @@ _ralph() {
                 step)
                     _arguments \
                         '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
-                        '--mode[Override loop.mode]:mode:(speed quality exploration)' \
+                        '(--quick --batch --explore --hotfix)--mode[Override loop.mode]:mode:(speed quality exploration)' \
+                        '(--mode --batch --explore --hotfix)--quick[Run exactly one iteration in speed mode]' \
+                        '(--mode --quick --explore --hotfix)--batch[Run multiple quick tasks in speed mode]' \
+                        '(--mode --quick --batch --hotfix)--explore[Run in exploration mode with extended timeouts]' \
+                        '(--mode --quick --batch --explore)--hotfix[Run in speed mode and skip all quality gates]' \
                         '--prompt-file[Override files.prompt]:file:_files' \
                         '--prd-file[Override files.prd]:file:_files' \
                         '--dry-run[Simulate execution without running agents]' \
                         '--interactive[Interactively select which task to work on]' \
-                        '--task-id[Execute a specific task ID]:task id:' \
+                        '(--task)--task-id[Execute a specific task ID]:task id:' \
+                        '(--task-id)--task[Execute a specific task ID]:task id:' \
                         '--allow-done-target[Allow targeting a task marked done]' \
                         '--allow-blocked-target[Allow targeting a task marked blocked]' \
                         '--reopen-target[Attempt to reopen target task before running]'
@@ -540,7 +545,13 @@ _ralph() {
                 run)
                     _arguments \
                         '--agent[Runner to use]:agent:(codex claude claude-zai claude-kimi copilot)' \
-                        '--mode[Override loop.mode]:mode:(speed quality exploration)' \
+                        '(--quick --batch --explore --hotfix)--mode[Override loop.mode]:mode:(speed quality exploration)' \
+                        '(--mode --batch --explore --hotfix)--quick[Run exactly one iteration in speed mode]' \
+                        '(--mode --quick --explore --hotfix)--batch[Run multiple quick tasks in speed mode]' \
+                        '(--mode --quick --batch --hotfix)--explore[Run in exploration mode with extended timeouts]' \
+                        '(--mode --quick --batch --explore)--hotfix[Run in speed mode and skip all quality gates]' \
+                        '(--task)--task-id[Execute a specific task ID]:task id:' \
+                        '(--task-id)--task[Execute a specific task ID]:task id:' \
                         '--max-iterations[Override loop.max_iterations]:iterations:' \
                         '--prompt-file[Override files.prompt]:file:_files' \
                         '--prd-file[Override files.prd]:file:_files' \
