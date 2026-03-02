@@ -3449,6 +3449,8 @@ def run_loop(
     max_workers: Optional[int] = None,
     dry_run: bool = False,
     stream: bool = False,
+    skip_gates: bool = False,
+    target_task_id: Optional[str] = None,
 ) -> List[IterationResult]:
     """Run the Ralph loop in sequential or parallel mode.
 
@@ -3786,6 +3788,8 @@ def run_loop(
             cfg=cfg,
             iteration=i,
             stream=stream,
+            skip_gates=skip_gates,
+            target_task_id=target_task_id,
         )
         results.append(res)
 

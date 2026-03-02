@@ -1,0 +1,18 @@
+{
+  "name": "gate_01",
+  "argv": [
+    "python -m py_compile /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/loop.py"
+  ],
+  "returncode": 0,
+  "started_at": "2026-03-02T12:10:50.402451+00:00",
+  "ended_at": "2026-03-02T12:10:50.552408+00:00",
+  "duration_seconds": 0.14993596076965332,
+  "stdout_path": ".ralph/receipts/37/20260302-120842-iter0092/gate_01.stdout.txt",
+  "stderr_path": ".ralph/receipts/37/20260302-120842-iter0092/gate_01.stderr.txt",
+  "notes": {
+    "cmd": "python -m py_compile /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/loop.py",
+    "stdout_tail": "",
+    "stderr_tail": ""
+  },
+  "_schema": "ralph_gold.receipt.v1"
+}

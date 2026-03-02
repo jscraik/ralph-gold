@@ -234,6 +234,14 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Show how to fix each issue
   - Test: `uv run pytest -q tests/test_cli_templates.py -k test_strict` passes
 
+### Gate Testing Tasks
+
+- [x] Add unit tests for PRD update gate
+  - Create `tests/test_gates_prd_update.py`
+  - Test that gate passes when PRD checkbox changes
+  - Test that gate fails when PRD unchanged
+  - Test: `uv run pytest tests/test_gates_prd_update.py -v` passes
+
 # Notes
 
 # - Mark done:   - [x]

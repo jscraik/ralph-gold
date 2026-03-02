@@ -67,6 +67,16 @@ agent = "claude"
 prompt = ".ralph/PROMPT_judge.md"
 max_diff_chars = 30000
 
+[gates.prd_update]
+# PRD update verification gate.
+enabled = true
+require_checkbox_change = true
+
+[gates.syntax_check]
+# Syntax check gate - verifies no syntax errors in changed files.
+enabled = true
+check_python = true
+
 [repoprompt]
 # Repo Prompt integration (rp-cli).
 enabled = false

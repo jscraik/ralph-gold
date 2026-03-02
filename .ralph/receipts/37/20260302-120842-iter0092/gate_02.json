@@ -1,0 +1,18 @@
+{
+  "name": "gate_02",
+  "argv": [
+    "prd_update_check"
+  ],
+  "returncode": 0,
+  "started_at": "2026-03-02T12:10:50.552741+00:00",
+  "ended_at": "2026-03-02T12:10:50.552745+00:00",
+  "duration_seconds": 0.0,
+  "stdout_path": ".ralph/receipts/37/20260302-120842-iter0092/gate_02.stdout.txt",
+  "stderr_path": ".ralph/receipts/37/20260302-120842-iter0092/gate_02.stderr.txt",
+  "notes": {
+    "cmd": "prd_update_check",
+    "stdout_tail": "PRD was modified (content changed)",
+    "stderr_tail": ""
+  },
+  "_schema": "ralph_gold.receipt.v1"
+}

@@ -145,3 +145,5 @@ Keep entries short; delete nothing; add clarifications when you learn.
 2026-03-02 Iteration 91: Completed task 36 (Add --strict flag to ralph regen-plan). Verified that the flag was already implemented in CLI and functional. Renamed test to test_strict in tests/test_cli_templates.py to match acceptance criteria. Gate: uv run pytest -q tests/test_cli_templates.py -k test_strict (pass).
 - [20260302T072032Z] iter 91 mode=prd status=DONE checks=PASS story=S36 agent=gemini branch=main log=20260302T072032Z-iter0091-gemini.log
 - [20260302T071837Z] iter 91 mode=prd status=DONE checks=PASS story=S36 agent=gemini branch=main log=20260302T071837Z-iter0091-gemini.log
+2026-03-02: Task 37 complete. Created tests/test_gates_prd_update.py and verified PRD update gate logic. Gates: uv run pytest tests/test_gates_prd_update.py -v (pass).
+- [20260302T120842Z] iter 92 mode=prd status=DONE checks=PASS story=S37 agent=gemini branch=main log=20260302T120842Z-iter0092-gemini.log
