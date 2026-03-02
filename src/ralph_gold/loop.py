@@ -1330,6 +1330,7 @@ def run_iteration(
     allow_blocked_target: bool = False,
     reopen_if_needed: bool = False,
     stream: bool = False,
+    skip_gates: bool = False,
 ) -> IterationResult:
     cfg = cfg or load_config(project_root)
     cfg, resolved_mode = _resolve_loop_mode(cfg)

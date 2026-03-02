@@ -608,3 +608,95 @@ def test_calculate_stats_malformed_history_entries():
     # Duration stats only include valid entries
     assert stats.avg_duration_seconds == 125.0  # (100 + 150) / 2
     assert len(stats.task_stats) == 2
+
+
+def test_velocity_empty():
+    """Test velocity with empty history."""
+    state = {"history": []}
+    stats = calculate_stats(state)
+    assert stats.tasks_per_hour == 0.0
+
+
+def test_velocity_insufficient_data():
+    """Test velocity with insufficient data (no successful tasks)."""
+    state = {
+        "history": [
+            {
+                "ts": "2026-03-02T10:00:00Z",
+                "duration_seconds": 60.0,
+                "gates_ok": False,
+                "blocked": False,
+            }
+        ]
+    }
+    stats = calculate_stats(state)
+    assert stats.tasks_per_hour == 0.0
+
+
+def test_velocity_single_task():
+    """Test velocity with a single successful task."""
+    state = {
+        "history": [
+            {
+                "ts": "2026-03-02T10:00:00Z",
+                "duration_seconds": 360.0,  # 6 minutes = 0.1 hours
+                "gates_ok": True,
+                "blocked": False,
+                "story_id": "task-1",
+            }
+        ]
+    }
+    stats = calculate_stats(state)
+    # 1 task / 0.1 hours = 10 tasks/hour
+    assert stats.tasks_per_hour == 10.0
+
+
+def test_velocity_multiple_tasks():
+    """Test velocity with multiple tasks over time."""
+    state = {
+        "history": [
+            {
+                "ts": "2026-03-02T10:00:00Z",
+                "duration_seconds": 60.0,
+                "gates_ok": True,
+                "blocked": False,
+                "story_id": "task-1",
+            },
+            {
+                "ts": "2026-03-02T10:30:00Z",
+                "duration_seconds": 60.0,
+                "gates_ok": True,
+                "blocked": False,
+                "story_id": "task-2",
+            }
+        ]
+    }
+    stats = calculate_stats(state)
+    # Span is from 10:00:00 to 10:31:00 (10:30:00 + 60s)
+    # Total time = 31 minutes = 1860 seconds = 1860/3600 hours = 0.5166... hours
+    # Velocity = 2 / (1860/3600) = 2 * 3600 / 1860 = 7200 / 1860 = 3.87...
+    assert stats.tasks_per_hour == pytest.approx(3.870967741935484)
+
+
+def test_velocity_with_gaps():
+    """Test velocity with significant gaps between tasks."""
+    state = {
+        "history": [
+            {
+                "ts": "2026-03-02T10:00:00Z",
+                "duration_seconds": 60.0,
+                "gates_ok": True,
+                "blocked": False,
+            },
+            {
+                "ts": "2026-03-02T12:00:00Z",
+                "duration_seconds": 60.0,
+                "gates_ok": True,
+                "blocked": False,
+            }
+        ]
+    }
+    stats = calculate_stats(state)
+    # Span is from 10:00:00 to 12:01:00 = 2 hours 1 minute = 121 minutes = 7260 seconds
+    # Velocity = 2 / (7260/3600) = 2 * 3600 / 7260 = 7200 / 7260 = 0.9917...
+    assert stats.tasks_per_hour == pytest.approx(0.9917355371900827)

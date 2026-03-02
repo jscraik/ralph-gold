@@ -132,7 +132,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
 
 ### Flow & Momentum Tracking (Task 8 - Broken Down)
 
-- [ ] Add velocity calculation to stats.py
+- [x] Add velocity calculation to stats.py
   - Calculate tasks/hour from iteration history
   - Handle empty history gracefully
   - Return 0.0 for insufficient data

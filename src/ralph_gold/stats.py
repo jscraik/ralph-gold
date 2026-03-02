@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import statistics
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -43,6 +44,7 @@ class IterationStats:
     min_duration_seconds: float
     max_duration_seconds: float
     success_rate: float
+    tasks_per_hour: float = 0.0
     task_stats: Dict[str, TaskStats] = field(default_factory=dict)
 
 
@@ -68,6 +70,26 @@ def _safe_max(data: List[float]) -> float:
     if not data:
         return 0.0
     return max(data)
+
+
+def _parse_iso(ts_str: str) -> datetime | None:
+    """Parse ISO timestamp string, handling 'Z' suffix.
+
+    Args:
+        ts_str: ISO format timestamp string
+
+    Returns:
+        datetime object or None if parsing fails
+    """
+    if not ts_str or not isinstance(ts_str, str):
+        return None
+    try:
+        # standard ISO format uses 'Z' for UTC, but datetime needs +00:00
+        if ts_str.endswith("Z"):
+            ts_str = ts_str[:-1] + "+00:00"
+        return datetime.fromisoformat(ts_str)
+    except (ValueError, TypeError):
+        return None
 
 
 def calculate_stats(state: Dict[str, Any]) -> IterationStats:
@@ -96,6 +118,7 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
             min_duration_seconds=0.0,
             max_duration_seconds=0.0,
             success_rate=0.0,
+            tasks_per_hour=0.0,
             task_stats={},
         )
 
@@ -103,6 +126,10 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
     durations: List[float] = []
     successful_count = 0
     failed_count = 0
+
+    # For velocity calculation
+    timestamps: List[datetime] = []
+    end_times: List[datetime] = []
 
     # Track per-task statistics
     task_data: Dict[str, Dict[str, Any]] = {}
@@ -114,6 +141,12 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
         # Extract duration (default to 0.0 if missing)
         duration = float(entry.get("duration_seconds", 0.0))
         durations.append(duration)
+
+        # For velocity calculation
+        ts = _parse_iso(entry.get("ts", ""))
+        if ts:
+            timestamps.append(ts)
+            end_times.append(ts + timedelta(seconds=duration))
 
         # Determine success (gates passed and no blocking)
         gates_ok = entry.get("gates_ok")
@@ -149,6 +182,15 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
     max_duration = _safe_max(durations)
     success_rate = successful_count / total if total > 0 else 0.0
 
+    # Calculate velocity (tasks per hour)
+    tasks_per_hour = 0.0
+    if successful_count > 0 and timestamps:
+        first_ts = min(timestamps)
+        last_end = max(end_times)
+        total_seconds = (last_end - first_ts).total_seconds()
+        if total_seconds > 0:
+            tasks_per_hour = successful_count / (total_seconds / 3600)
+
     # Build per-task statistics
     task_stats: Dict[str, TaskStats] = {}
     for task_id, data in task_data.items():
@@ -170,6 +212,7 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
         min_duration_seconds=min_duration,
         max_duration_seconds=max_duration,
         success_rate=success_rate,
+        tasks_per_hour=tasks_per_hour,
         task_stats=task_stats,
     )
 
@@ -198,6 +241,7 @@ def export_stats_csv(stats: IterationStats, output_path: Path) -> None:
         writer.writerow(["Successful Iterations", stats.successful_iterations])
         writer.writerow(["Failed Iterations", stats.failed_iterations])
         writer.writerow(["Success Rate", f"{stats.success_rate:.2%}"])
+        writer.writerow(["Velocity (tasks/hour)", f"{stats.tasks_per_hour:.2f}"])
         writer.writerow(
             ["Average Duration (seconds)", f"{stats.avg_duration_seconds:.2f}"]
         )
@@ -264,6 +308,7 @@ def format_stats_report(stats: IterationStats, by_task: bool = False) -> str:
     lines.append(f"  Successful:            {stats.successful_iterations}")
     lines.append(f"  Failed:                {stats.failed_iterations}")
     lines.append(f"  Success Rate:          {stats.success_rate:.1%}")
+    lines.append(f"  Velocity:              {stats.tasks_per_hour:.2f} tasks/hour")
     lines.append("")
 
     lines.append("Duration Statistics:")
