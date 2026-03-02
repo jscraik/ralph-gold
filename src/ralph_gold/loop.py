@@ -441,6 +441,42 @@ def _parse_review_token(output: str, required: str = SHIP_TOKEN) -> bool:
     return last == required.upper()
 
 
+def _resolve_task_prompt(project_root: Path, cfg: Config, task: Optional[SelectedTask]) -> Path:
+    """Resolve the appropriate prompt template for the task."""
+    default_prompt = project_root / cfg.files.prompt
+
+    if task is None:
+        return default_prompt
+
+    title_upper = task.title.upper()
+
+    # Map tags/keywords to specialized prompt paths from config
+    # Matches tags in [TAG] format or as whole words in the title
+    
+    # Docs: [DOCS], [DOCUMENTATION], [DOC]
+    if "[DOCS]" in title_upper or "[DOCUMENTATION]" in title_upper or "[DOC]" in title_upper or \
+       re.search(r"\b(DOCS|DOCUMENTATION|DOC)\b", title_upper):
+        path = project_root / cfg.files.prompt_docs
+        if path.exists():
+            return path
+
+    # Hotfix: [HOTFIX], [FIX], [BUG]
+    if "[HOTFIX]" in title_upper or "[FIX]" in title_upper or "[BUG]" in title_upper or \
+       re.search(r"\b(HOTFIX|FIX|BUG)\b", title_upper):
+        path = project_root / cfg.files.prompt_hotfix
+        if path.exists():
+            return path
+
+    # Exploration: [EXPLORE], [EXPLORATION], [RESEARCH]
+    if "[EXPLORE]" in title_upper or "[EXPLORATION]" in title_upper or "[RESEARCH]" in title_upper or \
+       re.search(r"\b(EXPLORE|EXPLORATION|RESEARCH)\b", title_upper):
+        path = project_root / cfg.files.prompt_exploration
+        if path.exists():
+            return path
+
+    return default_prompt
+
+
 def build_prompt(
     project_root: Path,
     cfg: Config,
@@ -452,7 +488,7 @@ def build_prompt(
 ) -> str:
     """Build the per-iteration prompt."""
 
-    prompt_path = project_root / cfg.files.prompt
+    prompt_path = _resolve_task_prompt(project_root, cfg, task)
     base = _read_text_if_exists(prompt_path)
 
     agents_path = project_root / cfg.files.agents

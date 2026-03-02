@@ -176,7 +176,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Allow longer iterations
   - Test: `uv run pytest -q tests/test_templates.py -k test_prompt_explore` passes
 
-- [ ] Add prompt selection logic to loop.py
+- [x] Add prompt selection logic to loop.py
   - Detect task type from title/tags
   - Select appropriate prompt template
   - Fall back to default PROMPT_build.md

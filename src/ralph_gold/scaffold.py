@@ -100,6 +100,9 @@ def init_project(
     files = [
         # Prompt variants (plan/build).
         ("PROMPT_build.md", ".ralph/PROMPT_build.md"),
+        ("PROMPT_docs.md", ".ralph/PROMPT_docs.md"),
+        ("PROMPT_hotfix.md", ".ralph/PROMPT_hotfix.md"),
+        ("PROMPT_exploration.md", ".ralph/PROMPT_exploration.md"),
         ("PROMPT_plan.md", ".ralph/PROMPT_plan.md"),
         ("PROMPT_judge.md", ".ralph/PROMPT_judge.md"),
         ("PROMPT_review.md", ".ralph/PROMPT_review.md"),

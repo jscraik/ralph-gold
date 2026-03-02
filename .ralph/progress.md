@@ -129,3 +129,4 @@ Keep entries short; delete nothing; add clarifications when you learn.
 2026-03-02 Iteration 81: Completed task 26. Added hotfix template to built-ins and created PROMPT_hotfix.md. Updated tests.
 - [20260302T064253Z] iter 81 mode=prd status=DONE checks=PASS story=S26 agent=gemini branch=main log=20260302T064253Z-iter0081-gemini.log
 - [20260302T064428Z] iter 82 mode=prd status=DONE checks=PASS story=S27 agent=gemini branch=main log=20260302T064428Z-iter0082-gemini.log
+- [20260302T064536Z] iter 83 mode=prd status=DONE checks=PASS story=S28 agent=gemini branch=main log=20260302T064536Z-iter0083-gemini.log

@@ -141,6 +141,9 @@ class FilesConfig:
     prd: str = ".ralph/PRD.md"
     progress: str = ".ralph/progress.md"
     prompt: str = ".ralph/PROMPT_build.md"
+    prompt_docs: str = ".ralph/PROMPT_docs.md"
+    prompt_hotfix: str = ".ralph/PROMPT_hotfix.md"
+    prompt_exploration: str = ".ralph/PROMPT_exploration.md"
     plan: str = ".ralph/PROMPT_plan.md"
     judge: str = ".ralph/PROMPT_judge.md"
     review: str = ".ralph/PROMPT_review.md"
@@ -857,6 +860,9 @@ def load_config(project_root: Path) -> Config:
         prd=str(files_raw.get("prd", FilesConfig.prd)),
         progress=str(files_raw.get("progress", FilesConfig.progress)),
         prompt=str(files_raw.get("prompt", FilesConfig.prompt)),
+        prompt_docs=str(files_raw.get("prompt_docs", FilesConfig.prompt_docs)),
+        prompt_hotfix=str(files_raw.get("prompt_hotfix", FilesConfig.prompt_hotfix)),
+        prompt_exploration=str(files_raw.get("prompt_exploration", FilesConfig.prompt_exploration)),
         plan=str(files_raw.get("plan", FilesConfig.plan)),
         judge=str(files_raw.get("judge", FilesConfig.judge)),
         review=str(files_raw.get("review", FilesConfig.review)),
@@ -892,6 +898,21 @@ def load_config(project_root: Path) -> Config:
                 "PROMPT_build.md",
                 "PROMPT.md",
             ],
+        ),
+        prompt_docs=_resolve_existing(
+            project_root,
+            files.prompt_docs,
+            [".ralph/PROMPT_docs.md", "PROMPT_docs.md"],
+        ),
+        prompt_hotfix=_resolve_existing(
+            project_root,
+            files.prompt_hotfix,
+            [".ralph/PROMPT_hotfix.md", "PROMPT_hotfix.md"],
+        ),
+        prompt_exploration=_resolve_existing(
+            project_root,
+            files.prompt_exploration,
+            [".ralph/PROMPT_exploration.md", "PROMPT_exploration.md"],
         ),
         plan=_resolve_existing(
             project_root,

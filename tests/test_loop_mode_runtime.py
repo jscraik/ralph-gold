@@ -414,3 +414,53 @@ def test_flow_metrics_recorded_in_state(tmp_path: Path) -> None:
     assert "blocked_task_rate" in metrics
     assert "success_rate" in metrics
     assert "updated_at" in metrics
+
+
+def test_prompt_select(tmp_path: Path):
+    from ralph_gold.loop import build_prompt
+    from ralph_gold.config import Config, FilesConfig, PromptConfig
+    from ralph_gold.prd import SelectedTask
+    
+    project_root = tmp_path
+    (project_root / ".ralph").mkdir()
+    (project_root / ".ralph" / "PROMPT_build.md").write_text("DEFAULT PROMPT", encoding="utf-8")
+    (project_root / ".ralph" / "PROMPT_docs.md").write_text("DOCS PROMPT", encoding="utf-8")
+    (project_root / ".ralph" / "PROMPT_hotfix.md").write_text("HOTFIX PROMPT", encoding="utf-8")
+    (project_root / ".ralph" / "PROMPT_exploration.md").write_text("EXPLORE PROMPT", encoding="utf-8")
+    
+    cfg = Config(
+        loop=None,
+        files=FilesConfig(
+            prompt=".ralph/PROMPT_build.md",
+            prompt_docs=".ralph/PROMPT_docs.md",
+            prompt_hotfix=".ralph/PROMPT_hotfix.md",
+            prompt_exploration=".ralph/PROMPT_exploration.md"
+        ),
+        runners={},
+        gates=None,
+        git=None,
+        tracker=None,
+        parallel=None,
+        prompt=PromptConfig()
+    )
+    
+    # Default
+    task = SelectedTask(id="1", title="Regular task", kind="md")
+    assert "DEFAULT PROMPT" in build_prompt(project_root, cfg, task, 1)
+    
+    # Docs
+    task = SelectedTask(id="1", title="[DOCS] Update readme", kind="md")
+    assert "DOCS PROMPT" in build_prompt(project_root, cfg, task, 1)
+    
+    # Hotfix
+    task = SelectedTask(id="1", title="[HOTFIX] Fix crash", kind="md")
+    assert "HOTFIX PROMPT" in build_prompt(project_root, cfg, task, 1)
+    
+    # Exploration
+    task = SelectedTask(id="1", title="[EXPLORE] Research new API", kind="md")
+    assert "EXPLORE PROMPT" in build_prompt(project_root, cfg, task, 1)
+    
+    # Fallback if file missing
+    (project_root / ".ralph" / "PROMPT_docs.md").unlink()
+    task = SelectedTask(id="1", title="[DOCS] Update readme", kind="md")
+    assert "DEFAULT PROMPT" in build_prompt(project_root, cfg, task, 1)
