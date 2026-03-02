@@ -3029,7 +3029,7 @@ def run_iteration(
             intervention_event = InterventionEvent(
                 iteration=iteration,
                 task_id=str(story_id) if story_id else "",
-                no_files_written=no_files,
+                no_files_written=no_files_receipt is not None,
                 gates_ok=gates_ok,
                 evidence_count=evidence_count,
                 timed_out=timed_out if 'timed_out' in dir() else False,
@@ -3040,7 +3040,7 @@ def run_iteration(
 
             # Determine dominant failure for this event
             failures = []
-            if no_files:
+            if no_files_receipt is not None:
                 failures.append("no_files_reinforcement")
             if gates_ok is False:
                 failures.append("gate_failure_pattern")
