@@ -33,6 +33,7 @@ from .output import (
     set_output_config,
 )
 from .path_utils import validate_project_path
+from .prd import select_next_task, validate_prd
 from .scaffold import init_project
 from .snapshots import (
     create_snapshot,
@@ -2655,6 +2656,23 @@ def cmd_regen_plan(args: argparse.Namespace) -> int:
         f"Regenerate plan run complete (rc={cp.returncode}). Log: {log_path}",
         level="quiet",
     )
+
+    if cp.returncode == 0:
+        # Validate the newly regenerated PRD
+        warnings = validate_prd(root / prd_filename)
+        if warnings:
+            print_output("", level="normal")
+            print_output("PRD validation warnings:", level="normal")
+            for w in warnings:
+                print_output(f"  - {w}", level="normal")
+            print_output("", level="normal")
+
+            if getattr(args, "strict", False):
+                print_output(
+                    "Error: PRD validation failed in strict mode.", level="error"
+                )
+                return 1
+
     return int(cp.returncode)
 
 
@@ -4287,6 +4305,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-specs-check",
         action="store_true",
         help="Don't run specs check before generating prompt",
+    )
+    p_regen.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail if validation warnings are found in the regenerated plan",
     )
     p_regen.set_defaults(func=cmd_regen_plan)
 

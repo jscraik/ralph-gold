@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -258,3 +260,66 @@ max_iterations = 10
 
     # Should exit with error
     assert exc_info.value.code == 2
+
+
+def test_validate(tmp_path: Path, monkeypatch, capsys):
+    """Test 'ralph regen-plan' validation integration."""
+    # Setup a minimal Ralph project
+    ralph_dir = tmp_path / ".ralph"
+    ralph_dir.mkdir()
+
+    prd_path = ralph_dir / "prd.json"
+
+    # Create minimal config
+    config = """
+[files]
+prd = ".ralph/prd.json"
+
+[runners.codex]
+argv = ["echo", "Done"]
+"""
+    (ralph_dir / "ralph.toml").write_text(config, encoding="utf-8")
+
+    # Change to test directory
+    monkeypatch.chdir(tmp_path)
+
+    # 1. Mock subprocess.run to write a vague PRD
+    original_run = subprocess.run
+
+    def mock_run(argv, **kwargs):
+        # Write a vague PRD
+        prd = {
+            "stories": [
+                {
+                    "id": "1",
+                    "title": "Implement feature",
+                    "status": "open",
+                    "acceptance": ["Done"],
+                }
+            ]
+        }
+        prd_path.write_text(json.dumps(prd))
+        return MagicMock(returncode=0, stdout="Done", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    # Run regen-plan (non-strict)
+    exit_code = main(["regen-plan", "--agent", "codex"])
+
+    # Should succeed despite warnings
+    assert exit_code == 0
+
+    # Check output for warnings
+    captured = capsys.readouterr()
+    assert "PRD validation warnings:" in captured.out
+    assert "is vague" in captured.out
+
+    # 2. Run regen-plan (strict)
+    exit_code = main(["regen-plan", "--agent", "codex", "--strict"])
+
+    # Should fail in strict mode
+    assert exit_code == 1
+
+    # Check error output
+    captured = capsys.readouterr()
+    assert "Error: PRD validation failed in strict mode." in captured.err or "Error: PRD validation failed in strict mode." in captured.out

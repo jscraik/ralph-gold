@@ -222,7 +222,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Suggest breaking down complex tasks
   - Test: `uv run pytest -q tests/test_converters.py -k test_validate` passes
 
-- [ ] Add validation to ralph regen-plan command
+- [x] Add validation to ralph regen-plan command
   - Run validation after plan generation
   - Display warnings to user
   - Continue unless --strict flag used
