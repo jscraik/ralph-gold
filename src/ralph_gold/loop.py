@@ -948,6 +948,7 @@ def run_gates(
     cfg: GatesConfig,
     adaptive: Optional[AdaptiveConfig] = None,
     area_risk_scores: Optional[Dict[str, float]] = None,
+    risk_score: Optional[float] = None,
 ) -> Tuple[bool, List[GateResult]]:
     """Run all configured gates with fail-fast and pre-commit hook support.
 
@@ -960,19 +961,25 @@ def run_gates(
     # Smart gate filtering: skip gates when only matching files change
     if cfg.smart.enabled and cfg.smart.skip_gates_for:
         if changed_files and _should_skip_gates(
-            changed_files, cfg.smart.skip_patterns if hasattr(cfg.smart, 'skip_patterns') else cfg.smart.skip_gates_for, project_root
+            changed_files, cfg.smart.skip_gates_for, project_root
         ):
             # All changed files match skip patterns - skip all gates
             return True, []
 
     # Adaptive rigor: tighten gates for high-risk areas
     effective_fail_fast = cfg.fail_fast
-    if adaptive and adaptive.enabled and area_risk_scores and changed_files:
-        risk = _calculate_max_risk(project_root, changed_files, area_risk_scores)
-        if risk >= adaptive.medium_risk_threshold:
+    if adaptive and adaptive.enabled:
+        # Use provided risk_score or calculate it if missing
+        current_risk = risk_score
+        if current_risk is None and area_risk_scores and changed_files:
+            current_risk = _calculate_max_risk(project_root, changed_files, area_risk_scores)
+
+        if current_risk is not None and current_risk >= adaptive.medium_risk_threshold:
             # Medium risk: disable fail_fast to see all failures
             effective_fail_fast = False
-            logger.info(f"Adaptive gates: risk score {risk:.2f} >= {adaptive.medium_risk_threshold}, disabling fail_fast")
+            logger.info(
+                f"Adaptive gates: risk score {current_risk:.2f} >= {adaptive.medium_risk_threshold}, disabling fail_fast"
+            )
 
     # Optional: prepend prek if enabled and config exists.
     if cfg.prek.enabled:
@@ -1964,49 +1971,59 @@ def run_iteration(
         ),
     )
 
-    # Gates
+    # Phase 2: Post-agent validation
     gate_cmds = cfg.gates.commands if cfg.gates.commands else []
     gates_ok: Optional[bool] = None
     gate_results: List[GateResult] = []
     area_risk_scores = state.get("area_risk_scores", {})
+    changed_files = _get_changed_files(project_root)
+
+    # Adaptive rigor: calculate risk level before validation
+    risk_score = 0.0
+    if cfg.loop.adaptive.enabled and area_risk_scores:
+        risk_score = _calculate_max_risk(project_root, changed_files, area_risk_scores)
+        if risk_score > 0:
+            logger.info(f"Iteration risk level: {risk_score:.2f}")
 
     if (gate_cmds or cfg.gates.precommit_hook or cfg.gates.prek.enabled) and not skip_gates:
-        # run_gates handles smart gate filtering and adaptive rigor
-        gates_ok, gate_results = run_gates(
-            project_root,
-            gate_cmds,
-            cfg.gates,
-            adaptive=cfg.loop.adaptive,
-            area_risk_scores=area_risk_scores
-        )
-        
-        # Check if smart gates skipped (empty results but ok) to record receipt
-        if gates_ok and not gate_results and cfg.gates.smart.enabled and cfg.gates.smart.skip_gates_for:
-            changed_files = _get_changed_files(project_root)
-            if _should_skip_gates(changed_files, cfg.gates.smart.skip_gates_for, project_root):
-                write_receipt(
-                    receipts_dir / "smart_gates_skip.json",
-                    SmartGateSkipReceipt(
-                        task_id=story_id or "unknown",
-                        iteration=iteration,
-                        ts=iso_utc(),
-                        reason="All changed files match skip patterns",
-                        changed_files=[str(f.relative_to(project_root)) for f in changed_files],
-                        patterns=cfg.gates.smart.skip_gates_for,
-                    ),
-                )
-                logger.info("Smart gates: skipping all gates (all changed files match skip patterns)")
+        # Smart gate filtering: skip gates when only matching files change
+        if cfg.gates.smart.enabled and cfg.gates.smart.skip_gates_for and _should_skip_gates(
+            changed_files, cfg.gates.smart.skip_gates_for, project_root
+        ):
+            # All changed files match skip patterns - skip all gates
+            gates_ok, gate_results = True, []
+            write_receipt(
+                receipts_dir / "smart_gates_skip.json",
+                SmartGateSkipReceipt(
+                    task_id=story_id or "unknown",
+                    iteration=iteration,
+                    ts=iso_utc(),
+                    reason="All changed files match skip patterns",
+                    changed_files=[str(f.relative_to(project_root)) for f in changed_files],
+                    patterns=cfg.gates.smart.skip_gates_for,
+                ),
+            )
+            logger.info("Smart gates: skipping all gates (all changed files match skip patterns)")
+        else:
+            # run_gates handles smart gate filtering and adaptive rigor
+            gates_ok, gate_results = run_gates(
+                project_root,
+                gate_cmds,
+                cfg.gates,
+                adaptive=cfg.loop.adaptive,
+                area_risk_scores=area_risk_scores,
+                risk_score=risk_score,
+            )
     else:
         gates_ok, gate_results = None, []
 
     # Adaptive rigor for LLM judge: force enable for high-risk areas
     effective_judge_enabled = cfg.gates.llm_judge.enabled
-    if cfg.loop.adaptive.enabled and area_risk_scores and not effective_judge_enabled:
-        changed_files = _get_changed_files(project_root)
-        risk = _calculate_max_risk(project_root, changed_files, area_risk_scores)
-        if risk >= cfg.loop.adaptive.high_risk_threshold:
-            effective_judge_enabled = True
-            logger.info(f"Adaptive gates: high risk score {risk:.2f} >= {cfg.loop.adaptive.high_risk_threshold}, enabling llm_judge")
+    if cfg.loop.adaptive.enabled and risk_score >= cfg.loop.adaptive.high_risk_threshold and not effective_judge_enabled:
+        effective_judge_enabled = True
+        logger.info(
+            f"Adaptive gates: high risk score {risk_score:.2f} >= {cfg.loop.adaptive.high_risk_threshold}, enabling llm_judge"
+        )
 
     gate_summaries: List[str] = []
     for idx, gr in enumerate(gate_results, start=1):
@@ -2646,6 +2663,7 @@ def run_iteration(
             "iteration": iteration,
             "agent": agent,
             "loop_mode": resolved_mode,
+            "risk_score": risk_score,
             "branch": branch_label,
             "story_id": story_id,
             "target_task_id": target_task_id_effective,

@@ -41,6 +41,7 @@ def _write_prd(project_root: Path) -> None:
     prd = {
         "stories": [
             {"id": "task-1", "title": "First task", "status": "todo"},
+            {"id": "task-2", "title": "Second task", "status": "todo"},
         ]
     }
     (project_root / "prd.json").write_text(json.dumps(prd, indent=2), encoding="utf-8")
@@ -464,3 +465,106 @@ def test_prompt_select(tmp_path: Path):
     (project_root / ".ralph" / "PROMPT_docs.md").unlink()
     task = SelectedTask(id="1", title="[DOCS] Update readme", kind="md")
     assert "DEFAULT PROMPT" in build_prompt(project_root, cfg, task, 1)
+
+
+def test_adaptive(tmp_path: Path) -> None:
+    project_root = _init_git_repo(tmp_path)
+    (project_root / ".ralph").mkdir()
+
+    # Adaptive config: medium threshold 0.4, high threshold 0.8
+    config_text = dedent(
+        """
+        [loop]
+        max_iterations = 2
+        mode = "speed"
+
+        [loop.adaptive]
+        enabled = true
+        medium_risk_threshold = 0.4
+        high_risk_threshold = 0.8
+
+        [gates]
+        commands = ["exit 0", "exit 0"]
+        fail_fast = true
+
+        [gates.llm_judge]
+        enabled = false
+        agent = "codex"
+
+        [runners.codex]
+        argv = ["echo", "mock-agent"]
+
+        [files]
+        prd = "prd.json"
+        """
+    ).strip() + "\n"
+
+    (project_root / ".ralph" / "ralph.toml").write_text(config_text, encoding="utf-8")
+    _write_prd(project_root)
+
+    # Initialize state with high-risk score for src/risky.py
+    state = {
+        "area_risk_scores": {"src/risky.py": 0.9},
+        "history": [],
+        "invocations": [],
+        "noProgressStreak": 0,
+    }
+    (project_root / ".ralph" / "state.json").write_text(json.dumps(state), encoding="utf-8")
+
+    # Create risky file
+    (project_root / "src").mkdir()
+    risky_file = project_root / "src" / "risky.py"
+    risky_file.write_text("# risky\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=project_root, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "Add risky file"], cwd=project_root, check=True, capture_output=True)
+
+    from dataclasses import replace
+    from unittest.mock import patch, MagicMock
+    with patch("ralph_gold.loop._get_changed_files") as mock_files, \
+         patch("ralph_gold.trackers.FileTracker.is_task_done", return_value=True), \
+         patch("ralph_gold.loop.run_subprocess") as mock_run_sub:
+        
+        # Mock run_subprocess with side effect to handle failures and judge
+        def mock_run(argv, *args, **kwargs):
+            cmd = " ".join(argv) if isinstance(argv, list) else str(argv)
+            if "exit 1" in cmd:
+                return SubprocessResult(returncode=1, stdout="", stderr="")
+            return SubprocessResult(returncode=0, stdout="SHIP", stderr="")
+
+        mock_run_sub.side_effect = mock_run
+        mock_files.return_value = [risky_file]
+        
+        cfg = load_config(project_root)
+        
+        # First iteration: gates pass, verify judge is forced ON
+        run_iteration(project_root, agent="codex", cfg=cfg, iteration=1)
+
+        state = load_state(project_root / ".ralph" / "state.json")
+        history = state.get("history", [])
+        assert len(history) == 1, "Expected 1 history entry after first iteration"
+        entry = history[-1]
+        assert entry.get("risk_score") == 0.9
+        assert entry.get("judge_ran") is True
+        
+        # Mark task-1 done manually in PRD so iteration 2 picks task-2
+        prd_content = json.loads((project_root / "prd.json").read_text(encoding="utf-8"))
+        prd_content["stories"][0]["status"] = "done"
+        (project_root / "prd.json").write_text(json.dumps(prd_content, indent=2), encoding="utf-8")
+        
+        # Second iteration: gates fail, verify fail_fast is disabled
+        # Use dataclasses.replace because config classes are frozen
+        new_gates = replace(cfg.gates, commands=["exit 1", "exit 0"])
+        cfg = replace(cfg, gates=new_gates)
+        
+        run_iteration(project_root, agent="codex", cfg=cfg, iteration=2)
+        
+        state = load_state(project_root / ".ralph" / "state.json")
+        history = state.get("history", [])
+        assert len(history) == 2, "Expected 2 history entries after second iteration"
+        entry = history[-1]
+        assert entry.get("story_id") == "task-2"
+        gate_results = entry.get("gate_results", [])
+        # Should have 2 results because fail_fast was disabled by adaptive rigor
+        assert len(gate_results) == 2
+        assert gate_results[0]["return_code"] == 1
+        assert gate_results[1]["return_code"] == 0

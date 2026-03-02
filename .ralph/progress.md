@@ -134,3 +134,4 @@ Keep entries short; delete nothing; add clarifications when you learn.
 - [20260302T064859Z] iter 84 mode=prd status=DONE checks=PASS story=S29 agent=gemini branch=main log=20260302T064859Z-iter0084-gemini.log
 - [20260302T065045Z] iter 85 mode=prd status=DONE checks=PASS story=S30 agent=gemini branch=main log=20260302T065045Z-iter0085-gemini.log
 - [20260302T065355Z] iter 86 mode=prd status=DONE checks=PASS story=S31 agent=gemini branch=main log=20260302T065355Z-iter0086-gemini.log
+- [20260302T065737Z] iter 87 mode=prd status=CONTINUE checks=PASS story=S32 agent=gemini branch=main log=20260302T065737Z-iter0087-gemini.log
