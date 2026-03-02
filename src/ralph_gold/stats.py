@@ -22,6 +22,7 @@ class TaskStats:
     attempts: int
     successes: int
     failures: int
+    blocked_attempts: int
     avg_duration_seconds: float
     total_duration_seconds: float
 
@@ -44,6 +45,7 @@ class IterationStats:
     min_duration_seconds: float
     max_duration_seconds: float
     success_rate: float
+    blocked_task_rate: float = 0.0
     tasks_per_hour: float = 0.0
     task_stats: Dict[str, TaskStats] = field(default_factory=dict)
 
@@ -165,11 +167,14 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
                 "attempts": 0,
                 "successes": 0,
                 "failures": 0,
+                "blocked_attempts": 0,
                 "durations": [],
             }
 
         task_data[task_id]["attempts"] += 1
         task_data[task_id]["durations"].append(duration)
+        if blocked:
+            task_data[task_id]["blocked_attempts"] += 1
         if success:
             task_data[task_id]["successes"] += 1
         else:
@@ -181,6 +186,15 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
     min_duration = _safe_min(durations)
     max_duration = _safe_max(durations)
     success_rate = successful_count / total if total > 0 else 0.0
+
+    # Calculate blocked task rate (unique tasks ever blocked / unique tasks)
+    blocked_tasks_count = sum(
+        1 for data in task_data.values() if data["blocked_attempts"] > 0
+    )
+    total_tasks_count = len(task_data)
+    blocked_task_rate = (
+        blocked_tasks_count / total_tasks_count if total_tasks_count > 0 else 0.0
+    )
 
     # Calculate velocity (tasks per hour)
     tasks_per_hour = 0.0
@@ -200,6 +214,7 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
             attempts=data["attempts"],
             successes=data["successes"],
             failures=data["failures"],
+            blocked_attempts=data["blocked_attempts"],
             avg_duration_seconds=_safe_mean(task_durations),
             total_duration_seconds=sum(task_durations),
         )
@@ -212,6 +227,7 @@ def calculate_stats(state: Dict[str, Any]) -> IterationStats:
         min_duration_seconds=min_duration,
         max_duration_seconds=max_duration,
         success_rate=success_rate,
+        blocked_task_rate=blocked_task_rate,
         tasks_per_hour=tasks_per_hour,
         task_stats=task_stats,
     )
@@ -241,6 +257,7 @@ def export_stats_csv(stats: IterationStats, output_path: Path) -> None:
         writer.writerow(["Successful Iterations", stats.successful_iterations])
         writer.writerow(["Failed Iterations", stats.failed_iterations])
         writer.writerow(["Success Rate", f"{stats.success_rate:.2%}"])
+        writer.writerow(["Blocked Task Rate", f"{stats.blocked_task_rate:.2%}"])
         writer.writerow(["Velocity (tasks/hour)", f"{stats.tasks_per_hour:.2f}"])
         writer.writerow(
             ["Average Duration (seconds)", f"{stats.avg_duration_seconds:.2f}"]
@@ -257,6 +274,7 @@ def export_stats_csv(stats: IterationStats, output_path: Path) -> None:
                 "Attempts",
                 "Successes",
                 "Failures",
+                "Blocked Attempts",
                 "Success Rate",
                 "Avg Duration (seconds)",
                 "Total Duration (seconds)",
@@ -277,6 +295,7 @@ def export_stats_csv(stats: IterationStats, output_path: Path) -> None:
                     task.attempts,
                     task.successes,
                     task.failures,
+                    task.blocked_attempts,
                     f"{task.success_rate:.2%}",
                     f"{task.avg_duration_seconds:.2f}",
                     f"{task.total_duration_seconds:.2f}",
@@ -308,6 +327,7 @@ def format_stats_report(stats: IterationStats, by_task: bool = False) -> str:
     lines.append(f"  Successful:            {stats.successful_iterations}")
     lines.append(f"  Failed:                {stats.failed_iterations}")
     lines.append(f"  Success Rate:          {stats.success_rate:.1%}")
+    lines.append(f"  Blocked Task Rate:     {stats.blocked_task_rate:.1%}")
     lines.append(f"  Velocity:              {stats.tasks_per_hour:.2f} tasks/hour")
     lines.append("")
 
@@ -336,6 +356,7 @@ def format_stats_report(stats: IterationStats, by_task: bool = False) -> str:
             lines.append(f"  Attempts:              {task.attempts}")
             lines.append(f"  Successes:             {task.successes}")
             lines.append(f"  Failures:              {task.failures}")
+            lines.append(f"  Blocked Attempts:      {task.blocked_attempts}")
             lines.append(f"  Success Rate:          {task.success_rate:.1%}")
             lines.append(f"  Avg Duration:          {task.avg_duration_seconds:.2f}s")
             lines.append(f"  Total Duration:        {task.total_duration_seconds:.2f}s")

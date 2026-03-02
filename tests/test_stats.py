@@ -24,6 +24,7 @@ def test_task_stats_success_rate():
         attempts=10,
         successes=7,
         failures=3,
+        blocked_attempts=0,
         avg_duration_seconds=45.5,
         total_duration_seconds=455.0,
     )
@@ -35,6 +36,7 @@ def test_task_stats_success_rate():
         attempts=0,
         successes=0,
         failures=0,
+        blocked_attempts=0,
         avg_duration_seconds=0.0,
         total_duration_seconds=0.0,
     )
@@ -279,6 +281,7 @@ def test_export_stats_csv(tmp_path: Path):
                 attempts=3,
                 successes=2,
                 failures=1,
+                blocked_attempts=0,
                 avg_duration_seconds=120.0,
                 total_duration_seconds=360.0,
             ),
@@ -287,6 +290,7 @@ def test_export_stats_csv(tmp_path: Path):
                 attempts=2,
                 successes=1,
                 failures=1,
+                blocked_attempts=0,
                 avg_duration_seconds=140.0,
                 total_duration_seconds=280.0,
             ),
@@ -310,6 +314,7 @@ def test_export_stats_csv(tmp_path: Path):
     assert rows[3] == ["Successful Iterations", "3"]
     assert rows[4] == ["Failed Iterations", "2"]
     assert rows[5] == ["Success Rate", "60.00%"]
+    assert rows[6] == ["Blocked Task Rate", "0.00%"]
 
     # Check per-task statistics section exists
     assert "Per-Task Statistics" in [row[0] for row in rows if row]
@@ -368,6 +373,7 @@ def test_format_stats_report_basic():
     assert "Successful:            8" in report
     assert "Failed:                2" in report
     assert "Success Rate:          80.0%" in report
+    assert "Blocked Task Rate:     0.0%" in report
     assert "Average:               125.50s" in report
     assert "Minimum:               100.00s" in report
     assert "Maximum:               200.00s" in report
@@ -389,6 +395,7 @@ def test_format_stats_report_with_tasks():
                 attempts=3,
                 successes=2,
                 failures=1,
+                blocked_attempts=0,
                 avg_duration_seconds=120.0,
                 total_duration_seconds=360.0,
             ),
@@ -397,6 +404,7 @@ def test_format_stats_report_with_tasks():
                 attempts=2,
                 successes=1,
                 failures=1,
+                blocked_attempts=0,
                 avg_duration_seconds=140.0,
                 total_duration_seconds=280.0,
             ),
@@ -415,6 +423,7 @@ def test_format_stats_report_with_tasks():
     assert "Attempts:              3" in report
     assert "Successes:             2" in report
     assert "Failures:              1" in report
+    assert "Blocked Attempts:      0" in report
     assert "Avg Duration:          120.00s" in report
     assert "Total Duration:        360.00s" in report
 
@@ -437,6 +446,7 @@ def test_format_stats_report_without_tasks():
                 attempts=3,
                 successes=2,
                 failures=1,
+                blocked_attempts=0,
                 avg_duration_seconds=120.0,
                 total_duration_seconds=360.0,
             ),
@@ -527,6 +537,7 @@ def test_csv_export_task_sorting(tmp_path: Path):
                 attempts=2,
                 successes=2,
                 failures=0,
+                blocked_attempts=0,
                 avg_duration_seconds=50.0,
                 total_duration_seconds=100.0,
             ),
@@ -535,6 +546,7 @@ def test_csv_export_task_sorting(tmp_path: Path):
                 attempts=2,
                 successes=1,
                 failures=1,
+                blocked_attempts=0,
                 avg_duration_seconds=150.0,
                 total_duration_seconds=300.0,
             ),
@@ -543,6 +555,7 @@ def test_csv_export_task_sorting(tmp_path: Path):
                 attempts=2,
                 successes=1,
                 failures=1,
+                blocked_attempts=0,
                 avg_duration_seconds=100.0,
                 total_duration_seconds=200.0,
             ),
@@ -700,3 +713,66 @@ def test_velocity_with_gaps():
     # Span is from 10:00:00 to 12:01:00 = 2 hours 1 minute = 121 minutes = 7260 seconds
     # Velocity = 2 / (7260/3600) = 2 * 3600 / 7260 = 7200 / 7260 = 0.9917...
     assert stats.tasks_per_hour == pytest.approx(0.9917355371900827)
+
+
+def test_blocked_rate():
+    """Test calculation of blocked task rate (percentage of unique tasks that were ever blocked)."""
+    state = {
+        "history": [
+            {
+                "iteration": 1,
+                "story_id": "task-1",
+                "blocked": True,
+            },
+            {
+                "iteration": 2,
+                "story_id": "task-1",
+                "blocked": False,
+                "gates_ok": True,
+            },
+            {
+                "iteration": 3,
+                "story_id": "task-2",
+                "blocked": False,
+                "gates_ok": True,
+            },
+        ]
+    }
+    stats = calculate_stats(state)
+
+    # 2 unique tasks: task-1 (blocked once) and task-2 (never blocked)
+    # Blocked rate = 1 / 2 = 0.5
+    assert hasattr(stats, "blocked_task_rate")
+    assert stats.blocked_task_rate == 0.5
+
+
+def test_blocked_attempts_per_task():
+    """Test tracking of blocked attempts per task."""
+    state = {
+        "history": [
+            {
+                "iteration": 1,
+                "story_id": "task-1",
+                "blocked": True,
+            },
+            {
+                "iteration": 2,
+                "story_id": "task-1",
+                "blocked": True,
+            },
+            {
+                "iteration": 3,
+                "story_id": "task-2",
+                "blocked": False,
+                "gates_ok": True,
+            },
+        ]
+    }
+    stats = calculate_stats(state)
+
+    assert "task-1" in stats.task_stats
+    assert hasattr(stats.task_stats["task-1"], "blocked_attempts")
+    assert stats.task_stats["task-1"].blocked_attempts == 2
+
+    assert "task-2" in stats.task_stats
+    assert stats.task_stats["task-2"].blocked_attempts == 0

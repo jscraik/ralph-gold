@@ -20,7 +20,7 @@ from .config import Config, GatesConfig, LoopModeConfig, RunnerConfig, load_conf
 from .context_manager import check_context_health, load_progress_window
 from .evidence import EvidenceReceipt
 from .prd import SelectedTask, select_task_by_id, task_status_by_id
-from .receipts import CommandReceipt, NoFilesWrittenReceipt, hash_text, iso_utc, truncate_text, write_receipt
+from .receipts import CommandReceipt, NoFilesWrittenReceipt, SmartGateSkipReceipt, hash_text, iso_utc, truncate_text, write_receipt
 from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
 from .state_validation import validate_state_against_prd
@@ -1856,8 +1856,37 @@ def run_iteration(
 
     # Gates
     gate_cmds = cfg.gates.commands if cfg.gates.commands else []
-    if gate_cmds or cfg.gates.precommit_hook or cfg.gates.prek.enabled:
-        gates_ok, gate_results = run_gates(project_root, gate_cmds, cfg.gates)
+    gates_ok: Optional[bool] = None
+    gate_results: List[GateResult] = []
+
+    if (gate_cmds or cfg.gates.precommit_hook or cfg.gates.prek.enabled) and not skip_gates:
+        # Smart gate filtering: skip gates when only matching files change
+        should_skip = False
+        if cfg.gates.smart.enabled and cfg.gates.smart.skip_gates_for:
+            changed_files = _get_changed_files(project_root)
+            if changed_files and _should_skip_gates(
+                changed_files, cfg.gates.smart.skip_gates_for, project_root
+            ):
+                should_skip = True
+                gates_ok = True
+                gate_results = []
+                
+                # Record skip decision
+                write_receipt(
+                    receipts_dir / "smart_gates_skip.json",
+                    SmartGateSkipReceipt(
+                        task_id=story_id or "unknown",
+                        iteration=iteration,
+                        ts=iso_utc(),
+                        reason="All changed files match skip patterns",
+                        changed_files=[str(f.relative_to(project_root)) for f in changed_files],
+                        patterns=cfg.gates.smart.skip_gates_for,
+                    ),
+                )
+                logger.info("Smart gates: skipping all gates (all changed files match skip patterns)")
+
+        if not should_skip:
+            gates_ok, gate_results = run_gates(project_root, gate_cmds, cfg.gates)
     else:
         gates_ok, gate_results = None, []
 

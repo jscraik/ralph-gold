@@ -120,3 +120,5 @@ Keep entries short; delete nothing; add clarifications when you learn.
 - [20260302T052439Z] iter 76 mode=prd status=CONTINUE checks=PASS story=S20 agent=gemini branch=main log=20260302T052439Z-iter0076-gemini.log
 [2026-03-02T05:36:19.216708+00:00] BLOCKED task 20 (Execute quick batches in single iteration) after 1 attempts: task not marked done (agent exited successfully but task not completed)
 - [20260302T062555Z] iter 77 mode=prd status=DONE checks=PASS story=S21 agent=gemini branch=main log=20260302T062555Z-iter0077-gemini.log
+\n2026-03-02: Task 22 complete. Added blocked task rate and per-task blocked attempts to stats.py. Gates: `uv run pytest -q tests/test_stats.py` (all 27 passed), `uv run ruff check src`, `uv run mypy src/ralph_gold/stats.py` (all clear).
+- [20260302T062741Z] iter 78 mode=prd status=DONE checks=PASS story=S22 agent=gemini branch=main log=20260302T062741Z-iter0078-gemini.log

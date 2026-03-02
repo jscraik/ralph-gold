@@ -138,7 +138,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Return 0.0 for insufficient data
   - Test: `uv run pytest -q tests/test_stats.py -k test_velocity` passes
 
-- [ ] Add blocked task rate calculation to stats.py
+- [x] Add blocked task rate calculation to stats.py
   - Calculate percentage of tasks that get blocked
   - Track blocked attempts per task
   - Return metrics in stats output

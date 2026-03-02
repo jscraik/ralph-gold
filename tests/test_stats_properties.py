@@ -388,13 +388,16 @@ def test_property_7_csv_task_data_preservation(state: Dict[str, Any]):
             attempts_csv = int(row[1])
             successes_csv = int(row[2])
             failures_csv = int(row[3])
-            avg_duration_csv = float(row[5])
-            total_duration_csv = float(row[6])
+            blocked_attempts_csv = int(row[4])
+            # Success Rate is at index 5 (as percentage string)
+            avg_duration_csv = float(row[6])
+            total_duration_csv = float(row[7])
 
             # Verify preservation
             assert attempts_csv == task_stats.attempts
             assert successes_csv == task_stats.successes
             assert failures_csv == task_stats.failures
+            assert blocked_attempts_csv == task_stats.blocked_attempts
             assert abs(avg_duration_csv - task_stats.avg_duration_seconds) < 0.01
             assert abs(total_duration_csv - task_stats.total_duration_seconds) < 0.01
     finally:
@@ -424,6 +427,7 @@ def test_property_stats_calculation_is_deterministic(state: Dict[str, Any]):
     assert stats1.min_duration_seconds == stats2.min_duration_seconds
     assert stats1.max_duration_seconds == stats2.max_duration_seconds
     assert stats1.success_rate == stats2.success_rate
+    assert stats1.blocked_task_rate == stats2.blocked_task_rate
     assert len(stats1.task_stats) == len(stats2.task_stats)
 
     # Verify task stats are identical
@@ -434,6 +438,7 @@ def test_property_stats_calculation_is_deterministic(state: Dict[str, Any]):
         assert t1.attempts == t2.attempts
         assert t1.successes == t2.successes
         assert t1.failures == t2.failures
+        assert t1.blocked_attempts == t2.blocked_attempts
         assert t1.avg_duration_seconds == t2.avg_duration_seconds
         assert t1.total_duration_seconds == t2.total_duration_seconds
 

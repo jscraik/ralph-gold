@@ -521,7 +521,7 @@ def test_integration(tmp_path: Path):
     task = SelectedTask(id="1", title="Task 1", kind="md", acceptance=[])
 
     # Mock all external dependencies of run_iteration
-    with patch("ralph_gold.loop.get_changed_files") as mock_get_files, \
+    with patch("ralph_gold.loop._get_changed_files") as mock_get_files, \
         patch("ralph_gold.loop.run_gates") as mock_run_gates, \
         patch("ralph_gold.loop.run_subprocess") as mock_run_sub, \
         patch("ralph_gold.loop.make_tracker") as mock_make_tracker, \
