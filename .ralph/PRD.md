@@ -242,6 +242,13 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Test that gate fails when PRD unchanged
   - Test: `uv run pytest tests/test_gates_prd_update.py -v` passes
 
+### Test Task
+
+- [x] Add a hello world function to test the gates
+  - Create `src/ralph_gold/hello.py` with a simple `hello()` function
+  - Function returns "Hello, World!" string
+  - Test: `uv run pytest -q tests/test_hello.py` passes
+
 # Notes
 
 # - Mark done:   - [x]

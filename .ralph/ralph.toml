@@ -144,3 +144,9 @@ argv = ["gh", "copilot", "suggest", "--type", "shell", "--prompt"]
 # Use --yolo for non-interactive mode (auto-approve all tools)
 # Empty string after -p allows stdin to be used
 argv = ["gemini", "-p", "", "--yolo"]
+
+[interventions]
+enabled = true
+policy_mode = "recommend-only"
+lookback_iterations = 30
+confidence_threshold = "medium"
