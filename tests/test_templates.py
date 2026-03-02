@@ -25,12 +25,13 @@ def test_load_builtin_templates():
     """Test that built-in templates are loaded correctly."""
     templates = load_builtin_templates()
 
-    # Should have 4 built-in templates
-    assert len(templates) == 4
+    # Should have 5 built-in templates
+    assert len(templates) == 5
     assert "bug-fix" in templates
     assert "feature" in templates
     assert "refactor" in templates
     assert "docs" in templates
+    assert "hotfix" in templates
 
     # Check bug-fix template
     bug_fix = templates["bug-fix"]
@@ -459,12 +460,13 @@ def test_list_templates_builtin_only(tmp_path: Path):
     """Test listing templates with only built-in templates."""
     templates = list_templates(tmp_path)
 
-    assert len(templates) == 4
+    assert len(templates) == 5
     names = [t.name for t in templates]
     assert "bug-fix" in names
     assert "feature" in names
     assert "refactor" in names
     assert "docs" in names
+    assert "hotfix" in names
 
 
 def test_list_templates_with_custom(tmp_path: Path):
@@ -484,7 +486,7 @@ def test_list_templates_with_custom(tmp_path: Path):
 
     templates = list_templates(tmp_path)
 
-    assert len(templates) == 5
+    assert len(templates) == 6
     names = [t.name for t in templates]
     assert "custom" in names
 
@@ -508,8 +510,8 @@ def test_list_templates_custom_overrides_builtin(tmp_path: Path):
 
     templates = list_templates(tmp_path)
 
-    # Should still have 4 templates (custom overrides built-in)
-    assert len(templates) == 4
+    # Should still have 5 templates (custom overrides built-in)
+    assert len(templates) == 5
 
     bug_fix = next(t for t in templates if t.name == "bug-fix")
     assert bug_fix.description == "Custom bug fix template"
@@ -560,6 +562,22 @@ def test_prompt_docs():
     assert "Documentation Acceptance Criteria" in prompt_docs.read_text()
 
 
+def test_prompt_hotfix():
+    """Test the hotfix template."""
+    templates = load_builtin_templates()
+    assert "hotfix" in templates
+    hotfix = templates["hotfix"]
+    assert hotfix.name == "hotfix"
+    assert "Fix:" in hotfix.title_template
+    assert hotfix.priority == "high"
+
+    # Check if PROMPT_hotfix.md exists in the templates directory
+    template_dir = Path(__file__).parent.parent / "src" / "ralph_gold" / "templates"
+    prompt_hotfix = template_dir / "PROMPT_hotfix.md"
+    assert prompt_hotfix.exists()
+    assert "Hotfix Acceptance Criteria" in prompt_hotfix.read_text()
+
+
 def test_list_templates_handles_load_error(tmp_path: Path):
     """Test that list_templates handles custom template load errors gracefully."""
     templates_dir = tmp_path / ".ralph" / "templates"
@@ -571,7 +589,7 @@ def test_list_templates_handles_load_error(tmp_path: Path):
 
     # Should still return built-in templates
     templates = list_templates(tmp_path)
-    assert len(templates) == 4
+    assert len(templates) == 5
 
 
 # Test edge cases

@@ -126,3 +126,5 @@ Keep entries short; delete nothing; add clarifications when you learn.
 - [20260302T063648Z] iter 79 mode=prd status=DONE checks=PASS story=S23 agent=gemini branch=main log=20260302T063648Z-iter0079-gemini.log
 2026-03-02 Iteration 80: Task 25 complete. Created PROMPT_docs.md template and added 'docs' TaskTemplate to templates.py. Updated tests/test_templates.py with test_prompt_docs (passes).
 - [20260302T064039Z] iter 80 mode=prd status=DONE checks=PASS story=S25 agent=gemini branch=main log=20260302T064039Z-iter0080-gemini.log
+2026-03-02 Iteration 81: Completed task 26. Added hotfix template to built-ins and created PROMPT_hotfix.md. Updated tests.
+- [20260302T064253Z] iter 81 mode=prd status=DONE checks=PASS story=S26 agent=gemini branch=main log=20260302T064253Z-iter0081-gemini.log

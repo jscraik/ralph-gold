@@ -118,6 +118,20 @@ def load_builtin_templates() -> dict[str, TaskTemplate]:
             variables=["title"],
             metadata={"version": "1.0", "builtin": True},
         ),
+        "hotfix": TaskTemplate(
+            name="hotfix",
+            description="Template for urgent fixes",
+            title_template="Fix: {title}",
+            acceptance_criteria=[
+                "Minimal changes implemented for safety",
+                "Critical path is verified with tests",
+                "Non-critical quality checks skipped for speed",
+                "No regressions in core functionality",
+            ],
+            priority="high",
+            variables=["title"],
+            metadata={"version": "1.0", "builtin": True},
+        ),
     }
 
 

@@ -164,7 +164,7 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Include docs-specific acceptance criteria
   - Test: `uv run pytest -q tests/test_templates.py -k test_prompt_docs` passes
 
-- [ ] Create PROMPT_hotfix.md template
+- [x] Create PROMPT_hotfix.md template
   - Add template for urgent fixes
   - Emphasize minimal changes and testing
   - Skip non-critical quality checks
