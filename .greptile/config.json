@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "strictness": 2,
+  "fileChangeLimit": 300,
+  "commentTypes": [
+    "bug-risk",
+    "security",
+    "performance",
+    "architecture",
+    "maintainability"
+  ],
+  "enableCrossFileGraphQueries": true,
+  "requireIndependentValidation": true,
+  "confidence": {
+    "minMergeScore": 4,
+    "targetScore": 5
+  },
+  "rules": [
+    {
+      "id": "esm-local-import-extension",
+      "glob": "src/**/*.ts",
+      "description": "Local ESM imports must include the .js extension.",
+      "severity": "high"
+    },
+    {
+      "id": "no-main-direct-push",
+      "glob": "**/*",
+      "description": "No direct push to main; all changes flow through PR with review artifacts.",
+      "severity": "high"
+    },
+    {
+      "id": "independent-ai-validation",
+      "glob": "**/*",
+      "description": "Coding agent must not approve its own PR; separate review agent required.",
+      "severity": "high"
+    }
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    "node_modules/**",
+    ".pnpm-store/**"
+  ]
+}

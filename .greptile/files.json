@@ -1,0 +1,32 @@
+{
+  "contextFiles": [
+    {
+      "path": "harness.contract.json",
+      "role": "primary governance contract"
+    },
+    {
+      "path": "contracts/browser-evidence.schema.json",
+      "role": "primary JSON schema"
+    },
+    {
+      "path": "src/lib/contract/types.ts",
+      "role": "contract type definitions"
+    },
+    {
+      "path": "src/cli.ts",
+      "role": "CLI entrypoint and command surface"
+    },
+    {
+      "path": "src/cli-dispatch.ts",
+      "role": "command dispatch API"
+    }
+  ],
+  "apiSpecs": [
+    "src/cli.ts",
+    "src/commands/**/*.ts"
+  ],
+  "schemaFiles": [
+    "contracts/**/*.schema.json",
+    "src/lib/contract/types.ts"
+  ]
+}

@@ -1,70 +1,44 @@
+# Pull request checklist
+
 ## Summary
 
-[PROMPT: What does this PR do in 1–3 sentences?]
-
-## Motivation / Context
-
-[PROMPT: Why is this change needed? Link context, incidents, or user feedback.]
-
-Closes #[PROMPT: #123] (or explain why none exists)
-
-## What changed?
-
-[PROMPT: Bullet list of key changes.]
-
-## How to test
-
-[PROMPT: Exact commands + expected outcomes.]
-
-- [PROMPT: e.g. pnpm test]
-- [PROMPT: e.g. pnpm lint]
-- [PROMPT: e.g. pnpm build]
-
-## Risk & rollout
-
-Risk level: low / medium / high
-
-Rollback plan: [PROMPT: Concrete rollback steps if needed.]
-
-## Security / privacy
-
-- [ ] No security impact
-- [ ] Security impact (describe at a high level; do NOT disclose vulnerabilities publicly)
-
-[PROMPT: High-level description if security impact checked.]
-
-## AI assistance
-
-- [ ] This PR was created with AI assistance (mark with `[AI]` in title if applicable)
-- [ ] Testing level: untested / lightly tested / fully tested
-- [ ] I understand what the code does and can explain it
-- [ ] Prompts or session logs included (Optional, but helpful)
-
-Prompt: `[PROMPT: ai/prompts/YYYY-MM-DD-<slug>.yaml]`
-Session: `[PROMPT: ai/sessions/YYYY-MM-DD-<slug>.json]`
-
-<details>
-<summary>AI Session Log (click to expand)</summary>
-
-[PROMPT: Short AI session summary]
-
-- Log file: `[PROMPT: ai/sessions/YYYY-MM-DD-<slug>.json]`
-- Prompt file: `[PROMPT: ai/prompts/YYYY-MM-DD-<slug>.yaml]`
-- Files touched: [PROMPT: paths]
-- Tests run: [PROMPT: commands]
-- Human verification: [PROMPT: what you personally checked]
-
-</details>
+- What changed (brief):
+- Why this change was needed:
+- Risk and rollback plan:
 
 ## Checklist
 
-- [ ] Linked an issue or explained why none exists
-- [ ] Added/updated tests or explained why not
-- [ ] Updated docs where needed (Optional)
-- [ ] Considered backward compatibility / migrations (Optional)
-- [ ] Verified no secrets are committed (tokens, keys, passwords)
-- [ ] Confirmed CI is green (or explained failures)
+- [ ] I did not push directly to `main`; this PR is from a dedicated branch.
+- [ ] Branch name follows policy (`codex/*` for agent-created branches).
+- [ ] Required local gates run: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run audit`, `npm run check`, `test -f memory.json && jq -e '.meta.version == "1.0" and (.preamble.bootstrap | type == "boolean") and (.preamble.search | type == "boolean") and (.entries | type == "array")' memory.json >/dev/null`.
+- [ ] Required CI security gate passed: `security-scan` (gitleaks + trivy + semgrep).
+- [ ] Greptile setup verified with `grepfile` skill and `.greptile/config.json`, `.greptile/rules.md`, `.greptile/files.json`.
+- [ ] Greptile review completed and findings handled (or explicitly waived).
+- [ ] Codex review completed and findings handled (or explicitly waived).
+- [ ] Greptile review was performed by an independent reviewer (not the coding agent).
+- [ ] Greptile confidence score is `>= 4/5` for merge eligibility.
+- [ ] Merge is blocked until all required checks pass.
+- [ ] I will delete branch/worktree after merge.
 
-## Release notes
+## Testing
 
-Release note: [PROMPT: user-facing note, or "None".]
+- Command: `npm run lint` -> pass/fail
+- Command: `npm run typecheck` -> pass/fail
+- Command: `npm run test` -> pass/fail
+- Command: `npm run audit` -> pass/fail
+- Command: `npm run check` -> pass/fail
+- Command: `security-scan` (CI check) -> pass/fail
+- Command: `test -f memory.json && jq -e '.meta.version == "1.0" and (.preamble.bootstrap | type == "boolean") and (.preamble.search | type == "boolean") and (.entries | type == "array")' memory.json >/dev/null` -> pass/fail
+- Any other command(s):
+
+## Review artifacts
+
+- Greptile: <link / artifact path / comment ID>
+- Greptile confidence score: <0-5>
+- Independent reviewer evidence: <reviewer + link>
+- Codex: <link / artifact path / comment ID>
+- Additional evidence (if any):
+
+## Notes
+
+Add one-paragraph merge rationale here.

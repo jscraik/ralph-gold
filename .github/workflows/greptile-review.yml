@@ -1,0 +1,233 @@
+name: Greptile Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, review_requested]
+  pull_request_review:
+    types: [submitted, dismissed]
+  pull_request_review_comment:
+    types: [created]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+  statuses: write
+
+jobs:
+  greptile-review:
+    name: Greptile Review
+    runs-on: ubuntu-latest
+    # Run for PR events, review events, or when Greptile comments on a PR
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'pull_request_review' ||
+      github.event_name == 'pull_request_review_comment' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.user.login == 'greptile[bot]')
+    steps:
+      - name: Get PR context
+        id: context
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || '' }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const eventName = process.env.EVENT_NAME;
+            // For issue_comment, use ISSUE_NUMBER; for PR/review events, use PR_NUMBER
+            const prNumber = eventName === 'issue_comment'
+              ? process.env.ISSUE_NUMBER
+              : process.env.PR_NUMBER;
+
+            if (!prNumber) {
+              core.setFailed(`Could not determine PR number for event: ${eventName}`);
+              return;
+            }
+
+            let headSha;
+
+            if (eventName === 'pull_request') {
+              headSha = context.payload.pull_request.head.sha;
+            } else {
+              // Fetch PR to get head SHA
+              const pr = await github.rest.pulls.get({
+                owner: process.env.REPO_OWNER,
+                repo: process.env.REPO_NAME,
+                pull_number: parseInt(prNumber, 10)
+              });
+              headSha = pr.data.head.sha;
+            }
+
+            core.setOutput('pr_number', prNumber);
+            core.setOutput('head_sha', headSha);
+            core.setOutput('repo_owner', process.env.REPO_OWNER);
+            core.setOutput('repo_name', process.env.REPO_NAME);
+
+      - name: Analyze Greptile review
+        id: analyze
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          REPO_OWNER: ${{ steps.context.outputs.repo_owner }}
+          REPO_NAME: ${{ steps.context.outputs.repo_name }}
+          MIN_MERGE_SCORE: '4'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const minMergeScore = parseInt(process.env.MIN_MERGE_SCORE, 10);
+            const owner = process.env.REPO_OWNER;
+            const repo = process.env.REPO_NAME;
+
+            // Fetch comments on the PR
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: prNumber
+            });
+
+            // Find Greptile's review comments (most recent first)
+            const greptileComments = comments.data
+              .filter(c => c.user.login === 'greptile[bot]' || c.user.login === 'greptile')
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (greptileComments.length === 0) {
+              core.setOutput('found', 'false');
+              core.setOutput('status', 'pending');
+              core.setOutput('summary', 'Waiting for Greptile review...');
+              core.setOutput('comment_url', '');
+              core.setOutput('score', '');
+              console.log('No Greptile comments found');
+              return;
+            }
+
+            const latestComment = greptileComments[0];
+            // Safely handle comment body - never log or output raw content
+            const commentBody = (latestComment.body || '').toLowerCase();
+
+            core.setOutput('found', 'true');
+            core.setOutput('comment_url', latestComment.html_url);
+
+            // Parse the comment for confidence score
+            // Greptile typically includes a score like "Confidence: X/5" or "Score: X"
+            let score = null;
+            const scorePatterns = [
+              /(?:confidence|score)[:\s]*(\d)(?:\s*\/\s*5)?/,
+              /(\d)\s*\/\s*5.*confidence/,
+              /overall[:\s]*(\d)/,
+              /rating[:\s]*(\d)/
+            ];
+
+            for (const pattern of scorePatterns) {
+              const match = commentBody.match(pattern);
+              if (match) {
+                score = parseInt(match[1], 10);
+                break;
+              }
+            }
+
+            // Check for explicit pass/fail indicators
+            const hasApprovalKeywords = /\b(approved?|pass(?:ed|ing)?|lgtm|looks good|ready to merge)\b/.test(commentBody);
+            const hasBlockKeywords = /\b(block(?:ed|ing)?|fail(?:ed|ing)?|needs? changes?|do not merge|dnm)\b/.test(commentBody);
+
+            let status;
+            let summary;
+            let scoreOutput;
+
+            if (score !== null) {
+              scoreOutput = score.toString();
+              if (score >= minMergeScore) {
+                status = 'success';
+                summary = `Greptile review passed with confidence score ${score}/5 (threshold: ${minMergeScore}/5)`;
+              } else {
+                status = 'failure';
+                summary = `Greptile review failed with confidence score ${score}/5 (minimum required: ${minMergeScore}/5)`;
+              }
+            } else if (hasApprovalKeywords && !hasBlockKeywords) {
+              status = 'success';
+              scoreOutput = 'unknown';
+              summary = 'Greptile review indicates approval';
+            } else if (hasBlockKeywords) {
+              status = 'failure';
+              scoreOutput = 'unknown';
+              summary = 'Greptile review indicates changes are needed';
+            } else {
+              // If we can't parse a score, default to success if Greptile commented
+              status = 'success';
+              scoreOutput = 'unknown';
+              summary = 'Greptile review completed (no explicit score detected)';
+            }
+
+            // Set outputs without exposing raw comment content
+            core.setOutput('status', status);
+            core.setOutput('summary', summary);
+            core.setOutput('score', scoreOutput);
+
+            console.log(`Analysis complete: status=${status}, score=${scoreOutput}`);
+
+      - name: Create check run
+        env:
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+          STATUS: ${{ steps.analyze.outputs.status }}
+          SUMMARY: ${{ steps.analyze.outputs.summary }}
+          FOUND: ${{ steps.analyze.outputs.found }}
+          COMMENT_URL: ${{ steps.analyze.outputs.comment_url }}
+          REPO_OWNER: ${{ steps.context.outputs.repo_owner }}
+          REPO_NAME: ${{ steps.context.outputs.repo_name }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = process.env.REPO_OWNER;
+            const repo = process.env.REPO_NAME;
+            const headSha = process.env.HEAD_SHA;
+            const status = process.env.STATUS;
+            const summary = process.env.SUMMARY;
+            const found = process.env.FOUND;
+            const commentUrl = process.env.COMMENT_URL;
+
+            if (status === 'pending') {
+              // Waiting for Greptile - create a neutral check that doesn't block merge
+              // The check will be updated when Greptile posts a review (triggers via issue_comment)
+              await github.rest.checks.create({
+                owner,
+                repo,
+                name: 'Greptile Review',
+                head_sha: headSha,
+                status: 'completed',
+                conclusion: 'neutral',
+                output: {
+                  title: 'Greptile Review Pending',
+                  summary: 'Greptile has not yet reviewed this PR. The check will update automatically when Greptile posts a review. Merge is allowed but Greptile review is still expected.'
+                }
+              });
+              console.log('Created neutral check run - waiting for Greptile');
+              return;
+            }
+
+            const conclusion = status === 'success' ? 'success' : 'failure';
+            const title = status === 'success' ? 'Greptile Review Passed' : 'Greptile Review Failed';
+            const text = commentUrl ? `See [Greptile's review comment](${commentUrl}) for details.` : '';
+
+            await github.rest.checks.create({
+              owner,
+              repo,
+              name: 'Greptile Review',
+              head_sha: headSha,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title,
+                summary,
+                text
+              }
+            });
+
+            console.log(`Created check run with conclusion: ${conclusion}`);
+
+            if (conclusion === 'failure') {
+              core.setFailed(summary);
+            }

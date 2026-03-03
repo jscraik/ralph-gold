@@ -1,11 +1,10 @@
 {
   "version": "1.2.0",
   "riskTierRules": {
-    "src/ralph_gold/bridge/**": "high",
-    "src/ralph_gold/cli.py": "high",
-    "src/ralph_gold/*.py": "medium",
-    "tests/**/*.py": "low",
-    "**/__pycache__/**": "low"
+    "src/auth/**": "high",
+    "src/api/**": "high",
+    "src/lib/**": "medium",
+    "**/*.test.ts": "low"
   },
   "mergePolicy": {
     "high": [
@@ -20,7 +19,11 @@
   "docsDriftRules": {},
   "reviewPolicy": {
     "timeoutSeconds": 600,
-    "timeoutAction": "fail"
+    "timeoutAction": "fail",
+    "requiredChecks": [
+      "security-scan"
+    ],
+    "enforceReviewerIndependence": false
   },
   "evidencePolicy": {
     "requiredFor": [],
@@ -36,16 +39,17 @@
     "overrideLabel": "diff-budget-override"
   },
   "uiLoopPolicy": {
-    "fastCommand": "uv run ui:fast",
-    "verifyCommand": "uv run ui:verify",
-    "exploreCommand": "uv run ui:explore",
+    "fastCommand": "npm run ui:fast",
+    "verifyCommand": "npm run ui:verify",
+    "exploreCommand": "npm run ui:explore",
     "sloTargets": {
       "fastLoopSeconds": 30,
       "verifyLoopSeconds": 120
     }
   },
   "runtimePolicy": {
-    "nodeVersion": "20.x"
+    "nodeVersion": "20.x",
+    "createIssueOnAgentFindings": true
   },
   "memoryPolicy": {
     "enabled": true,
@@ -94,10 +98,11 @@
   },
   "packageManagerPolicy": {
     "allowedManagers": [
-      "uv",
-      "pip"
+      "pnpm",
+      "npm",
+      "yarn"
     ],
-    "requiredManager": "uv"
+    "requiredManager": null
   },
   "remediationPolicy": {
     "providerDefaults": {
@@ -114,6 +119,84 @@
     "timeoutMinutes": 10,
     "retryLimit": 3,
     "requireEvidence": true
+  },
+  "loopStageContracts": {
+    "risk-policy-gate": {
+      "inputs": [
+        "changed_files",
+        "harness.contract.json"
+      ],
+      "outputs": [
+        "risk-policy-gate.result"
+      ],
+      "schema": "loop-stage-contract/v1",
+      "failPolicy": "fail_closed",
+      "if": "always()",
+      "permissions": [
+        "contents:read",
+        "pull-requests:read"
+      ],
+      "timeoutMinutes": 15,
+      "concurrency": "none"
+    },
+    "review-gate": {
+      "inputs": [
+        "risk-policy-gate.result",
+        "head_sha",
+        "harness.contract.json"
+      ],
+      "outputs": [
+        "review-gate.result"
+      ],
+      "schema": "loop-stage-contract/v1",
+      "failPolicy": "fail_closed",
+      "if": "always()",
+      "permissions": [
+        "contents:read",
+        "pull-requests:read"
+      ],
+      "timeoutMinutes": 15,
+      "concurrency": "none"
+    },
+    "evidence-verify": {
+      "inputs": [
+        "review-gate.result",
+        "evidence_files",
+        "harness.contract.json"
+      ],
+      "outputs": [
+        "evidence-verify.result",
+        "browser-evidence-artifacts"
+      ],
+      "schema": "loop-stage-contract/v1",
+      "failPolicy": "fail_closed",
+      "if": "always()",
+      "permissions": [
+        "contents:read"
+      ],
+      "timeoutMinutes": 15,
+      "concurrency": "none"
+    },
+    "remediation-decision": {
+      "inputs": [
+        "evidence-verify.result",
+        "findings.json",
+        "harness.contract.json"
+      ],
+      "outputs": [
+        "remediation-decision.result",
+        "remediation-decision-artifacts"
+      ],
+      "schema": "loop-stage-contract/v1",
+      "failPolicy": "fail_closed",
+      "if": "always()",
+      "permissions": [
+        "contents:read",
+        "pull-requests:write"
+      ],
+      "timeoutMinutes": 15,
+      "concurrency": "none"
+    }
   },
   "pilotGapCasePolicy": {
     "enabled": false,

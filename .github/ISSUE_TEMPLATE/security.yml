@@ -1,0 +1,48 @@
+name: Security Vulnerability
+description: Report a security issue
+labels: [security, critical]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **IMPORTANT**: For critical security issues, please email the maintainer directly instead of filing a public issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Security Issue Description
+      description: A clear description of the security vulnerability
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected Versions
+      description: Which versions of the software are affected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Potential Impact
+      description: What is the potential impact of this vulnerability?
+    validations:
+      required: true
+
+  - type: textarea
+    id: poc
+    attributes:
+      label: Proof of Concept
+      description: If applicable, provide a proof of concept (without exposing sensitive information)
+    validations:
+      required: false
+
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Suggested Mitigation
+      description: If you have suggestions for how to fix this issue, please describe them
+    validations:
+      required: false

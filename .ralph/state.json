@@ -91,7 +91,9 @@
     1772435623.4929018,
     1772435701.269762,
     1772435917.39257,
-    1772436085.219626
+    1772436085.219626,
+    1772453450.810878,
+    1772471995.229537
   ],
   "noProgressStreak": 0,
   "history": [
@@ -3694,6 +3696,141 @@
       ],
       "gate_results": [],
       "log": "20260302T071837Z-iter0091-gemini.log"
+    },
+    {
+      "ts": "20260302T120842Z",
+      "iteration": 92,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "risk_score": 0.0,
+      "branch": "main",
+      "story_id": "37",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 127.82,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-120842-iter0092",
+      "receipts_dir": ".ralph/receipts/37/20260302-120842-iter0092",
+      "context_dir": ".ralph/context/37/20260302-120842-iter0092",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [],
+      "gate_results": [
+        {
+          "cmd": "python -m py_compile /Users/jamiecraik/dev/ralph-gold/src/ralph_gold/loop.py",
+          "return_code": 0,
+          "duration_seconds": 0.15
+        },
+        {
+          "cmd": "prd_update_check",
+          "return_code": 0,
+          "duration_seconds": 0.0
+        }
+      ],
+      "log": "20260302T120842Z-iter0092-gemini.log"
+    },
+    {
+      "ts": "20260302T171917Z",
+      "iteration": 93,
+      "agent": "gemini",
+      "loop_mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "risk_score": 0.0,
+      "branch": "main",
+      "story_id": "38",
+      "target_task_id": null,
+      "target_status": null,
+      "target_failure_reason": null,
+      "targeting_policy": null,
+      "mode": {
+        "name": "speed",
+        "settings": {
+          "max_iterations": 50,
+          "no_progress_limit": 3,
+          "rate_limit_per_hour": 0,
+          "sleep_seconds_between_iters": 0,
+          "runner_timeout_seconds": 900,
+          "max_attempts_per_task": 3,
+          "skip_blocked_tasks": true
+        }
+      },
+      "duration_seconds": 37.73,
+      "return_code": 0,
+      "gates_ok": null,
+      "judge_ok": null,
+      "judge_enabled": false,
+      "judge_agent": "claude",
+      "judge_ran": false,
+      "judge_return_code": null,
+      "judge_duration_seconds": null,
+      "judge_signal_raw": null,
+      "judge_signal_effective": null,
+      "review_ok": null,
+      "blocked": false,
+      "attempt_id": "20260302-171917-iter0093",
+      "receipts_dir": ".ralph/receipts/38/20260302-171917-iter0093",
+      "context_dir": ".ralph/context/38/20260302-171917-iter0093",
+      "timed_out": false,
+      "commit_action": "commit",
+      "commit_return_code": 0,
+      "changed_files": [
+        ".ralph/state.json"
+      ],
+      "gate_results": [
+        {
+          "cmd": "prd_update_check",
+          "return_code": 0,
+          "duration_seconds": 0.0
+        }
+      ],
+      "log": "20260302T171917Z-iter0093-gemini.log"
     }
   ],
   "snapshots": [
@@ -3722,13 +3859,14 @@
   "session_id": "20260119-093701",
   "flow_metrics": {
     "tasks_per_hour": 0.0,
-    "blocked_task_rate": 0.25,
+    "blocked_task_rate": 0.23684210526315788,
     "success_rate": 0.0,
-    "updated_at": "2026-03-02T07:21:25.227354+00:00"
+    "updated_at": "2026-03-02T17:19:55.240005+00:00"
   },
   "area_risk_scores": {
     ".ralph/state.json": 1.0,
     ".ralph/PRD.md": 1.0,
-    ".ralph/progress.md": 1.0
+    ".ralph/progress.md": 1.0,
+    "/Users/jamiecraik/dev/ralph-gold/src/ralph_gold/loop.py": 0.0
   }
 }

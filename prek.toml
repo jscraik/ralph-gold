@@ -1,0 +1,31 @@
+# Prek configuration (Rust-based pre-commit replacement)
+# Install prek: mise install cargo-prek || cargo install prek
+# Run: prek install && prek run --all-files
+
+[default_install_hook_types]
+pre_commit = true
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "lint"
+name = "Lint"
+entry = "npm run lint"
+language = "system"
+pass_filenames = false
+
+[[repos.hooks]]
+id = "typecheck"
+name = "TypeCheck"
+entry = "npm run typecheck"
+language = "system"
+pass_filenames = false
+
+[[repos.hooks]]
+id = "test"
+name = "Tests"
+entry = "npm run test"
+language = "system"
+pass_filenames = false
+stages = ["pre-push"]
