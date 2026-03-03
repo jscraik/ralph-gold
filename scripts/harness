@@ -2,5 +2,42 @@
 # Wrapper for @brainwav/coding-harness CLI
 # Works around npm bin shim issue in global install
 set -euo pipefail
-NODE_VERSION="24.13.1"
-exec node "/Users/jamiecraik/.local/share/mise/installs/node/${NODE_VERSION}/lib/node_modules/@brainwav/coding-harness/dist/cli.js" "$@"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "error: node is required to run @brainwav/coding-harness" >&2
+  exit 1
+fi
+
+declare -a roots=()
+if command -v npm >/dev/null 2>&1; then
+  NPM_ROOT="$(npm root -g 2>/dev/null || true)"
+  [[ -n "${NPM_ROOT}" ]] && roots+=("${NPM_ROOT}")
+fi
+if command -v pnpm >/dev/null 2>&1; then
+  PNPM_ROOT="$(pnpm root -g 2>/dev/null || true)"
+  [[ -n "${PNPM_ROOT}" ]] && roots+=("${PNPM_ROOT}")
+fi
+for maybe_root in \
+  /opt/homebrew/Cellar/node/*/lib/node_modules \
+  "${HOME}"/.local/share/mise/installs/node/*/lib/node_modules; do
+  [[ -d "${maybe_root}" ]] && roots+=("${maybe_root}")
+done
+
+for root in "${roots[@]}"; do
+  CLI_PATH="${root}/@brainwav/coding-harness/dist/cli.js"
+  if [[ -f "${CLI_PATH}" ]]; then
+    exec node "${CLI_PATH}" "$@"
+  fi
+done
+
+echo "error: @brainwav/coding-harness is not installed in global npm/pnpm roots" >&2
+if [[ "${#roots[@]}" -gt 0 ]]; then
+  printf 'checked roots:\n' >&2
+  for root in "${roots[@]}"; do
+    printf '  - %s\n' "${root}" >&2
+  done
+fi
+echo "install/update with either:" >&2
+echo "  pnpm add -g @brainwav/coding-harness@latest" >&2
+echo "  npm i -g @brainwav/coding-harness@latest" >&2
+exit 1

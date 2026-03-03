@@ -257,6 +257,27 @@ ralph watch
 
 ---
 
+## Harness CLI setup (recommended)
+
+`ralph-gold` includes a project wrapper at `scripts/harness`
+that runs the globally installed `@brainwav/coding-harness` from your npm/pnpm global root.
+
+Install or update to latest:
+
+```bash
+npm i -g @brainwav/coding-harness@latest
+# or
+pnpm add -g @brainwav/coding-harness@latest
+```
+
+Verify:
+
+```bash
+scripts/harness --version
+```
+
+---
+
 ## Harness evals (optional)
 
 Use harness commands to turn `.ralph` history/receipts into a regression-friendly
