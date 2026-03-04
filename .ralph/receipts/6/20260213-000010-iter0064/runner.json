@@ -1,0 +1,21 @@
+{
+  "name": "runner",
+  "argv": [
+    "codex",
+    "exec",
+    "--full-auto",
+    "-"
+  ],
+  "returncode": 1,
+  "started_at": "2026-02-13T00:00:10.861975+00:00",
+  "ended_at": "2026-02-13T00:00:33.402916+00:00",
+  "duration_seconds": 22.540883779525757,
+  "stdout_path": ".ralph/logs/20260213T000010Z-iter0064-codex.log",
+  "stderr_path": null,
+  "notes": {
+    "prompt_hash": "b8be19db58cfe6295cb402c5faff1508709c8f38391748b0583a833bd1f76ea3",
+    "stdout_tail": "",
+    "stderr_tail": "OpenAI Codex v0.87.0-alpha.1 (research preview)\n--------\nworkdir: /Users/jamiecraik/dev/ralph-gold\nmodel: gpt-5.3-codex\nprovider: openai\napproval: never\nsandbox: workspace-write [workdir, /tmp, $TMPDIR] (network access enabled)\nreasoning effort: high\nreasoning summaries: detailed\nsession id: 019c544c-4738-7ae2-9943-8e30f0575270\n--------\nuser\nYou are operating inside the Ralph Gold loop.\n\nRules:\n- Do exactly ONE task per iteration.\n- Use the Memory Files below as the source of truth (especially A\n... [truncated 26680 chars] ...\n{ www_authenticate_header: \"Bearer realm=\\\"OAuth\\\", error=\\\"invalid_token\\\"\" })\nmcp: notion failed: The notion MCP server is not logged in. Run `codex mcp login notion`.\nmcp: codexRepo ready\nmcp: openaiDeveloperDocs ready\nmcp: vercel ready\nmcp: figma ready\nmcp: linear ready\nmcp: context7 ready\nmcp: github ready\nmcp: sequential-thinking ready\nmcp: memory ready\nmcp: filesystem ready\nmcp: firecrawl ready\nmcp: magic ready\nmcp: pieces ready\nmcp startup: ready: local-memory, RepoPrompt, codexRepo, openaiDeveloperDocs, vercel, figma, linear, context7, github, sequential-thinking, memory, filesystem, firecrawl, magic, pieces; failed: notion\nReconnecting... 1/5 (stream disconnected before completion: The model `gpt-5.3-codex` does not exist or you do not have access to it.)\nReconnecting... 2/5 (stream disconnected before completion: The model `gpt-5.3-codex` does not exist or you do not have access to it.)\nReconnecting... 3/5 (stream disconnected before completion: The model `gpt-5.3-codex` does not exist or you do not have access to it.)\nReconnecting... 4/5 (stream disconnected before completion: The model `gpt-5.3-codex` does not exist or you do not have access to it.)\nReconnecting... 5/5 (stream disconnected before completion: The model `gpt-5.3-codex` does not exist or you do not have access to it.)\nERROR: stream disconnected before completion: The model `gpt-5.3-codex` does not exist or you do not have access to it.\n"
+  },
+  "_schema": "ralph_gold.receipt.v1"
+}

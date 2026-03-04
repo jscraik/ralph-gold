@@ -92,6 +92,7 @@ def run_subprocess(
     input_text: Optional[str | bytes] = None,
     text: bool = True,
     env: Optional[dict] | None = None,
+    stdin_text: Optional[str] = None,
 ) -> SubprocessResult:
     """Run subprocess with unified error handling.
 
@@ -111,6 +112,7 @@ def run_subprocess(
         text: If True, subprocess is run in text mode. Output is normalized
             to text for callers in either case.
         env: Environment variables to pass to the subprocess
+        stdin_text: Optional text to send to process stdin
 
     Returns:
         SubprocessResult with returncode, stdout, stderr
@@ -141,8 +143,8 @@ def run_subprocess(
         kwargs["timeout"] = timeout
     if env is not None:
         kwargs["env"] = env
-    if input_text is not None:
-        kwargs["input"] = _coerce_input_payload(input_text, text)
+    if stdin_text is not None:
+        kwargs["input"] = stdin_text
 
     try:
         cp = subprocess.run(argv, **kwargs)

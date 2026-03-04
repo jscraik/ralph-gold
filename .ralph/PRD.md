@@ -43,9 +43,10 @@ Plan for solo-dev optimizations based on `.ralph/specs/solo-dev-optimizations.md
   - Add `resolve_mode()` function with CLI argument support
   - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_resolve_mode` (passes)
 
-- [x] Apply mode to iteration parameters (max_iterations, timeout, etc.)
-  - Add mode parameter to `run_iteration()` function
-  - Test: `uv run pytest -q tests/test_loop_mode_runtime.py -k test_mode_params` (passes)
+- [-] Add LoopModeOverride dataclass to config.py
+  - Add `LoopModeOverride` with fields for max_iterations, gates, etc.
+  - Add `resolve_mode_overrides()` function to merge mode into config
+  - Test: `uv run pytest -q tests/test_config_loop_modes.py -k test_resolve` passes
 
 - [x] Track and record resolved mode in iteration state
   - Store mode in state file for post-mortem analysis

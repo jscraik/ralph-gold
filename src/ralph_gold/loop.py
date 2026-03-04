@@ -2158,23 +2158,12 @@ def run_iteration(
     start = time.time()
     timed_out = False
     try:
-        from .output import get_output_config
-
-        if stream:
-            result = run_subprocess_live(
-                argv,
-                cwd=project_root,
-                timeout=timeout,
-                input_text=stdin_text,
-                forward_output=get_output_config().format != "json",
-            )
-        else:
-            result = run_subprocess(
-                argv,
-                cwd=project_root,
-                timeout=timeout,
-                input_text=stdin_text,
-            )
+        result = run_subprocess(
+            argv,
+            cwd=project_root,
+            timeout=timeout,
+            stdin_text=stdin_text,
+        )
         runner_ok = result.success
         duration_s = time.time() - start
     except RuntimeError as e:
@@ -2405,6 +2394,7 @@ def run_iteration(
                         jr_argv,
                         cwd=project_root,
                         timeout=timeout,
+                        stdin_text=jr_stdin,
                     )
                     j_dur = time.time() - j_start
                     j_out = j_result.stdout
@@ -2536,6 +2526,7 @@ def run_iteration(
                         rr_argv,
                         cwd=project_root,
                         timeout=timeout,
+                        stdin_text=rr_stdin,
                     )
                     r_dur = time.time() - r_start
                     r_out = r_result.stdout
@@ -2712,7 +2703,11 @@ def run_iteration(
     if task is not None:
         attempts_raw = state.get("task_attempts", {}) or {}
         blocked_raw = state.get("blocked_tasks", {}) or {}
-        cur_attempts = int(attempts_raw.get(task.id, 0))
+        attempts_value = attempts_raw.get(task.id, 0)
+        if isinstance(attempts_value, dict):
+            cur_attempts = int(attempts_value.get("count", 0) or 0)
+        else:
+            cur_attempts = int(attempts_value or 0)
 
         progress_success = bool(
             task_done_now
