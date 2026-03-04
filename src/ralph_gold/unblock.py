@@ -165,6 +165,7 @@ class BlockedTaskManager:
                     task = self.tracker.get_task_by_id(f"task-{task_id}")
             except Exception as e:
                 logger.debug("Failed to resolve blocked task %s: %s", task_id, e)
+                continue
 
             if not task:
                 continue
@@ -362,7 +363,6 @@ class BlockedTaskManager:
                 previous_attempts=previous_attempts,
                 new_timeout=new_timeout or 0,
                 message=f"Failed to unblock in tracker: {e}",
-                success=False,
             )
 
         # Update state: remove from blocked_tasks
