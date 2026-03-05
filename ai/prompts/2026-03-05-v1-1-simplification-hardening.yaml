@@ -1,0 +1,19 @@
+id: pr-v1-1-simplification-hardening-2026-03-05
+tool: codex
+mode: normal
+task: "Ship v1.1 simplification + architecture hardening work: split CLI command handling into modules, add simple/expert UX and explainability flows, enforce stable JSON contracts, and improve repo-local verification behavior."
+constraints:
+  - "no new dependencies"
+  - "keep behavior backward compatible where possible"
+  - "validate with repo tests before push"
+  - "no secrets"
+outputs_expected:
+  - "src/ralph_gold/cli.py"
+  - "src/ralph_gold/commands/"
+  - "src/ralph_gold/json_response.py"
+  - "src/ralph_gold/output.py"
+  - "docs/SIMPLE_EXPERT_MODE.md"
+  - "tests/test_cli_json_contract.py"
+  - "tests/test_cli_quickstart.py"
+  - "ai/prompts/2026-03-05-v1-1-simplification-hardening.yaml"
+  - "ai/sessions/2026-03-05-v1-1-simplification-hardening.json"

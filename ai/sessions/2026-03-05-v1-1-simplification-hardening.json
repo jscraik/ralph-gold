@@ -1,0 +1,43 @@
+{
+  "tool": "codex",
+  "started_at": "2026-03-05T10:40:00Z",
+  "ended_at": "2026-03-05T12:26:00Z",
+  "files_touched": [
+    ".agent/PLANS.md",
+    "README.md",
+    "docs/COMMANDS.md",
+    "docs/CONFIGURATION.md",
+    "docs/SIMPLE_EXPERT_MODE.md",
+    "scripts/check_version_sync.py",
+    "src/ralph_gold/cli.py",
+    "src/ralph_gold/commands/__init__.py",
+    "src/ralph_gold/commands/harness.py",
+    "src/ralph_gold/commands/loop_runtime.py",
+    "src/ralph_gold/commands/maintenance.py",
+    "src/ralph_gold/commands/monitoring.py",
+    "src/ralph_gold/commands/planning.py",
+    "src/ralph_gold/commands/utilities.py",
+    "src/ralph_gold/commands/ux.py",
+    "src/ralph_gold/json_response.py",
+    "src/ralph_gold/output.py",
+    "tests/test_cli_explain.py",
+    "tests/test_cli_json_contract.py",
+    "tests/test_cli_json_maintenance.py",
+    "tests/test_cli_quickstart.py",
+    "tests/test_version_sync.py",
+    "ai/prompts/2026-03-05-v1-1-simplification-hardening.yaml",
+    "ai/sessions/2026-03-05-v1-1-simplification-hardening.json"
+  ],
+  "tests_run": [
+    "uv run pytest -q",
+    "/Users/jamiecraik/.codex/scripts/verify-work.sh",
+    "npm run lint",
+    "npm run typecheck",
+    "npm run test",
+    "npm run audit",
+    "npm run check",
+    "test -f memory.json && jq -e '.meta.version == \"1.0\" and (.preamble.bootstrap | type == \"boolean\") and (.preamble.search | type == \"boolean\") and (.entries | type == \"array\")' memory.json >/dev/null"
+  ],
+  "human_verification": "Reviewed command and docs changes for simple/expert mode behavior, verified full Python test suite passed, and verified repo-local verify-work behavior in this repo context.",
+  "notes": "Large CLI refactor into command modules with expanded JSON contract tests and documentation updates; npm-based checks in PR template are not applicable in this uv-first Python repository."
+}
