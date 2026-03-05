@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ralph-gold"
-version = "0.8.1"
+dynamic = ["version"]
 description = "Golden Ralph Loop orchestrator for Codex, Claude Code, and Copilot (uv-first)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,6 +25,9 @@ ralph = "ralph_gold.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ralph_gold"]
 include = ["src/ralph_gold/templates/**"]
+
+[tool.hatch.version]
+path = "src/ralph_gold/__init__.py"
 
 [dependency-groups]
 dev = [

@@ -12,7 +12,20 @@ Doc requirements:
 - Scope: installing, configuring, and operating the loop; contributor workflow; support/security paths
 - Owner: jscraik
 - Review cadence: quarterly or when CLI behavior changes
-- Last updated: 2026-01-15
+- Last updated: 2026-03-05
+
+## Table of Contents
+
+- [TL;DR](#tldr)
+- [Quickstart](#quickstart)
+- [Prerequisites](#prerequisites)
+- [Install (with uv)](#install-with-uv)
+- [Initialize a repo](#initialize-a-repo)
+- [Run the loop](#run-the-loop)
+- [Machine-friendly output and global output controls](#machine-friendly-output-and-global-output-controls)
+- [Authorization coverage and receipts](#authorization-coverage-and-receipts)
+- [Troubleshooting](#troubleshooting)
+- [Documentation](#documentation)
 
 ## TL;DR
 
@@ -34,7 +47,12 @@ Why use ralph-gold:
 
 ```bash
 uv tool install -e .
-ralph init
+ralph quickstart
+```
+
+Then run your first guided iteration:
+
+```bash
 ralph step --agent codex
 ```
 
@@ -142,12 +160,56 @@ Show status:
 ralph status
 ```
 
+Explain task selection and blocker context:
+
+```bash
+ralph explain
+```
+
 Logs are written under `.ralph/logs/`.
 
 Receipts and context snapshots (anchor + optional RepoPrompt pack) live under:
 
 - `.ralph/receipts/`
 - `.ralph/context/`
+
+---
+
+## Machine-friendly output and global output controls
+
+Use global output controls for both humans and agent integrations:
+
+```bash
+ralph --format json status
+ralph --verbosity verbose diagnose
+```
+
+Resolution precedence for output settings:
+1. Global CLI flags (`--format`, `--verbosity`)
+2. Environment variables (`RALPH_FORMAT`, `RALPH_VERBOSITY`)
+3. `.ralph/ralph.toml` `[output]` defaults
+
+When JSON mode is enabled, command envelopes include:
+- `schema_version` (`ralph.cli.v1`)
+- `cmd`
+- `exit_code`
+- `timestamp`
+
+---
+
+## Authorization coverage and receipts
+
+Authorization can run in `warn` or `block` mode via `[authorization]` and `.ralph/permissions.json`.
+
+As of 2026-03-05, authorization checks cover:
+- prep artifact writes (for example, `ANCHOR.md`)
+- post-run write effects (tracked + untracked changed files)
+
+Authorization receipts are saved per iteration under `.ralph/receipts/...`:
+- `authorization_prewrite_anchor.json`
+- `authorization_post_write_effects.json`
+
+In `block` mode, denied write effects fail the iteration and are recorded with path-level reasons.
 
 ---
 
@@ -1132,6 +1194,7 @@ ralph rollback before-experiment
 - **Evidence System:** `docs/EVIDENCE.md` - Evidence citations and tracking
 - **Progress:** `docs/PROGRESS.md` - Velocity, ETA, and burndown charts
 - **YAML Tracker:** `docs/YAML_TRACKER.md` - Structured task tracking
+- **UX Modes:** `docs/SIMPLE_EXPERT_MODE.md` - Simple vs expert workflow policy
 - **Watch Mode:** README#watch-mode - File watching and auto-gates
 
 **Reference:**
@@ -1171,7 +1234,13 @@ python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py .agent/PLANS.md
 /Users/jamiecraik/.codex/scripts/verify-work.sh
 ```
 
-4. Follow global scaffold policy:
+4. Validate version sync:
+
+```bash
+uv run python scripts/check_version_sync.py
+```
+
+5. Follow global scaffold policy:
 
 - `/Users/jamiecraik/.codex/instructions/agent-first-scaffold-spec.md`
 <!-- AGENT-FIRST-WORKFLOW:END -->

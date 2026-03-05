@@ -1,15 +1,28 @@
 ---
-last_validated: 2026-02-28
+last_validated: 2026-03-05
 ---
 
 # Authorization System
 
-**Version:** 1.0
-**Last Updated:** 2026-01-20
+**Version:** 1.1
+**Last Updated:** 2026-03-05
 **Review Cadence:** Quarterly
 **Audience:** Users and security administrators
 
 ---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Enforcement Modes](#enforcement-modes)
+- [Permission Patterns](#permission-patterns)
+- [Configuration Reference](#configuration-reference)
+- [Common Patterns](#common-patterns)
+- [Security Considerations](#security-considerations)
+- [Technical Details](#technical-details)
+- [Related Documentation](#related-documentation)
+- [FAQ](#faq)
 
 ## Overview
 
@@ -28,7 +41,7 @@ Ralph-gold provides a configurable authorization system to control what files ag
 **Authorization Architecture:**
 1. **Fail-open default** - If no patterns match, operations are allowed (safe default)
 2. **Pattern matching** - Uses `fnmatch` for glob patterns like `*.py`, `.git/**`, `src/**`
-3. **Checked at write time** - Currently validates anchor file writes (`ANCHOR.md`)
+3. **Checked at write time** - Validates both prep artifacts and post-run write effects
 `─────────────────────────────────────────────────`
 
 ---
@@ -88,8 +101,8 @@ ralph run --agent codex
 ```
 
 Watch for authorization messages in output:
-- **WARN mode:** `WARNING  Authorization check failed for ...`
-- **BLOCK mode:** `ERROR  Authorization blocked: Write not permitted: ...`
+- **WARN mode:** `Authorization warning for write effects (...)`
+- **BLOCK mode:** `Authorization blocked write effects (...)`
 
 ---
 
@@ -390,13 +403,15 @@ ralph run --agent codex --full-auto
 
 ### What Gets Authorized
 
-Currently, authorization is checked for:
+Authorization is currently checked for:
 - Anchor file writes (`.ralph/context/*/ANCHOR.md`)
+- Post-run write effects discovered from git tracked + untracked changes
 
-Future enhancements may add authorization for:
-- Other file writes by agents
-- File reads (for sensitive files)
-- Command execution
+Authorization receipts are emitted to:
+- `authorization_prewrite_anchor.json`
+- `authorization_post_write_effects.json`
+
+Each receipt includes allow/deny counts and path-level reasons.
 
 ### Path Matching
 
@@ -435,7 +450,7 @@ A: Yes, modes are read from config files on each operation. Changes take effect 
 
 **Q: Does block mode affect all file operations?**
 
-A: Currently, authorization is checked only for anchor file writes. Future enhancements may add checks for other operations.
+A: Block mode applies to both prep artifacts and post-run write effects. Denied paths are recorded in authorization receipts with reasons.
 
 **Q: What if I need to bypass authorization temporarily?**
 
@@ -451,3 +466,4 @@ A: Not currently. Enforcement mode is global for all authorization checks.
 **Next Review:** 2026-04-20
 **Change Log:**
 - 2026-01-20: Initial version (v1.0)
+- 2026-03-05: Expanded authorization coverage to post-run write effects and added allow/deny receipt reporting.

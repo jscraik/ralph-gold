@@ -1,19 +1,43 @@
 ---
-last_validated: 2026-02-28
+last_validated: 2026-03-05
 ---
 
 # Commands Reference
 
-**Version:** 1.0
-**Last Updated:** 2026-01-20
+**Version:** 1.1
+**Last Updated:** 2026-03-05
 **Review Cadence:** Quarterly
 **Audience:** Users
 
 ---
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Reference](#quick-reference)
+- [Setup Commands](#setup-commands)
+- [Execution Commands](#execution-commands)
+- [Global Options](#global-options)
+- [Exit Codes Summary](#exit-codes-summary)
+- [Environment Variables](#environment-variables)
+- [Related Documentation](#related-documentation)
+
 ## Overview
 
 Ralph-gold provides a comprehensive CLI for managing the development loop. This document provides a complete reference for all commands.
+
+Simple vs expert usage posture:
+
+- **Simple mode (default guidance):** Start with `init`, `step`, `run`, and `status`.
+- **Expert mode (full surface):** Use advanced commands and flags as needed.
+
+See `docs/SIMPLE_EXPERT_MODE.md` for policy and rollout details.
+
+Machine-readable output contract:
+
+- Use global `--format json` (or `RALPH_FORMAT=json`) for script/agent-safe output.
+- JSON command envelopes are versioned with `schema_version: "ralph.cli.v1"`.
+- Standard top-level fields are: `schema_version`, `cmd`, `exit_code`, `timestamp`.
 
 ---
 
@@ -32,12 +56,14 @@ Ralph-gold provides a comprehensive CLI for managing the development loop. This 
 | Command | Purpose |
 |---------|---------|
 | `ralph init` | Initialize Ralph in a project |
+| `ralph quickstart` | Initialize with recommended defaults |
 | `ralph doctor` | Check local prerequisites |
 | `ralph diagnose` | Run diagnostics on config and PRD |
 | `ralph run` | Run the loop for N iterations |
 | `ralph step` | Run exactly one iteration |
 | `ralph resume` | Resume interrupted iterations |
 | `ralph status` | Show PRD progress and last iteration |
+| `ralph explain` | Explain task selection, blockers, and next actions |
 | `ralph stats` | Display iteration statistics |
 | `ralph harness` | Collect/evaluate/report harness artifacts |
 | `ralph tui` | Interactive control surface |
@@ -69,7 +95,7 @@ ralph init [--force] [--format FORMAT]
 
 **Options:**
 - `--force`: Archive existing `.ralph/` and reinitialize
-- `--format`: Tracker format (`markdown`, `json`, `yaml`, default: `markdown`)
+- `--format`: Tracker format (`markdown` or `yaml`, default: `markdown`)
 
 **Creates:**
 - `.ralph/ralph.toml` - Configuration file
@@ -85,6 +111,34 @@ ralph init [--force] [--format FORMAT]
 - `init --force`: Archives existing `.ralph/` to `.ralph/archive/<timestamp>/` and creates fresh templates
 
 **See also:** `docs/INIT_ARCHIVING.md`
+
+---
+
+### `ralph quickstart`
+
+Initialize Ralph with recommended defaults and print the next commands to run.
+
+```bash
+ralph quickstart [--profile simple|expert] [--agent codex] [--interactive] [--force]
+```
+
+**Options:**
+- `--profile`: UX posture preset (`simple` or `expert`, default: `simple`)
+- `--agent`: Recommended agent shown in next-step guidance (default: `codex`)
+- `--interactive`: Prompt for profile and preferred agent
+- `--force`: Archive existing `.ralph/` files before reinitializing
+- `--format`: Tracker format (`markdown` or `yaml`)
+- `--solo`: Use solo-dev optimized defaults
+
+**Behavior:**
+- Runs the same scaffold initialization flow as `ralph init`
+- Applies `ux.mode` policy metadata in `.ralph/ralph.toml`
+- Prints a recommended first iteration command and status check
+
+**Example:**
+```bash
+ralph quickstart --profile expert --agent claude --interactive
+```
 
 ---
 
@@ -324,6 +378,10 @@ ralph resume --auto
 
 ## Visibility Commands
 
+Visibility defaults:
+- `status` is the state snapshot
+- `explain` is the reasoning snapshot ("why this task / why blocked / what next")
+
 ### `ralph status`
 
 Show PRD progress and last iteration summary.
@@ -356,6 +414,33 @@ ralph status --detailed
 
 # Dependency graph
 ralph status --graph
+```
+
+---
+
+### `ralph explain`
+
+Explain why Ralph picked the next task, summarize blocker context, and suggest next commands.
+
+```bash
+ralph explain [--agent AGENT]
+```
+
+**Options:**
+- `--agent AGENT`: Agent name used in suggested next-step commands (default: `codex`)
+
+**Output includes:**
+- Why the next task was selected
+- Blocked/dependency-wait summary
+- Suggested next commands
+
+**Examples:**
+```bash
+# Explain current loop context
+ralph explain
+
+# Suggest next steps using a preferred agent label
+ralph explain --agent claude
 ```
 
 ---
@@ -946,7 +1031,7 @@ ralph serve [OPTIONS]
 ```json
 {
   "status": "healthy",
-  "version": "1.0.0",
+  "version": "0.8.2",
   "uptime": 12345
 }
 ```
@@ -962,8 +1047,7 @@ These options work with all commands:
 | `--help` | Show command help and exit |
 | `--version` | Show version and exit |
 | `--format FORMAT` | Output format (`text`, `json`) |
-| `--verbose` | Enable verbose output |
-| `--quiet` | Suppress non-error output |
+| `--verbosity LEVEL` | Output verbosity (`quiet`, `normal`, `verbose`) |
 
 ---
 
@@ -982,6 +1066,8 @@ These options work with all commands:
 | Variable | Purpose |
 |----------|---------|
 | `RALPH_CONFIG` | Path to override config file |
+| `RALPH_FORMAT` | Default output format when global `--format` is not supplied |
+| `RALPH_VERBOSITY` | Default verbosity when global `--verbosity` is not supplied |
 | `GITHUB_TOKEN` | GitHub authentication token |
 | `RALPH_DEBUG` | Enable debug logging (set to `1`) |
 | `RALPH_DISABLE_SECRET_SCAN` | Disable gitleaks secret scanning |
@@ -1001,3 +1087,4 @@ These options work with all commands:
 **Next Review:** 2026-04-20
 **Change Log:**
 - 2026-01-20: Initial version (v1.0)
+- 2026-03-05: Added v1.1 updates for quickstart/explain posture, global output controls, and JSON envelope guidance.

@@ -1,15 +1,25 @@
 ---
-last_validated: 2026-02-28
+last_validated: 2026-03-05
 ---
 
 # Configuration Reference
 
-**Version:** 1.0
-**Last Updated:** 2026-01-20
+**Version:** 1.1
+**Last Updated:** 2026-03-05
 **Review Cadence:** Quarterly
 **Audience:** Users configuring ralph-gold
 
 ---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Configuration File Priority](#configuration-file-priority)
+- [Quick Reference](#quick-reference)
+- [Complete Reference](#complete-reference)
+- [Environment Variables](#environment-variables)
+- [Validation](#validation)
+- [Related Documentation](#related-documentation)
 
 ## Overview
 
@@ -46,6 +56,7 @@ All configuration files are merged (deep merge) with later values taking precede
 | `[runners.*]` | Agent runner configuration | No |
 | `[gates]` | Test/validation gates | No |
 | `[git]` | Branch and commit automation | No |
+| `[ux]` | Simple/expert UX policy metadata | No |
 | `[tracker]` | Task tracker (Markdown/YAML/GitHub) | No |
 | `[parallel]` | Parallel execution settings | No |
 | `[authorization]` | File write permissions | No |
@@ -275,6 +286,29 @@ amend_if_needed = true
 
 ---
 
+### `[ux]` - UX Posture Policy
+
+Policy metadata used by docs/onboarding to communicate whether this project is operating in simple or expert posture.
+
+```toml
+[ux]
+mode = "simple"                  # simple|expert
+```
+
+**Settings:**
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `mode` | string | `"simple"` | UX posture for documentation and onboarding guidance |
+
+**Notes:**
+
+- This setting is non-breaking in v1.1.
+- Existing commands and flags remain available.
+- See `docs/SIMPLE_EXPERT_MODE.md` for policy and rollout details.
+
+---
+
 ### `[tracker]` - Task Tracker
 
 Configuration for task tracking (Markdown, YAML, GitHub Issues, or custom).
@@ -361,6 +395,14 @@ permissions_file = ".ralph/permissions.json"
 | `enforcement_mode` | string | `"warn"` | warn or block |
 | `fallback_to_full_auto` | bool | `false` | Bypass when --full-auto present |
 | `permissions_file` | string | `.ralph/permissions.json` | Path to permissions JSON |
+
+**Enforcement scope (v1.1):**
+- prep artifact writes (for example, anchor/context files)
+- post-run write effects discovered from tracked + untracked git changes
+
+**Receipts:**
+- `authorization_prewrite_anchor.json`
+- `authorization_post_write_effects.json`
 
 **See also:** `docs/AUTHORIZATION.md` for complete authorization system documentation.
 
@@ -493,6 +535,8 @@ merge_sections = [                 # Sections merged (user wins)
 | Variable | Purpose |
 |----------|---------|
 | `RALPH_CONFIG` | Path to override config file |
+| `RALPH_FORMAT` | Default output format unless overridden by global `--format` |
+| `RALPH_VERBOSITY` | Default verbosity unless overridden by global `--verbosity` |
 | `GITHUB_TOKEN` | GitHub authentication token |
 | `RALPH_DEBUG` | Enable debug logging (set to `1`) |
 | `RALPH_DISABLE_SECRET_SCAN` | Disable gitleaks secret scanning |
@@ -585,3 +629,4 @@ patterns = ["**/*.py", "**/*.md"]
 **Next Review:** 2026-04-20
 **Change Log:**
 - 2026-01-20: Initial version (v1.0)
+- 2026-03-05: Added v1.1 updates for global output overrides and expanded authorization scope.

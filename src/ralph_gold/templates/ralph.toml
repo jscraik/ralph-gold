@@ -160,6 +160,14 @@ worktree_root = ".ralph/worktrees"
 strategy = "queue"                 # queue|group
 merge_policy = "manual"            # manual|auto_merge
 
+[authorization]
+# File-write authorization policy.
+# Permissions are loaded from .ralph/permissions.json.
+enabled = false
+enforcement_mode = "warn"          # warn|block
+fallback_to_full_auto = false
+permissions_file = ".ralph/permissions.json"
+
 [diagnostics]
 # Configuration validation and testing
 enabled = true
@@ -224,6 +232,14 @@ custom_dir = ".ralph/templates"
 # Output control (verbosity and format)
 verbosity = "normal" # quiet|normal|verbose
 format = "text"      # text|json
+
+[ux]
+# UX posture policy for documentation/onboarding.
+# v1.1 rollout intent:
+# - simple: emphasize low-friction default path
+# - expert: expose full command/flag surface
+# Note: this is currently policy metadata for humans/tools and is non-breaking.
+mode = "simple" # simple|expert
 
 [runners.codex]
 argv = ["codex", "exec", "--full-auto", "-"]

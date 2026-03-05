@@ -39,6 +39,7 @@ class OutputConfig:
 
 # Global output configuration (set by CLI)
 _output_config: Optional[OutputConfig] = None
+_json_output_emitted: bool = False
 
 
 # -------------------------
@@ -81,6 +82,17 @@ def set_output_config(config: OutputConfig) -> None:
     """
     global _output_config
     _output_config = config
+
+
+def reset_json_output_emitted() -> None:
+    """Reset emitted-json tracking for the current command invocation."""
+    global _json_output_emitted
+    _json_output_emitted = False
+
+
+def has_json_output_emitted() -> bool:
+    """Return whether JSON payload output was emitted in this invocation."""
+    return _json_output_emitted
 
 
 def print_output(message: str, level: str = "normal", file: Any = None, end: str = "\n") -> None:
@@ -154,6 +166,11 @@ def print_json_output(data: Dict[str, Any]) -> None:
     Args:
         data: Dictionary to output as JSON
     """
+    global _json_output_emitted
     config = get_output_config()
     if config.format == "json":
-        print(format_json_output(data))
+        from .json_response import normalize_json_envelope
+
+        normalized = normalize_json_envelope(data)
+        print(format_json_output(normalized))
+        _json_output_emitted = True

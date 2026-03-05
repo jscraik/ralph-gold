@@ -7,6 +7,7 @@ useDefault = true
 description = "Allowlist for test fixtures and examples."
 paths = [
   "(^|/)docs?/",
+  "(^|/)\\.spec/",
   "(^|/)examples?/",
   "(^|/)test/",
   "(^|/)tests?/",
@@ -17,4 +18,18 @@ paths = [
 ]
 regexes = [
   "\\[REDACTED\\]",
+  "ghp_test[0-9A-Za-z]{20,}",
+  "ghp_1234567890abcdefghijklmnop",
 ]
+
+[[rules]]
+id = "custom-aws-access-key-id"
+description = "AWS access key ID"
+regex = '''\bAKIA[0-9A-Z]{16}\b'''
+keywords = ["AKIA"]
+
+[[rules]]
+id = "custom-private-key-header"
+description = "Private key header"
+regex = '''-----BEGIN (?:RSA|DSA|EC|OPENSSH|PGP|PRIVATE) PRIVATE KEY-----'''
+keywords = ["PRIVATE KEY"]

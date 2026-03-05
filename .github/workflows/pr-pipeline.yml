@@ -28,4 +28,6 @@ jobs:
           echo "$RUNNER_TEMP/gitleaks-bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/gitleaks-bin/gitleaks" version
       - run: uv sync
+      - name: version-sync
+        run: uv run python scripts/check_version_sync.py
       - run: uv run pytest

@@ -15,8 +15,10 @@ from ralph_gold.output import (
     OutputConfig,
     format_json_output,
     get_output_config,
+    has_json_output_emitted,
     print_json_output,
     print_output,
+    reset_json_output_emitted,
     set_output_config,
 )
 
@@ -32,9 +34,12 @@ def reset_output_config():
     import ralph_gold.output as output_module
 
     original = output_module._output_config
+    original_emitted = output_module._json_output_emitted
     output_module._output_config = None
+    output_module._json_output_emitted = False
     yield
     output_module._output_config = original
+    output_module._json_output_emitted = original_emitted
 
 
 # -------------------------
@@ -504,6 +509,25 @@ def test_print_json_output_complex_data(reset_output_config, capsys):
     captured = capsys.readouterr()
     parsed = json.loads(captured.out)
     assert parsed == data
+
+
+def test_print_json_output_adds_envelope_for_command_payload(reset_output_config, capsys):
+    """Command payloads should receive schema/timestamp/exit envelope fields."""
+    set_output_config(OutputConfig(format="json"))
+    reset_json_output_emitted()
+
+    data = {"cmd": "status", "progress": {"done": 1, "total": 2}}
+    print_json_output(data)
+
+    captured = capsys.readouterr()
+    parsed = json.loads(captured.out)
+
+    assert parsed["cmd"] == "status"
+    assert parsed["schema_version"] == "ralph.cli.v1"
+    assert parsed["exit_code"] == 0
+    assert "timestamp" in parsed
+    assert parsed["progress"] == {"done": 1, "total": 2}
+    assert has_json_output_emitted() is True
 
 
 # -------------------------
