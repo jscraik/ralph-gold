@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .adaptive_timeout import calculate_adaptive_timeout
 from .agents import build_agent_invocation, get_runner_config
 from .atomic_file import atomic_write_json
-from .authorization import AuthorizationError, EnforcementMode, load_authorization_checker
+from .authorization import AuthorizationChecker, EnforcementMode, load_authorization_checker
 from .config import AdaptiveConfig, Config, GatesConfig, LoopModeConfig, RunnerConfig, SyntaxCheckGateConfig, load_config
 from .context_manager import check_context_health, load_progress_window
 from .evidence import EvidenceReceipt
@@ -25,6 +25,7 @@ from .repoprompt import RepoPromptError, build_context_pack, run_review
 from .spec_loader import load_specs_with_limits, SpecLoadResult
 from .state_validation import validate_state_against_prd
 from .stats import calculate_stats
+from .output import get_output_config, print_output
 from .interventions import (
     synthesize_recommendation,
     write_recommendation,
@@ -889,6 +890,122 @@ def _get_changed_files(project_root: Path) -> List[Path]:
         if line:
             changed.append(project_root / line)
     return changed
+
+
+def _get_write_effect_files(project_root: Path) -> List[Path]:
+    """Get tracked + untracked paths that were written in the working tree."""
+
+    seen: set[Path] = set()
+    commands = [
+        ["git", "diff", "--name-only"],
+        ["git", "diff", "--cached", "--name-only"],
+        ["git", "ls-files", "--others", "--exclude-standard"],
+    ]
+    for argv in commands:
+        result = run_subprocess(
+            argv,
+            cwd=project_root,
+            check=False,
+        )
+        for line in result.stdout.strip().split("\n"):
+            rel = line.strip()
+            if rel:
+                seen.add(project_root / rel)
+    return sorted(seen, key=lambda p: str(p))
+
+
+def _evaluate_write_authorization(
+    *,
+    project_root: Path,
+    checker: AuthorizationChecker,
+    runner_argv: List[str],
+    write_paths: List[Path],
+    receipts_dir: Path,
+    phase: str,
+) -> tuple[bool, List[Dict[str, str]], List[Dict[str, str]]]:
+    """Evaluate write authorization for a list of paths and emit a receipt.
+
+    Returns:
+        Tuple of (allowed_for_execution, allowed_entries, denied_entries)
+    """
+    if not checker.enabled:
+        return True, [], []
+
+    allowed_entries: List[Dict[str, str]] = []
+    denied_entries: List[Dict[str, str]] = []
+
+    for path in write_paths:
+        try:
+            rel_path = str(path.relative_to(project_root))
+        except ValueError:
+            rel_path = str(path)
+
+        allowed, reason = checker.check_write_permission(
+            path,
+            runner_argv,
+            raise_on_block=False,
+        )
+        item = {"path": rel_path, "reason": reason}
+        if allowed:
+            allowed_entries.append(item)
+        else:
+            denied_entries.append(item)
+
+    blocked = bool(denied_entries and checker.enforcement_mode == EnforcementMode.BLOCK)
+    mode = checker.enforcement_mode.value
+
+    allowed_preview = allowed_entries[:50]
+    denied_preview = denied_entries[:50]
+    notes: Dict[str, Any] = {
+        "phase": phase,
+        "enforcement_mode": mode,
+        "allowed_count": len(allowed_entries),
+        "denied_count": len(denied_entries),
+        "allowed": allowed_preview,
+        "denied": denied_preview,
+    }
+    if len(allowed_entries) > len(allowed_preview):
+        notes["allowed_truncated"] = len(allowed_entries) - len(allowed_preview)
+    if len(denied_entries) > len(denied_preview):
+        notes["denied_truncated"] = len(denied_entries) - len(denied_preview)
+
+    write_receipt(
+        receipts_dir / f"authorization_{phase}.json",
+        CommandReceipt(
+            name=f"authorization_{phase}",
+            argv=list(runner_argv),
+            returncode=1 if blocked else 0,
+            started_at=iso_utc(),
+            ended_at=iso_utc(),
+            duration_seconds=0.0,
+            notes=notes,
+        ),
+    )
+
+    if denied_entries:
+        denied_preview_text = ", ".join(item["path"] for item in denied_entries[:5])
+        suffix = ""
+        if len(denied_entries) > 5:
+            suffix = f" (+{len(denied_entries) - 5} more)"
+        if blocked:
+            print_output(
+                (
+                    "Authorization blocked write effects "
+                    f"({phase}): {denied_preview_text}{suffix}. "
+                    "Update .ralph/permissions.json or set authorization.enforcement_mode=\"warn\"."
+                ),
+                level="error",
+            )
+        else:
+            print_output(
+                (
+                    "Authorization warning for write effects "
+                    f"({phase}): {denied_preview_text}{suffix}."
+                ),
+                level="normal",
+            )
+
+    return (not blocked), allowed_entries, denied_entries
 
 
 def _should_skip_gates(
@@ -1996,38 +2113,36 @@ def run_iteration(
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     log_path = logs_dir / f"{ts}-iter{iteration:04d}-{agent}.log"
 
+    # Authorization checker (used for pre-write artifacts and post-run write effects)
+    raw_mode = cfg.authorization.enforcement_mode
+    if isinstance(raw_mode, EnforcementMode):
+        enforcement_mode = raw_mode
+    else:
+        enforcement_mode = EnforcementMode(str(raw_mode).lower())
+    auth_checker = load_authorization_checker(
+        project_root,
+        cfg.authorization.permissions_file,
+        enforcement_mode=enforcement_mode,
+    )
+    runner_cfg = _get_runner(cfg, agent)
+    auth_runner_argv = list(runner_cfg.argv)
+
     anchor_text = ""
     anchor_path: Optional[Path] = None
     if task is not None:
         anchor_text = _build_anchor(task, project_root)
         anchor_path = context_dir / "ANCHOR.md"
 
-        # Authorization check (configurable enforcement mode)
-        # Config may store enforcement_mode as an enum already.
-        raw_mode = cfg.authorization.enforcement_mode
-        if isinstance(raw_mode, EnforcementMode):
-            enforcement_mode = raw_mode
-        else:
-            enforcement_mode = EnforcementMode(str(raw_mode).lower())
-        auth_checker = load_authorization_checker(
-            project_root,
-            cfg.authorization.permissions_file,
-            enforcement_mode=enforcement_mode,
+        anchor_allowed, _, _ = _evaluate_write_authorization(
+            project_root=project_root,
+            checker=auth_checker,
+            runner_argv=auth_runner_argv,
+            write_paths=[anchor_path],
+            receipts_dir=receipts_dir,
+            phase="prewrite_anchor",
         )
-        runner_cfg = _get_runner(cfg, agent)
-
-        try:
-            allowed, reason = auth_checker.check_write_permission(anchor_path, runner_cfg.argv)
-            if not allowed:
-                # This branch is taken in warn mode when permission denied
-                logger.warning(f"Authorization check failed for {anchor_path}: {reason}")
-        except AuthorizationError as e:
-            # This is raised in block mode when permission denied
-            logger.error(f"Authorization blocked: {e}")
-            # In block mode, we don't write the anchor file
-            # Fall through to other operations but skip anchor write
-            anchor_path = None  # Mark as None to skip write below
-            # Optionally: could skip more operations or abort entirely
+        if not anchor_allowed:
+            anchor_path = None
 
         # Only write anchor if authorization passed (or wasn't blocked)
         if anchor_path is not None:
@@ -2125,8 +2240,7 @@ def run_iteration(
     prompt_file = logs_dir / f"prompt-iter{iteration:04d}.txt"
     prompt_file.write_text(prompt_text, encoding="utf-8")
 
-    runner = _get_runner(cfg, agent)
-    argv, stdin_text = build_runner_invocation(agent, runner.argv, prompt_text)
+    argv, stdin_text = build_runner_invocation(agent, runner_cfg.argv, prompt_text)
 
     head_before = git_head(project_root)
 
@@ -2158,12 +2272,23 @@ def run_iteration(
     start = time.time()
     timed_out = False
     try:
-        result = run_subprocess(
-            argv,
-            cwd=project_root,
-            timeout=timeout,
-            stdin_text=stdin_text,
-        )
+        if stream:
+            output_cfg = get_output_config()
+            forward_output = output_cfg.format != "json"
+            result = run_subprocess_live(
+                argv,
+                cwd=project_root,
+                timeout=timeout,
+                input_text=stdin_text,
+                forward_output=forward_output,
+            )
+        else:
+            result = run_subprocess(
+                argv,
+                cwd=project_root,
+                timeout=timeout,
+                stdin_text=stdin_text,
+            )
         runner_ok = result.success
         duration_s = time.time() - start
     except RuntimeError as e:
@@ -2270,6 +2395,42 @@ def run_iteration(
         if not prd_ok:
             gates_ok = False
             logger.warning(f"PRD update gate failed: {prd_message}")
+
+    # Authorization check for actual write effects produced by runner/gates.
+    # This extends coverage beyond prep artifacts (e.g., ANCHOR.md).
+    write_effect_files = _get_write_effect_files(project_root)
+    auth_ok, _, auth_denied = _evaluate_write_authorization(
+        project_root=project_root,
+        checker=auth_checker,
+        runner_argv=auth_runner_argv,
+        write_paths=write_effect_files,
+        receipts_dir=receipts_dir,
+        phase="post_write_effects",
+    )
+    if not auth_ok:
+        if result.returncode == 0:
+            result.returncode = 73
+        runner_ok = False
+        denied_preview = ", ".join(item["path"] for item in auth_denied[:5])
+        if len(auth_denied) > 5:
+            denied_preview += f" (+{len(auth_denied) - 5} more)"
+        auth_message = (
+            "Authorization blocked one or more write effects: "
+            f"{denied_preview}. See authorization_post_write_effects.json."
+        )
+        result.stderr = f"{result.stderr}\n{auth_message}".strip() if result.stderr else auth_message
+        gates_ok = False
+        gate_results.append(
+            GateResult(
+                cmd="authorization_write_effects",
+                return_code=1,
+                duration_seconds=0.0,
+                stdout=auth_message,
+                stderr="",
+                is_precommit_hook=False,
+            )
+        )
+        logger.error(auth_message)
 
     # Adaptive rigor for LLM judge: force enable for high-risk areas
     effective_judge_enabled = cfg.gates.llm_judge.enabled

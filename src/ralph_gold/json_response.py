@@ -14,8 +14,10 @@ Benefits:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
+
+CLI_SCHEMA_VERSION = "ralph.cli.v1"
 
 
 @dataclass
@@ -32,13 +34,16 @@ class JsonResponse:
 
     cmd: str
     exit_code: int
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    )
     data: Dict[str, Any] = field(default_factory=dict)
     error: str | None = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result: Dict[str, Any] = {
+            "schema_version": CLI_SCHEMA_VERSION,
             "cmd": self.cmd,
             "exit_code": self.exit_code,
             "timestamp": self.timestamp,
@@ -109,3 +114,23 @@ def build_error_response(
     """
     response = JsonResponse(cmd=cmd, exit_code=exit_code, error=error, data=kwargs)
     return response.to_dict()
+
+
+def normalize_json_envelope(
+    payload: Dict[str, Any], *, default_exit_code: int = 0
+) -> Dict[str, Any]:
+    """Normalize a command payload into a versioned machine envelope.
+
+    If payload does not look like a command payload (missing `cmd`), it is
+    returned unchanged.
+    """
+    if "cmd" not in payload:
+        return payload
+
+    normalized = dict(payload)
+    normalized.setdefault("schema_version", CLI_SCHEMA_VERSION)
+    normalized.setdefault(
+        "timestamp", datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    )
+    normalized.setdefault("exit_code", default_exit_code)
+    return normalized

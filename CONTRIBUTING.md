@@ -196,6 +196,7 @@ For repositories that use Harness, recommend installing these scanners as projec
 
 Recommended policy:
 
+- Secret scanning is required in both local development and CI pipelines.
 - Keep scanner binaries available in local development environments and CI runners.
 - Run scanner checks in CI on pull requests and pushes to protected branches.
 - Treat scanner findings as merge blockers unless explicitly waived with rationale.

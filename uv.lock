@@ -890,7 +890,6 @@ wheels = [
 
 [[package]]
 name = "ralph-gold"
-version = "0.8.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -923,7 +922,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.150.2,<7.0.0" },
-    { name = "pytest", specifier = ">=7.4.0,<8.0.0" },
+    { name = "pytest", specifier = ">=7.4.0,<10.0.0" },
 ]
 web-headless = [{ name = "playwright", specifier = ">=1.40.0,<2.0.0" }]
 

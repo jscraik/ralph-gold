@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ralph_gold.prd import force_task_open, select_task_by_id, task_status_by_id
+from ralph_gold.prd import (
+    force_task_open,
+    get_quick_batch,
+    select_task_by_id,
+    task_status_by_id,
+)
 
 
 def test_markdown_get_quick_batch(tmp_path: Path) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -116,3 +117,32 @@ def test_diagnose_detects_missing_config(tmp_path: Path):
     assert "Ralph Diagnostics Report" in result.stdout
     assert "WARNINGS:" in result.stdout
     assert "No ralph.toml configuration file found" in result.stdout
+
+
+def test_diagnose_json_output_contract(tmp_path: Path):
+    """Diagnose should emit versioned JSON envelope in machine mode."""
+    ralph_dir = tmp_path / ".ralph"
+    ralph_dir.mkdir()
+    (ralph_dir / "ralph.toml").write_text(
+        """
+[files]
+prd = ".ralph/prd.json"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (ralph_dir / "prd.json").write_text('{"stories": []}', encoding="utf-8")
+
+    result = subprocess.run(
+        ["uv", "run", "python", "-m", "ralph_gold.cli", "--format", "json", "diagnose"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["cmd"] == "diagnose"
+    assert payload["schema_version"] == "ralph.cli.v1"
+    assert "timestamp" in payload
+    assert isinstance(payload.get("results"), list)
