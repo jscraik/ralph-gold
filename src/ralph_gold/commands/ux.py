@@ -30,6 +30,7 @@ def _apply_ux_mode(config_path: Path, mode: str) -> None:
         return
 
     text = config_path.read_text(encoding="utf-8")
+    newline = "\r\n" if "\r\n" in text else "\n"
     lines = text.splitlines()
 
     section_start = None
@@ -68,7 +69,7 @@ def _apply_ux_mode(config_path: Path, mode: str) -> None:
         if not replaced:
             lines.insert(section_end, mode_line)
 
-    config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    config_path.write_text(newline.join(lines) + newline, encoding="utf-8")
 
 
 def _prompt_quickstart_profile(
@@ -96,7 +97,7 @@ def _prompt_quickstart_profile(
         if raw_agent:
             agent = raw_agent
     except EOFError:
-        pass
+        logger.debug("Quickstart prompt interrupted by EOF; using defaults.")
     return profile, agent
 
 
@@ -310,4 +311,3 @@ def cmd_explain(args: argparse.Namespace) -> int:
     for action in next_actions:
         print_output(f"- {action}", level="normal")
     return 0
-

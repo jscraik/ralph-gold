@@ -244,42 +244,46 @@ def cmd_status(args: argparse.Namespace) -> int:
             if isinstance(history, list) and history and isinstance(history[-1], dict):
                 last_iteration = history[-1]
         except (OSError, ValueError) as e:
-            logger.debug("Operation failed: %s", e)
+            logger.debug("State load failed: %s", e)
 
-        try:
-            prd_path = root / cfg.files.prd
-            metrics = calculate_progress(tracker, state, prd_path=prd_path)
-            progress_bar = format_progress_bar(
-                metrics.completed_tasks, metrics.total_tasks, width=60
-            )
-            print_output(progress_bar, level="normal")
-            print_output("", level="normal")
-            print_output("Detailed Progress Metrics:", level="normal")
-            print_output(f"  Total Tasks:       {metrics.total_tasks}", level="normal")
-            print_output(f"  Completed:         {metrics.completed_tasks}", level="normal")
-            print_output(f"  In Progress:       {metrics.in_progress_tasks}", level="normal")
-            print_output(f"  Blocked:           {metrics.blocked_tasks}", level="normal")
-            print_output(
-                f"  Completion:        {metrics.completion_percentage:.1f}%",
-                level="normal",
-            )
-            print_output("", level="normal")
-            if metrics.velocity_tasks_per_day > 0:
+        if (
+            getattr(args, "detailed", False)
+            and get_output_config().format != "json"
+        ):
+            try:
+                prd_path = root / cfg.files.prd
+                metrics = calculate_progress(tracker, state, prd_path=prd_path)
+                progress_bar = format_progress_bar(
+                    metrics.completed_tasks, metrics.total_tasks, width=60
+                )
+                print_output(progress_bar, level="normal")
+                print_output("", level="normal")
+                print_output("Detailed Progress Metrics:", level="normal")
+                print_output(f"  Total Tasks:       {metrics.total_tasks}", level="normal")
+                print_output(f"  Completed:         {metrics.completed_tasks}", level="normal")
+                print_output(f"  In Progress:       {metrics.in_progress_tasks}", level="normal")
+                print_output(f"  Blocked:           {metrics.blocked_tasks}", level="normal")
                 print_output(
-                    f"  Velocity:          {metrics.velocity_tasks_per_day:.2f} tasks/day",
+                    f"  Completion:        {metrics.completion_percentage:.1f}%",
                     level="normal",
                 )
-                if metrics.estimated_completion_date:
+                print_output("", level="normal")
+                if metrics.velocity_tasks_per_day > 0:
                     print_output(
-                        f"  Estimated ETA:     {metrics.estimated_completion_date}",
+                        f"  Velocity:          {metrics.velocity_tasks_per_day:.2f} tasks/day",
                         level="normal",
                     )
-            else:
-                print_output("  Velocity:          (insufficient data)", level="normal")
-            return 0
-        except (OSError, ValueError) as e:
-            logger.debug("Progress calculation failed: %s", e)
-            return 1
+                    if metrics.estimated_completion_date:
+                        print_output(
+                            f"  Estimated ETA:     {metrics.estimated_completion_date}",
+                            level="normal",
+                        )
+                else:
+                    print_output("  Velocity:          (insufficient data)", level="normal")
+                return 0
+            except (OSError, ValueError) as e:
+                logger.debug("Progress calculation failed: %s", e)
+                return 1
 
     if get_output_config().format == "json":
         payload = {

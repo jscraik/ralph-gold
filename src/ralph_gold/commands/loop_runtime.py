@@ -252,6 +252,7 @@ def run_step_command(
             exit_code = 3
         payload = {
             "cmd": "step",
+            "exit_code": exit_code,
             "iteration": res.iteration,
             "agent": agent,
             "story_id": res.story_id,

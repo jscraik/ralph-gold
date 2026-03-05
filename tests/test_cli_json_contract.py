@@ -73,8 +73,7 @@ def test_json_fallback_envelope_for_commands_without_json_branch(tmp_path: Path)
             "ralph_gold.cli",
             "--format",
             "json",
-            "clean",
-            "--dry-run",
+            "init",
         ],
         cwd=tmp_path,
         capture_output=True,
@@ -83,7 +82,7 @@ def test_json_fallback_envelope_for_commands_without_json_branch(tmp_path: Path)
 
     assert result.stdout.strip(), "expected JSON fallback payload"
     payload = json.loads(result.stdout)
-    assert payload["cmd"] == "clean"
+    assert payload["cmd"] == "init"
     assert payload["schema_version"] == "ralph.cli.v1"
     assert "timestamp" in payload
     assert payload["exit_code"] == result.returncode

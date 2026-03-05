@@ -472,6 +472,85 @@ def test_authorization_post_write_effects_warn_mode(tmp_path: Path, monkeypatch)
     assert any(entry["path"] == "src/warned.py" for entry in denied)
 
 
+def test_authorization_ignores_preexisting_write_effects(tmp_path: Path, monkeypatch) -> None:
+    project_root = _init_git_repo(tmp_path)
+    (project_root / ".ralph").mkdir()
+
+    config = dedent(
+        """
+        [loop]
+        max_iterations = 1
+        no_progress_limit = 3
+        rate_limit_per_hour = 0
+        sleep_seconds_between_iters = 0
+        runner_timeout_seconds = 900
+        max_attempts_per_task = 3
+        skip_blocked_tasks = true
+
+        [runners.codex]
+        argv = ["dummy-runner"]
+
+        [files]
+        prd = "prd.json"
+
+        [authorization]
+        enabled = true
+        permissions_file = ".ralph/permissions.json"
+        enforcement_mode = "block"
+        """
+    ).strip() + "\n"
+
+    permissions = {
+        "enabled": True,
+        "enforcement_mode": "block",
+        "permissions": [
+            {"pattern": ".ralph/**", "allow_write": True, "reason": "Ralph internals"},
+            {"pattern": "src/**", "allow_write": False, "reason": "Source writes blocked"},
+            {"pattern": "*", "allow_write": True, "reason": "Fallback allow"},
+        ],
+    }
+
+    (project_root / ".ralph" / "ralph.toml").write_text(config, encoding="utf-8")
+    (project_root / ".ralph" / "permissions.json").write_text(
+        json.dumps(permissions, indent=2), encoding="utf-8"
+    )
+    _write_prd(project_root)
+
+    preexisting = project_root / "src" / "preexisting.py"
+    preexisting.parent.mkdir(parents=True, exist_ok=True)
+    preexisting.write_text("# preexisting dirty file\n", encoding="utf-8")
+
+    cfg = load_config(project_root)
+
+    def fake_run_subprocess_live(argv: list[str], *args, cwd=None, **kwargs) -> SubprocessResult:
+        if str(argv[0]).endswith("dummy-runner") or argv[0] == "dummy-runner":
+            assert cwd is not None
+            allowed_target = Path(cwd) / ".ralph" / "allowed.txt"
+            allowed_target.write_text("ok\n", encoding="utf-8")
+        return SubprocessResult(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(
+        "ralph_gold.loop.run_subprocess_live", fake_run_subprocess_live
+    )
+
+    result = run_iteration(
+        project_root,
+        agent="codex",
+        cfg=cfg,
+        iteration=1,
+        stream=True,
+    )
+    assert result.return_code == 0
+
+    receipts = sorted(
+        (project_root / ".ralph" / "receipts").rglob("authorization_post_write_effects.json")
+    )
+    assert receipts
+    payload = json.loads(receipts[-1].read_text(encoding="utf-8"))
+    denied = payload["notes"]["denied"]
+    assert all(entry["path"] != "src/preexisting.py" for entry in denied)
+
+
 def test_run_loop_stream_flag_is_forwarded_to_iteration(tmp_path: Path, monkeypatch) -> None:
     project_root = _init_git_repo(tmp_path)
     (project_root / ".ralph").mkdir()

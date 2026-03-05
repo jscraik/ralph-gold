@@ -91,7 +91,7 @@ def cmd_harness_collect(args: argparse.Namespace) -> int:
     if get_output_config().format == "json":
         print_json_output(
             {
-                "cmd": "harness collect",
+                "cmd": "harness_collect",
                 "output": str(output_path),
                 "cases": len(payload.get("cases", [])),
                 "days": days,
@@ -424,7 +424,7 @@ def cmd_harness_run(args: argparse.Namespace) -> int:
     if get_output_config().format == "json":
         print_json_output(
             {
-                "cmd": "harness run",
+                "cmd": "harness_run",
                 "output": str(output_path),
                 "aggregate": run_payload.get("aggregate", {}),
                 "comparison": comparison if comparison else None,
@@ -495,7 +495,7 @@ def cmd_harness_report(args: argparse.Namespace) -> int:
     if report_format == "json":
         print_json_output(
             {
-                "cmd": "harness report",
+                "cmd": "harness_report",
                 "input": str(input_path),
                 "report": run_payload,
             }
@@ -688,7 +688,7 @@ def cmd_harness_pin(args: argparse.Namespace) -> int:
     if get_output_config().format == "json":
         print_json_output(
             {
-                "cmd": "harness pin",
+                "cmd": "harness_pin",
                 "run": str(run_path),
                 "output": str(output_path),
                 "selected": len(selected),
@@ -828,7 +828,7 @@ def cmd_harness_ci(args: argparse.Namespace) -> int:
             case_count = None
         print_json_output(
             {
-                "cmd": "harness ci",
+                "cmd": "harness_ci",
                 "dataset": str(dataset_path),
                 "run": str(run_output_path),
                 "execution_mode": execution_mode,
@@ -912,7 +912,7 @@ def cmd_harness_doctor(args: argparse.Namespace) -> int:
     if get_output_config().format == "json":
         print_json_output(
             {
-                "cmd": "harness doctor",
+                "cmd": "harness_doctor",
                 "ok": len(issues) == 0,
                 "issues": issues,
                 "info": info,

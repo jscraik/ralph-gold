@@ -892,10 +892,10 @@ def _get_changed_files(project_root: Path) -> List[Path]:
     return changed
 
 
-def _get_write_effect_files(project_root: Path) -> List[Path]:
-    """Get tracked + untracked paths that were written in the working tree."""
+def _collect_write_effect_relpaths(project_root: Path) -> set[str]:
+    """Collect tracked + untracked write-effect paths relative to project root."""
 
-    seen: set[Path] = set()
+    seen: set[str] = set()
     commands = [
         ["git", "diff", "--name-only"],
         ["git", "diff", "--cached", "--name-only"],
@@ -910,8 +910,21 @@ def _get_write_effect_files(project_root: Path) -> List[Path]:
         for line in result.stdout.strip().split("\n"):
             rel = line.strip()
             if rel:
-                seen.add(project_root / rel)
-    return sorted(seen, key=lambda p: str(p))
+                seen.add(rel)
+    return seen
+
+
+def _get_write_effect_files(
+    project_root: Path,
+    *,
+    baseline_relpaths: set[str] | None = None,
+) -> List[Path]:
+    """Get write-effect paths produced by this run, relative to baseline state."""
+
+    current_relpaths = _collect_write_effect_relpaths(project_root)
+    if baseline_relpaths is not None:
+        current_relpaths = current_relpaths - baseline_relpaths
+    return sorted((project_root / rel for rel in current_relpaths), key=str)
 
 
 def _evaluate_write_authorization(
@@ -2246,6 +2259,7 @@ def run_iteration(
 
     # Phase 3: Take snapshot BEFORE agent execution for no-files detection
     before_files = _snapshot_project_files(project_root)
+    pre_run_write_effects = _collect_write_effect_relpaths(project_root)
 
     # Calculate timeout (with adaptive timeout if enabled)
     base_timeout = cfg.loop.runner_timeout_seconds if cfg.loop.runner_timeout_seconds > 0 else None
@@ -2398,7 +2412,10 @@ def run_iteration(
 
     # Authorization check for actual write effects produced by runner/gates.
     # This extends coverage beyond prep artifacts (e.g., ANCHOR.md).
-    write_effect_files = _get_write_effect_files(project_root)
+    write_effect_files = _get_write_effect_files(
+        project_root,
+        baseline_relpaths=pre_run_write_effects,
+    )
     auth_ok, _, auth_denied = _evaluate_write_authorization(
         project_root=project_root,
         checker=auth_checker,

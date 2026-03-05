@@ -51,7 +51,7 @@ from .commands.utilities import (
 from .commands.ux import cmd_explain, cmd_quickstart
 from .config import LOOP_MODE_NAMES, load_config
 from .doctor import check_tools, setup_checks
-from .json_response import build_json_response
+from .json_response import build_error_response, build_json_response
 from .logging_config import setup_logging
 from .loop import (
     dry_run_loop,
@@ -1670,6 +1670,20 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.error("%s", e)
+        try:
+            if (
+                get_output_config().format == "json"
+                and not has_json_output_emitted()
+            ):
+                print_json_output(
+                    build_error_response(
+                        str(getattr(args, "cmd", "unknown")),
+                        error=str(e),
+                        exit_code=1,
+                    )
+                )
+        except Exception:
+            logger.debug("Failed to emit JSON error envelope.", exc_info=True)
         return 1
 
 

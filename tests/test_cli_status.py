@@ -44,7 +44,7 @@ def test_status_command_with_state_shows_detailed_metrics(tmp_path: Path) -> Non
     (tmp_path / ".ralph" / "state.json").write_text(json.dumps(state), encoding="utf-8")
 
     result = subprocess.run(
-        ["uv", "run", "python", "-m", "ralph_gold.cli", "status"],
+        ["uv", "run", "python", "-m", "ralph_gold.cli", "status", "--detailed"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
