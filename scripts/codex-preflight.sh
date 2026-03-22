@@ -68,11 +68,13 @@ detect_stack() {
 }
 
 stack_bins_csv() {
+	# jq and curl are only needed for local-memory checks; omit here so
+	# --mode off works on machines without Local Memory tooling installed.
 	case "$1" in
-		js) echo 'git,bash,sed,rg,fd,jq,curl,node,npm,python3' ;;
-		py) echo 'git,bash,sed,rg,fd,jq,curl,python3' ;;
-		rust) echo 'git,bash,sed,rg,fd,jq,curl,python3,cargo' ;;
-		repo) echo 'git,bash,sed,rg,fd,jq,curl,python3' ;;
+		js) echo 'git,bash,sed,rg,fd,node,npm,python3' ;;
+		py) echo 'git,bash,sed,rg,fd,python3' ;;
+		rust) echo 'git,bash,sed,rg,fd,python3,cargo' ;;
+		repo) echo 'git,bash,sed,rg,fd,python3' ;;
 		*) log_err "unknown stack: $1"; return 2 ;;
 	esac
 }
@@ -292,6 +294,11 @@ preflight_local_memory_gold() {
 	fi
 	log_ok "smoke cycle ok: ids ${id_a}, ${id_b}; relationship ${relationship_id}"
 
+	# Cleanup: delete probe memories to prevent junk accumulation in the store.
+	local-memory delete "${id_a}" --json >/dev/null 2>&1 || log_warn "cleanup: failed to delete probe memory ${id_a}"
+	local-memory delete "${id_b}" --json >/dev/null 2>&1 || log_warn "cleanup: failed to delete probe memory ${id_b}"
+	log_ok "cleanup ok: probe memories deleted"
+
 	local malformed_output dup_output_1 dup_output_2
 	malformed_output="$(make_tmp_file)"
 	dup_output_1="$(make_tmp_file)"
@@ -428,6 +435,11 @@ main() {
 		paths_csv="$(stack_paths_csv "${stack}")"
 	fi
 
+	# Require jq and curl only when local-memory checks will run.
+	if [[ "${local_memory_mode}" != 'off' ]]; then
+		bins_csv="${bins_csv},jq,curl"
+	fi
+
 	check_bins "${bins_csv}"
 	check_paths "${root}" "${paths_csv}"
 
@@ -447,4 +459,6 @@ main() {
 	log_ok 'preflight passed'
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	main "$@"
+fi
