@@ -329,6 +329,11 @@ preflight_local_memory_gold() {
 	fi
 	log_ok "smoke cycle ok: ids ${id_a}, ${id_b}; relationship ${relationship_id}"
 
+	# Cleanup: delete probe memories to prevent junk accumulation in the store.
+	local-memory delete "${id_a}" --json >/dev/null 2>&1 || log_warn "cleanup: failed to delete probe memory ${id_a}"
+	local-memory delete "${id_b}" --json >/dev/null 2>&1 || log_warn "cleanup: failed to delete probe memory ${id_b}"
+	log_ok "cleanup ok: probe memories deleted"
+
 	local malformed_output dup_output_1 dup_output_2
 	malformed_output="$(make_tmp_file)"
 	dup_output_1="$(make_tmp_file)"
@@ -339,7 +344,7 @@ preflight_local_memory_gold() {
 	malformed_code="$(curl -sS -o "${malformed_output}" -w '%{http_code}' \
 		-H 'Content-Type: application/json' \
 		-d '{"level":"observation"}' \
-		"http://127.0.0.1:${rest_port}/api/v1/observe")"
+		"http://${rest_host}:${rest_port}/api/v1/observe")"
 	if [[ "${malformed_code}" -lt 400 ]]; then
 		trap - RETURN
 		rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
@@ -355,11 +360,11 @@ preflight_local_memory_gold() {
 	dup_code_1="$(curl -sS -o "${dup_output_1}" -w '%{http_code}' \
 		-H 'Content-Type: application/json' \
 		-d "${dup_payload}" \
-		"http://127.0.0.1:${rest_port}/api/v1/observe")"
+		"http://${rest_host}:${rest_port}/api/v1/observe")"
 	dup_code_2="$(curl -sS -o "${dup_output_2}" -w '%{http_code}' \
 		-H 'Content-Type: application/json' \
 		-d "${dup_payload}" \
-		"http://127.0.0.1:${rest_port}/api/v1/observe")"
+		"http://${rest_host}:${rest_port}/api/v1/observe")"
 	echo "ℹ️ duplicate behavior snapshot: first=${dup_code_1}, second=${dup_code_2}"
 
 	local daemon_log="${HOME}/.local-memory/daemon.log"
@@ -506,19 +511,99 @@ main() {
 }
 
 preflight_repo() {
-	main --stack repo --mode off "$@"
+	local expected_repo="${1:-}"
+	local bins_csv="${2:-}"
+	local paths_csv="${3:-}"
+	local -a wrapper_args=(--stack repo --mode off)
+	if (( $# > 0 )) && [[ "${1}" != --* ]] && [[ "${1}" != '-h' ]]; then
+		wrapper_args+=(--repo-fragment "${expected_repo}")
+		if [[ -n "${bins_csv}" ]]; then
+			wrapper_args+=(--bins "${bins_csv}")
+		fi
+		if [[ -n "${paths_csv}" ]]; then
+			wrapper_args+=(--paths "${paths_csv}")
+		fi
+		if main "${wrapper_args[@]}"; then
+			return 0
+		fi
+		return $?
+	fi
+	if main "${wrapper_args[@]}" "$@"; then
+		return 0
+	fi
+	return $?
 }
 
 preflight_js() {
-	main --stack js --mode off "$@"
+	local expected_repo="${1:-}"
+	local bins_csv="${2:-}"
+	local paths_csv="${3:-}"
+	local -a wrapper_args=(--stack js --mode off)
+	if (( $# > 0 )) && [[ "${1}" != --* ]] && [[ "${1}" != '-h' ]]; then
+		wrapper_args+=(--repo-fragment "${expected_repo}")
+		if [[ -n "${bins_csv}" ]]; then
+			wrapper_args+=(--bins "${bins_csv}")
+		fi
+		if [[ -n "${paths_csv}" ]]; then
+			wrapper_args+=(--paths "${paths_csv}")
+		fi
+		if main "${wrapper_args[@]}"; then
+			return 0
+		fi
+		return $?
+	fi
+	if main "${wrapper_args[@]}" "$@"; then
+		return 0
+	fi
+	return $?
 }
 
 preflight_py() {
-	main --stack py --mode off "$@"
+	local expected_repo="${1:-}"
+	local bins_csv="${2:-}"
+	local paths_csv="${3:-}"
+	local -a wrapper_args=(--stack py --mode off)
+	if (( $# > 0 )) && [[ "${1}" != --* ]] && [[ "${1}" != '-h' ]]; then
+		wrapper_args+=(--repo-fragment "${expected_repo}")
+		if [[ -n "${bins_csv}" ]]; then
+			wrapper_args+=(--bins "${bins_csv}")
+		fi
+		if [[ -n "${paths_csv}" ]]; then
+			wrapper_args+=(--paths "${paths_csv}")
+		fi
+		if main "${wrapper_args[@]}"; then
+			return 0
+		fi
+		return $?
+	fi
+	if main "${wrapper_args[@]}" "$@"; then
+		return 0
+	fi
+	return $?
 }
 
 preflight_rust() {
-	main --stack rust --mode off "$@"
+	local expected_repo="${1:-}"
+	local bins_csv="${2:-}"
+	local paths_csv="${3:-}"
+	local -a wrapper_args=(--stack rust --mode off)
+	if (( $# > 0 )) && [[ "${1}" != --* ]] && [[ "${1}" != '-h' ]]; then
+		wrapper_args+=(--repo-fragment "${expected_repo}")
+		if [[ -n "${bins_csv}" ]]; then
+			wrapper_args+=(--bins "${bins_csv}")
+		fi
+		if [[ -n "${paths_csv}" ]]; then
+			wrapper_args+=(--paths "${paths_csv}")
+		fi
+		if main "${wrapper_args[@]}"; then
+			return 0
+		fi
+		return $?
+	fi
+	if main "${wrapper_args[@]}" "$@"; then
+		return 0
+	fi
+	return $?
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

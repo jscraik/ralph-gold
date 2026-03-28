@@ -13,6 +13,6 @@
     "bash --noprofile --norc -lc 'set +e; source scripts/codex-preflight.sh; preflight_repo >/tmp/ralph_preflight_repo.txt 2>&1; code=$?; echo exit:$code; tail -n 25 /tmp/ralph_preflight_repo.txt'",
     "UV_CACHE_DIR=/tmp/uv-cache-ralph uv run pytest -q"
   ],
-  "human_verification": "Reviewed the preflight script diff, confirmed source-safe wrapper functions are present, verified preflight_repo passes when sourced with --mode off, and confirmed the branch-specific test suite stayed green through completion.",
+  "human_verification": "Pending independent reviewer verification.",
   "notes": "Redirected UV_CACHE_DIR to /tmp/uv-cache-ralph to avoid the root-owned default cache path, then completed the full pytest suite successfully."
 }
