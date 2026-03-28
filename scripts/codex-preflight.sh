@@ -92,10 +92,10 @@ detect_stack() {
 
 stack_bins_csv() {
 	case "$1" in
-		js) echo 'git,bash,sed,rg,fd,jq,curl,node,npm,python3' ;;
-		py) echo 'git,bash,sed,rg,fd,jq,curl,python3' ;;
-		rust) echo 'git,bash,sed,rg,fd,jq,curl,python3,cargo' ;;
-		repo) echo 'git,bash,sed,rg,fd,jq,curl,python3' ;;
+		js) echo 'git,bash,sed,rg,fd,node,npm,python3' ;;
+		py) echo 'git,bash,sed,rg,fd,python3' ;;
+		rust) echo 'git,bash,sed,rg,fd,python3,cargo' ;;
+		repo) echo 'git,bash,sed,rg,fd,python3' ;;
 		*) log_err "unknown stack: $1"; return 2 ;;
 	esac
 }
@@ -478,6 +478,9 @@ main() {
 
 	if [[ -z "${bins_csv}" ]]; then
 		bins_csv="$(stack_bins_csv "${stack}")"
+	fi
+	if [[ "${local_memory_mode}" != 'off' ]]; then
+		bins_csv="${bins_csv},jq,curl"
 	fi
 	if [[ -z "${paths_csv}" ]]; then
 		paths_csv="$(stack_paths_csv "${stack}")"
