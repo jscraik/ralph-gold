@@ -525,13 +525,15 @@ preflight_repo() {
 		fi
 		if main "${wrapper_args[@]}"; then
 			return 0
+		else
+			return $?
 		fi
-		return $?
 	fi
 	if main "${wrapper_args[@]}" "$@"; then
 		return 0
+	else
+		return $?
 	fi
-	return $?
 }
 
 preflight_js() {
@@ -549,13 +551,15 @@ preflight_js() {
 		fi
 		if main "${wrapper_args[@]}"; then
 			return 0
+		else
+			return $?
 		fi
-		return $?
 	fi
 	if main "${wrapper_args[@]}" "$@"; then
 		return 0
+	else
+		return $?
 	fi
-	return $?
 }
 
 preflight_py() {
@@ -573,13 +577,15 @@ preflight_py() {
 		fi
 		if main "${wrapper_args[@]}"; then
 			return 0
+		else
+			return $?
 		fi
-		return $?
 	fi
 	if main "${wrapper_args[@]}" "$@"; then
 		return 0
+	else
+		return $?
 	fi
-	return $?
 }
 
 preflight_rust() {
@@ -597,13 +603,15 @@ preflight_rust() {
 		fi
 		if main "${wrapper_args[@]}"; then
 			return 0
+		else
+			return $?
 		fi
-		return $?
 	fi
 	if main "${wrapper_args[@]}" "$@"; then
 		return 0
+	else
+		return $?
 	fi
-	return $?
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
