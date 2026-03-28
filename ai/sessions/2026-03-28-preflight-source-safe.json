@@ -1,0 +1,18 @@
+{
+  "tool": "codex",
+  "started_at": "2026-03-28T15:58:00Z",
+  "ended_at": "2026-03-28T17:46:00Z",
+  "files_touched": [
+    "scripts/codex-preflight.sh",
+    "ai/prompts/2026-03-28-preflight-source-safe.yaml",
+    "ai/sessions/2026-03-28-preflight-source-safe.json"
+  ],
+  "tests_run": [
+    "bash --noprofile --norc -lc 'source scripts/codex-preflight.sh && declare -F preflight_repo preflight_js preflight_py preflight_rust'",
+    "bash --noprofile --norc -lc 'bash scripts/codex-preflight.sh --help | head -n 5'",
+    "bash --noprofile --norc -lc 'set +e; source scripts/codex-preflight.sh; preflight_repo >/tmp/ralph_preflight_repo.txt 2>&1; code=$?; echo exit:$code; tail -n 25 /tmp/ralph_preflight_repo.txt'",
+    "UV_CACHE_DIR=/tmp/uv-cache-ralph uv run pytest -q"
+  ],
+  "human_verification": "Pending independent reviewer verification.",
+  "notes": "Redirected UV_CACHE_DIR to /tmp/uv-cache-ralph to avoid the root-owned default cache path, then completed the full pytest suite successfully."
+}
