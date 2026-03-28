@@ -1,0 +1,12 @@
+id: pr-preflight-source-safe-2026-03-28
+tool: codex
+mode: normal
+task: "Restore source-safe codex preflight entrypoints in ralph-gold while preserving the newer local-memory and workspace-root hardening."
+constraints:
+  - "follow PR template exactly"
+  - "no secrets"
+  - "commit AI assistance artifacts in ai/"
+outputs_expected:
+  - "scripts/codex-preflight.sh"
+  - "ai/prompts/2026-03-28-preflight-source-safe.yaml"
+  - "ai/sessions/2026-03-28-preflight-source-safe.json"

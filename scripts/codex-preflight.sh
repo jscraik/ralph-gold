@@ -22,6 +22,11 @@ Examples:
   ./scripts/codex-preflight.sh --stack js
   ./scripts/codex-preflight.sh --stack py --mode optional
   ./scripts/codex-preflight.sh --repo-fragment local-memory
+
+Legacy compatibility:
+  ./scripts/codex-preflight.sh <repo-fragment> [bins-csv] [paths-csv]
+  This preserves the older positional interface used by parent-repo checks and
+  runs with Local Memory disabled unless the new flag-based mode is used.
 USAGE
 }
 
@@ -46,6 +51,24 @@ extract_last_json_line() {
 	printf '%s\n' "${raw}" | awk '/^\{/{line=$0} END{if (line != "") print line}'
 }
 
+extract_local_memory_rest_value() {
+	local config_path="$1"
+	local key="$2"
+	awk -v wanted="${key}" '
+		BEGIN { in_rest = 0 }
+		/^[[:space:]]*rest_api:[[:space:]]*$/ { in_rest = 1; next }
+		in_rest && /^[^[:space:]]/ { in_rest = 0 }
+		in_rest && $1 == wanted ":" {
+			sub(/^[^:]+:[[:space:]]*/, "", $0)
+			gsub(/"/, "", $0)
+			gsub(/[[:space:]]+#.*/, "", $0)
+			gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
+			print $0
+			exit
+		}
+	' "${config_path}"
+}
+
 
 make_tmp_file() {
 	mktemp "${TMPDIR:-/tmp}/local-memory-preflight.XXXXXX.json"
@@ -68,13 +91,11 @@ detect_stack() {
 }
 
 stack_bins_csv() {
-	# jq and curl are only needed for local-memory checks; omit here so
-	# --mode off works on machines without Local Memory tooling installed.
 	case "$1" in
-		js) echo 'git,bash,sed,rg,fd,node,npm,python3' ;;
-		py) echo 'git,bash,sed,rg,fd,python3' ;;
-		rust) echo 'git,bash,sed,rg,fd,python3,cargo' ;;
-		repo) echo 'git,bash,sed,rg,fd,python3' ;;
+		js) echo 'git,bash,sed,rg,fd,jq,curl,node,npm,python3' ;;
+		py) echo 'git,bash,sed,rg,fd,jq,curl,python3' ;;
+		rust) echo 'git,bash,sed,rg,fd,jq,curl,python3,cargo' ;;
+		repo) echo 'git,bash,sed,rg,fd,jq,curl,python3' ;;
 		*) log_err "unknown stack: $1"; return 2 ;;
 	esac
 }
@@ -189,17 +210,6 @@ preflight_local_memory_gold() {
 
 	local running
 	running="$(echo "${status_json}" | jq -r '.data.running // .running // false')"
-	if [[ "${running}" != 'true' ]]; then
-		log_err 'local-memory daemon is not running'
-		return 1
-	fi
-
-	local rest_port
-	rest_port="$(echo "${status_json}" | jq -r '.data.rest_api_port // .rest_api_port // 3002')"
-	if [[ ! "${rest_port}" =~ ^[0-9]+$ ]]; then
-		log_err "invalid rest_api_port from status: ${rest_port}"
-		return 1
-	fi
 
 	local lm_config_path="${LOCAL_MEMORY_CONFIG_PATH:-${HOME}/.local-memory/config.yaml}"
 	if [[ ! -f "${lm_config_path}" ]]; then
@@ -220,8 +230,33 @@ preflight_local_memory_gold() {
 	fi
 	log_ok "config host/auto_port policy ok: ${lm_config_path}"
 
-	local health_url="http://127.0.0.1:${rest_port}/api/v1/health"
+	local rest_host
+	rest_host="$(extract_local_memory_rest_value "${lm_config_path}" host)"
+	rest_host="${rest_host:-127.0.0.1}"
+
+	local rest_port
+	rest_port="$(extract_local_memory_rest_value "${lm_config_path}" port)"
+	rest_port="${rest_port:-3002}"
+	if [[ ! "${rest_port}" =~ ^[0-9]+$ ]]; then
+		log_err "invalid rest_api_port from config: ${rest_port}"
+		return 1
+	fi
+
+	local health_url="http://${rest_host}:${rest_port}/api/v1/health"
 	local health_json
+	if [[ "${running}" != 'true' ]]; then
+		if health_json="$(curl -fsS "${health_url}" 2>/dev/null)"; then
+			if [[ "$(echo "${health_json}" | jq -r '.success // false')" == 'true' ]]; then
+				log_warn "local-memory status reported stopped; REST health succeeded at ${health_url}"
+				running='true'
+			fi
+		fi
+	fi
+	if [[ "${running}" != 'true' ]]; then
+		log_err 'local-memory daemon is not running'
+		return 1
+	fi
+
 	if ! health_json="$(curl -fsS "${health_url}")"; then
 		log_err "REST health endpoint unreachable at ${health_url}"
 		return 1
@@ -294,11 +329,6 @@ preflight_local_memory_gold() {
 	fi
 	log_ok "smoke cycle ok: ids ${id_a}, ${id_b}; relationship ${relationship_id}"
 
-	# Cleanup: delete probe memories to prevent junk accumulation in the store.
-	local-memory delete "${id_a}" --json >/dev/null 2>&1 || log_warn "cleanup: failed to delete probe memory ${id_a}"
-	local-memory delete "${id_b}" --json >/dev/null 2>&1 || log_warn "cleanup: failed to delete probe memory ${id_b}"
-	log_ok "cleanup ok: probe memories deleted"
-
 	local malformed_output dup_output_1 dup_output_2
 	malformed_output="$(make_tmp_file)"
 	dup_output_1="$(make_tmp_file)"
@@ -311,6 +341,8 @@ preflight_local_memory_gold() {
 		-d '{"level":"observation"}' \
 		"http://127.0.0.1:${rest_port}/api/v1/observe")"
 	if [[ "${malformed_code}" -lt 400 ]]; then
+		trap - RETURN
+		rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
 		log_err "malformed payload did not return an error (HTTP ${malformed_code})"
 		return 1
 	fi
@@ -343,6 +375,8 @@ preflight_local_memory_gold() {
 		log_warn "daemon log not found at ${daemon_log}"
 	fi
 
+	trap - RETURN
+	rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
 	log_ok 'local-memory preflight passed'
 }
 
@@ -352,6 +386,19 @@ main() {
 	local expected_repo=''
 	local bins_csv=''
 	local paths_csv=''
+
+	if (( $# > 0 )) && [[ "${1}" != --* ]] && [[ "${1}" != '-h' ]]; then
+		if (( $# > 3 )); then
+			log_err "legacy positional mode accepts at most 3 arguments"
+			usage >&2
+			return 2
+		fi
+		expected_repo="${1:-}"
+		bins_csv="${2:-}"
+		paths_csv="${3:-}"
+		local_memory_mode='off'
+		set --
+	fi
 
 	while (( $# > 0 )); do
 		case "$1" in
@@ -377,19 +424,19 @@ main() {
 				;;
 			-h|--help)
 				usage
-				exit 0
+				return 0
 				;;
 			*)
 				log_err "unknown argument: $1"
 				usage >&2
-				exit 2
+				return 2
 				;;
 		esac
 	done
 
 	case "${local_memory_mode}" in
 		off|optional|required) ;;
-		*) log_err "invalid --mode: ${local_memory_mode}"; exit 2 ;;
+		*) log_err "invalid --mode: ${local_memory_mode}"; return 2 ;;
 	esac
 
 	log_section 'Codex Preflight'
@@ -397,31 +444,32 @@ main() {
 
 	if ! command -v git >/dev/null 2>&1; then
 		log_err 'missing binary: git'
-		exit 2
+		return 2
 	fi
 
-	local root
-	if ! root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+	local git_root
+	if ! git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
 		log_err 'not inside a git repo (git rev-parse failed)'
-		exit 2
+		return 2
 	fi
-	if [[ -z "${root}" ]]; then
+	if [[ -z "${git_root}" ]]; then
 		log_err 'git rev-parse returned empty root'
-		exit 2
+		return 2
 	fi
-	root="$(cd -- "${root}" && pwd -P)"
-	echo "repo root: ${root}"
+	git_root="$(cd -- "${git_root}" && pwd -P)"
+	echo "git root: ${git_root}"
+	echo "workspace root: ${WORKSPACE_ROOT}"
 
-	if [[ "${root}" != "${WORKSPACE_ROOT}" ]]; then
-		log_err "script workspace mismatch: expected ${WORKSPACE_ROOT}"
-		exit 2
+	if [[ "${WORKSPACE_ROOT}" != "${git_root}" && "${WORKSPACE_ROOT}" != "${git_root}"/* ]]; then
+		log_err "script workspace mismatch: ${WORKSPACE_ROOT} is not inside git root ${git_root}"
+		return 2
 	fi
-	if [[ -n "${expected_repo}" && "${root}" != *"${expected_repo}"* ]]; then
-		log_err "repo mismatch: expected fragment '${expected_repo}' in '${root}'"
-		exit 2
+	if [[ -n "${expected_repo}" && "${WORKSPACE_ROOT}" != *"${expected_repo}"* ]]; then
+		log_err "repo mismatch: expected fragment '${expected_repo}' in '${WORKSPACE_ROOT}'"
+		return 2
 	fi
 
-	cd "${root}"
+	cd "${WORKSPACE_ROOT}"
 
 	if [[ "${stack}" == 'auto' ]]; then
 		stack="$(detect_stack)"
@@ -435,22 +483,17 @@ main() {
 		paths_csv="$(stack_paths_csv "${stack}")"
 	fi
 
-	# Require jq and curl only when local-memory checks will run.
-	if [[ "${local_memory_mode}" != 'off' ]]; then
-		bins_csv="${bins_csv},jq,curl"
-	fi
-
 	check_bins "${bins_csv}"
-	check_paths "${root}" "${paths_csv}"
+	check_paths "${WORKSPACE_ROOT}" "${paths_csv}"
 
-	echo "git branch: $(git rev-parse --abbrev-ref HEAD)"
-	echo "clean?: $(git status --porcelain | wc -l | tr -d ' ') changes"
+	echo "git branch: $(git -C "${WORKSPACE_ROOT}" rev-parse --abbrev-ref HEAD)"
+	echo "clean?: $(git -C "${WORKSPACE_ROOT}" status --porcelain -- . | wc -l | tr -d ' ') changes"
 
 	if [[ "${local_memory_mode}" != 'off' ]]; then
 		if ! preflight_local_memory_gold; then
 			if [[ "${local_memory_mode}" == 'required' ]]; then
 				log_err 'local-memory preflight failed (required mode)'
-				exit 2
+				return 2
 			fi
 			log_warn 'local-memory preflight failed (optional mode)'
 		fi
@@ -459,6 +502,22 @@ main() {
 	log_ok 'preflight passed'
 }
 
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+preflight_repo() {
+	main --stack repo --mode off "$@"
+}
+
+preflight_js() {
+	main --stack js --mode off "$@"
+}
+
+preflight_py() {
+	main --stack py --mode off "$@"
+}
+
+preflight_rust() {
+	main --stack rust --mode off "$@"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 	main "$@"
 fi
