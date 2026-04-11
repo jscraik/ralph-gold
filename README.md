@@ -1231,7 +1231,7 @@ python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py .agent/PLANS.md
 3. Run canonical verification:
 
 ```bash
-/Users/jamiecraik/.codex/scripts/verify-work.sh
+bash scripts/verify-work.sh --fast
 ```
 
 4. Validate version sync:

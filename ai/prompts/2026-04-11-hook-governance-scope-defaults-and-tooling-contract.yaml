@@ -1,0 +1,25 @@
+id: pr-hook-governance-scope-defaults-and-tooling-contract-2026-04-11
+tool: codex
+mode: normal
+task: "Commit all local repo changes, add project-local hook-governance scope defaults, push a feature branch, and open a pull request."
+constraints:
+  - "follow PR template exactly"
+  - "no secrets"
+  - "project-local governance default with explicit workspace opt-in"
+outputs_expected:
+  - ".codex/environments/environment.toml"
+  - ".gitignore"
+  - ".mise.toml"
+  - "CONTRIBUTING.md"
+  - "Makefile"
+  - "README.md"
+  - "docs/agents/01-instruction-map.md"
+  - "docs/agents/03-validation-and-governance.md"
+  - "docs/agents/hook-governance-scope-defaults.md"
+  - "docs/agents/tooling.contract.toml"
+  - "docs/agents/tooling.md"
+  - "prek.toml"
+  - "scripts/check-environment.sh"
+  - "scripts/setup-git-hooks.js"
+  - "scripts/tooling_contract.py"
+  - "scripts/verify-work.sh"

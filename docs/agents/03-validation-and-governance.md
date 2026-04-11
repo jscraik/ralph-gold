@@ -1,8 +1,16 @@
 ---
-last_validated: 2026-02-28
+last_validated: 2026-04-11
 ---
 
 # Validation and governance
+
+## Table of Contents
+- [Working with project instructions](#working-with-project-instructions)
+- [ExecPlans](#execplans)
+- [Security and configuration](#security-and-configuration)
+- [AI assistance governance (Model A)](#ai-assistance-governance-model-a)
+- [Scaffold checks](#scaffold-checks)
+- [Hook governance scope policy](#hook-governance-scope-policy)
 
 ## Working with project instructions
 - Global scope: Codex reads `/Users/jamiecraik/.codex/AGENTS.override.md` if present; otherwise `/Users/jamiecraik/.codex/AGENTS.md`.
@@ -41,4 +49,9 @@ PR template:
 - Plan graph lint:
   - `python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py /Users/jamiecraik/dev/ralph-gold/.agent/PLANS.md`
 - Canonical verification:
-  - `/Users/jamiecraik/.codex/scripts/verify-work.sh`
+  - `bash /Users/jamiecraik/dev/ralph-gold/scripts/verify-work.sh --fast`
+  - `bash /Users/jamiecraik/dev/ralph-gold/scripts/verify-work.sh --fast --workspace-governance` (explicit cross-repo opt-in)
+
+## Hook governance scope policy
+- Scope defaults reference:
+  - `/Users/jamiecraik/dev/ralph-gold/docs/agents/hook-governance-scope-defaults.md`
