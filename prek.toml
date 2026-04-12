@@ -11,21 +11,21 @@ repo = "local"
 [[repos.hooks]]
 id = "lint"
 name = "Lint"
-entry = "npm run lint"
+entry = "uv run ruff check ."
 language = "system"
 pass_filenames = false
 
 [[repos.hooks]]
 id = "typecheck"
 name = "TypeCheck"
-entry = "npm run typecheck"
+entry = "uv run python -m ralph_gold.cli --help"
 language = "system"
 pass_filenames = false
 
 [[repos.hooks]]
 id = "test"
 name = "Tests"
-entry = "npm run test"
+entry = "uv run pytest -q"
 language = "system"
 pass_filenames = false
 stages = ["pre-push"]

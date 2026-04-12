@@ -1,0 +1,34 @@
+{
+  "tool": "codex",
+  "started_at": "2026-04-11T21:27:00Z",
+  "ended_at": "2026-04-11T21:55:00Z",
+  "files_touched": [
+    ".codex/environments/environment.toml",
+    ".gitignore",
+    ".mise.toml",
+    "CONTRIBUTING.md",
+    "Makefile",
+    "README.md",
+    "docs/agents/01-instruction-map.md",
+    "docs/agents/03-validation-and-governance.md",
+    "docs/agents/hook-governance-scope-defaults.md",
+    "docs/agents/tooling.contract.toml",
+    "docs/agents/tooling.md",
+    "prek.toml",
+    "scripts/check-environment.sh",
+    "scripts/setup-git-hooks.js",
+    "scripts/tooling_contract.py",
+    "scripts/verify-work.sh"
+  ],
+  "tests_run": [
+    "bash scripts/codex-preflight.sh --mode optional -> pass",
+    "bash scripts/verify-work.sh --fast -> pass",
+    "bash scripts/verify-work.sh --fast --workspace-governance -> fail (workspace conformance stale in external repo)",
+    "uv sync -> pass",
+    "make check -> fail (ruff lint errors in tests/test_interventions.py)",
+    "uv run pytest -q -> blocked (stalls around 29% progress in this workspace)",
+    "test -f memory.json && jq -e '.meta.version == \"1.0\" and (.preamble.bootstrap | type == \"boolean\") and (.preamble.search | type == \"boolean\") and (.entries | type == \"array\")' memory.json >/dev/null -> pass"
+  ],
+  "human_verification": "Reviewed changed files, verified project-local verify-work behavior, and confirmed explicit workspace-governance path remains opt-in.",
+  "notes": "Includes existing local edits plus project-local hook-governance scope defaults documentation and verification wrapper."
+}

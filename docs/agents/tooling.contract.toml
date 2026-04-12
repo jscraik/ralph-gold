@@ -1,0 +1,8 @@
+[tooling]
+required_mise_tools = ["uv"]
+required_bins = ["uv", "ralph"]
+
+required_codex_actions = [
+  { name = "Tooling", icon = "tool" },
+  { name = "Run tests", icon = "test" },
+]

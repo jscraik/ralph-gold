@@ -1,5 +1,5 @@
 ---
-last_validated: 2026-02-28
+last_validated: 2026-04-11
 ---
 
 # Instruction map
@@ -10,7 +10,9 @@ Use this map to find task-level guidance quickly.
 ## Table of Contents
 - [Development workflow](02-development-workflow.md)
 - [Validation and governance](03-validation-and-governance.md)
+- [Hook governance scope defaults](hook-governance-scope-defaults.md)
 - [Contradictions and cleanup](04-contradictions-and-cleanup.md)
+- [Tooling inventory](tooling.md)
 
 ## Suggested docs folder structure
 ```text
@@ -18,7 +20,9 @@ Use this map to find task-level guidance quickly.
   01-instruction-map.md
   02-development-workflow.md
   03-validation-and-governance.md
+  hook-governance-scope-defaults.md
   04-contradictions-and-cleanup.md
+  tooling.md
 ```
 
 ## Discovery order
@@ -31,4 +35,6 @@ Use this map to find task-level guidance quickly.
 - Root `AGENTS.md`: always-on essentials only.
 - `02-development-workflow.md`: project structure, commands, style, tests, PR flow.
 - `03-validation-and-governance.md`: validation, security notes, AI artifact policy, scaffold checks.
+- `hook-governance-scope-defaults.md`: project-local default scope and workspace opt-in for hook-governance runs.
 - `04-contradictions-and-cleanup.md`: known conflicts, resolution questions, and deletion candidates.
+- `tooling.md`: repo-canonical tooling inventory used by `scripts/check-environment.sh`.

@@ -74,3 +74,4 @@ FORJAMIE.md
 .memory-metrics.json
 
 environment.toml
+/.codex/hook-conformance.json

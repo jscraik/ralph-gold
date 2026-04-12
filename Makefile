@@ -1,7 +1,7 @@
 # Harness Development Makefile
 # Run `make help` to see available commands
 
-.PHONY: help install dev build test lint fmt check clean hooks setup
+.PHONY: help install dev build test lint fmt check clean hooks hooks-pre-commit hooks-pre-push hooks-commit-msg setup
 
 # Default target
 help: ## Show this help message
@@ -13,34 +13,54 @@ help: ## Show this help message
 # === Setup ===
 
 install: ## Install dependencies
-	npm install
+	uv sync
 
 setup: install hooks ## Full setup: install deps and configure git hooks
 
 hooks: ## Setup git hooks
-	npm exec simple-git-hooks
+	prek install
+
+hooks-pre-commit: ## Run local pre-commit gates before creating a commit
+	uv run ruff check .
+	uv run python -m ralph_gold.cli --help
+
+hooks-pre-push: ## Run local pre-push governance gates before pushing
+	uv run pytest -q
+
+hooks-commit-msg: ## Validate commit message policy (use HOOK_COMMIT_MSG or MSG_FILE=/path)
+	@tmp_file="$$(mktemp)"; \
+	trap 'rm -f "$$tmp_file"' EXIT; \
+	if [ -n "$${HOOK_COMMIT_MSG:-}" ]; then \
+		printf '%s\n' "$${HOOK_COMMIT_MSG}" > "$$tmp_file"; \
+	elif [ -n "$${MSG_FILE:-}" ]; then \
+		cat "$${MSG_FILE}" > "$$tmp_file"; \
+	else \
+		echo "Usage: HOOK_COMMIT_MSG=\"feat: test\" make hooks-commit-msg or make hooks-commit-msg MSG_FILE=/path/to/commit-msg" >&2; \
+		exit 2; \
+	fi; \
+	node scripts/validate-commit-msg.js "$$tmp_file"
 
 # === Development ===
 
 dev: ## Start development server
-	npm dev
+	uv run ralph --help
 
 build: ## Build for production
-	npm build
+	uv build
 
 # === Quality ===
 
 lint: ## Run linter
-	npm lint
+	uv run ruff check .
 
 fmt: ## Format code
-	npm fmt
+	uv run ruff check . --fix
 
 typecheck: ## Run TypeScript type checking
-	npm typecheck
+	uv run python -m ralph_gold.cli --help
 
 test: ## Run tests
-	npm test
+	uv run pytest -q
 
 check: lint typecheck test ## Run all checks (lint, typecheck, test)
 
@@ -61,7 +81,7 @@ clean: ## Clean build artifacts and caches
 	rm -rf node_modules/.cache
 
 reset: clean ## Full reset: clean and reinstall
-	npm install
+	uv sync
 
 # === CI ===
 
@@ -70,7 +90,7 @@ ci: check audit ## Run CI checks (check + audit)
 # === Diagrams ===
 
 diagrams: ## Generate architecture diagrams
-	npm exec diagram all . --output-dir AI/diagrams
+	@echo "Skipping diagrams (no diagram command contract documented for this repo)"
 
 # === Environment ===
 

@@ -6,29 +6,88 @@ name = "ralph-gold local environment"
 script = '''
 set -euo pipefail
 
-echo "[codex] setup: /Users/jamiecraik/dev/ralph-gold"
+printf '%s\n' '[codex] setup: /Users/jamiecraik/dev/ralph-gold'
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+missing_tools=0
+
+require_tool() {
+  local cmd="$1"
+  local hint="$2"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "[codex] missing required tool: ${cmd} (${hint})"
+    missing_tools=1
+  fi
+}
+
+require_tool git "install Git and ensure it is on PATH"
+require_tool rg "install ripgrep (rg)"
+require_tool jq "install jq"
+if ! command -v fd >/dev/null 2>&1 && ! command -v fdfind >/dev/null 2>&1; then
+  echo "[codex] missing required tool: fd (or fdfind)"
+  missing_tools=1
+fi
+require_tool python3 "install Python 3 runtime"
+require_tool uv "install uv package manager"
+
+if [ "$missing_tools" -ne 0 ]; then
+  echo "[codex] tooling check failed; install missing tools from tooling.md / mise before continuing."
+  exit 1
+fi
 
 if command -v uv >/dev/null 2>&1; then
-  uv sync || true
-elif [ -f requirements.txt ]; then
-  python3 -m pip install -r requirements.txt || true
+  if [ -f uv.lock ]; then
+    uv sync --frozen || true
+  else
+    echo "[codex] uv.lock not found; skipping uv sync to keep lockfile-constrained policy"
+  fi
+else
+  echo "[codex] uv not found; skipping python dependency sync"
 fi
 '''
 
 [[actions]]
-name = "Install dependencies"
-icon = "wrench"
+name = "Tooling"
+icon = "tool"
 command = '''
 set -euo pipefail
 
-cd /Users/jamiecraik/dev/ralph-gold
-if command -v uv >/dev/null 2>&1; then
-  uv sync
-else
-  if [ -f requirements.txt ]; then
-    python3 -m pip install -r requirements.txt
-  fi
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+echo "git: $(git --version 2>/dev/null || echo missing)"
+echo "rg: $(rg --version 2>/dev/null | head -n 1 || echo missing)"
+echo "jq: $(jq --version 2>/dev/null || echo missing)"
+if command -v fd >/dev/null 2>&1; then
+  echo "fd: $(fd --version 2>/dev/null | head -n 1)"
+elif command -v fdfind >/dev/null 2>&1; then
+  echo "fd: $(fdfind --version 2>/dev/null | head -n 1) (via fdfind)"
+else
+  echo "fd: missing"
+fi
+echo "node: $(node --version 2>/dev/null || echo missing)"
+if command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm: $(pnpm --version 2>/dev/null)"
+elif [ -x /opt/homebrew/bin/pnpm ]; then
+  echo "pnpm: $(/opt/homebrew/bin/pnpm --version 2>/dev/null) (via /opt/homebrew/bin/pnpm)"
+elif command -v corepack >/dev/null 2>&1; then
+  echo "pnpm: available via corepack"
+else
+  echo "pnpm: missing"
+fi
+echo "python3: $(python3 --version 2>/dev/null || echo missing)"
+echo "uv: $(uv --version 2>/dev/null || echo missing)"
+echo "rustup: $(rustup --version 2>/dev/null | head -n 1 || echo missing)"
+echo "rustc: $(rustc --version 2>/dev/null || echo missing)"
+echo "cargo: $(cargo --version 2>/dev/null || echo missing)"
 '''
 
 [[actions]]
@@ -37,81 +96,16 @@ icon = "test"
 command = '''
 set -euo pipefail
 
-cd /Users/jamiecraik/dev/ralph-gold
-if command -v uv >/dev/null 2>&1; then
-  uv run pytest -q
-else
-  python3 -m pytest -q
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-'''
 
-[[actions]]
-name = "Lint (ruff)"
-icon = "debug"
-command = '''
-set -euo pipefail
-
-cd /Users/jamiecraik/dev/ralph-gold
 if command -v uv >/dev/null 2>&1; then
-  uv run --with ruff ruff check src tests
-  uv run --with ruff ruff format --check src tests
+  uv run pytest
 else
-  echo "[codex] uv not found; skipping lint checks"
+  echo "[codex] uv is required to run python tests in this environment"
+  exit 127
 fi
-'''
-
-[[actions]]
-name = "Typecheck (mypy)"
-icon = "shield"
-command = '''
-set -euo pipefail
-
-cd /Users/jamiecraik/dev/ralph-gold
-if command -v uv >/dev/null 2>&1; then
-  uv run --with mypy mypy src/ralph_gold
-else
-  echo "[codex] uv not found; skipping typecheck"
-fi
-'''
-
-[[actions]]
-name = "Run tests with artifacts"
-icon = "package"
-command = '''
-set -euo pipefail
-
-cd /Users/jamiecraik/dev/ralph-gold
-bash scripts/test-with-artifacts.sh all
-'''
-
-[[actions]]
-name = "Run CLI smoke check"
-icon = "tool"
-command = '''
-set -euo pipefail
-
-cd /Users/jamiecraik/dev/ralph-gold
-if command -v uv >/dev/null 2>&1; then
-  uv run python -m ralph_gold.cli --help
-else
-  python3 -m ralph_gold.cli --help
-fi
-'''
-
-[[actions]]
-name = "Plan graph lint"
-icon = "debug"
-command = '''
-set -euo pipefail
-
-python3 /Users/jamiecraik/.codex/scripts/plan-graph-lint.py /Users/jamiecraik/dev/ralph-gold/.agent/PLANS.md
-'''
-
-[[actions]]
-name = "Canonical verification"
-icon = "shield"
-command = '''
-set -euo pipefail
-
-bash /Users/jamiecraik/.codex/scripts/verify-work.sh
 '''

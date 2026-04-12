@@ -54,61 +54,54 @@ This workflow keeps delivery auditable, reversible, and consistent even for solo
 
 ## Required pre-merge gates
 
-- npm run lint
-- npm run typecheck
-- npm run test
-- npm run audit
-- npm run check
+- uv run ruff check .
+- uv run python -m ralph_gold.cli --help
+- uv run pytest -q
+- uv sync
+- make check
 - security-scan (CI required check)
 - test -f memory.json && jq -e '.meta.version == "1.0" and (.preamble.bootstrap | type == "boolean") and (.preamble.search | type == "boolean") and (.entries | type == "array")' memory.json >/dev/null
 
 ## Pre-commit hooks
 
-This repository uses `simple-git-hooks` for local quality gates:
+This repository uses `prek` for installed git hooks and repo wrapper targets for governance checks:
 
 | Hook | Purpose |
 | --- | --- |
-| `pre-commit` | Runs `npm run lint && npm run typecheck` |
-| `commit-msg` | Validates conventional commit format |
-| `pre-push` | Runs `npm run test` |
+| `pre-commit` | Runs `make hooks-pre-commit` |
+| `commit-msg` | Validate with `make hooks-commit-msg HOOK_COMMIT_MSG="feat: example"` |
+| `pre-push` | Runs `make hooks-pre-push` |
 
 ### Setup
 
 **Automated setup (recommended):**
 
-After running `harness init`, run the setup script to automatically configure package.json:
+After running `harness init`, run the setup script to install `prek` hooks:
 
 ```bash
 node scripts/setup-git-hooks.js
 ```
 
 This script:
-1. Adds `simple-git-hooks` to devDependencies
-2. Adds postinstall script to activate hooks
-3. Configures hooks in package.json
-4. Runs `npm install` to activate
+1. Verifies `prek.toml` exists
+2. Runs `prek install`
+3. Uses the canonical make wrappers for local hook execution
 
 **Manual setup:**
 
-Add to your `package.json`:
+Install hooks directly:
 
-```json
-{
-  "devDependencies": {
-    "simple-git-hooks": "^2.13.1"
-  },
-  "scripts": {
-    "postinstall": "simple-git-hooks"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "npm lint && npm typecheck",
-    "commit-msg": "node scripts/validate-commit-msg.js $1",
-    "pre-push": "npm test"
-  }
-}
+```bash
+prek install
 ```
 
-Then run `npm install` to install hooks.
+The installed git hooks run the repo wrapper targets for `pre-commit` and `pre-push`. The commit-message policy remains available through the explicit wrapper target:
+
+```bash
+make hooks-pre-commit
+make hooks-commit-msg HOOK_COMMIT_MSG="feat: example"
+make hooks-pre-push
+```
 
 ### Commit message format
 
