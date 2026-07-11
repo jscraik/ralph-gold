@@ -1,0 +1,17 @@
+id: pr-hook-governance-and-prek-maintenance-2026-07-11
+tool: codex
+mode: normal
+task: "Triage six local changes, move them from a closed Dependabot branch to a dedicated Codex branch, validate them, commit them, and open a replacement pull request."
+constraints:
+  - "follow PR template exactly"
+  - "no secrets"
+  - "preserve user-owned local changes"
+outputs_expected:
+  - ".gitignore"
+  - "AGENTS.md"
+  - "CONTRIBUTING.md"
+  - "README.md"
+  - "prek.toml"
+  - ".python-version"
+  - "ai/prompts/2026-07-11-hook-governance-and-prek-maintenance.yaml"
+  - "ai/sessions/2026-07-11-hook-governance-and-prek-maintenance.json"

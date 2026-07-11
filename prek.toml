@@ -2,8 +2,7 @@
 # Install prek: mise install cargo-prek || cargo install prek
 # Run: prek install && prek run --all-files
 
-[default_install_hook_types]
-pre_commit = true
+default_install_hook_types = ["pre-commit", "pre-push"]
 
 [[repos]]
 repo = "local"

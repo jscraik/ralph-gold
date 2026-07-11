@@ -75,3 +75,4 @@ FORJAMIE.md
 
 environment.toml
 /.codex/hook-conformance.json
+.codex/config.toml

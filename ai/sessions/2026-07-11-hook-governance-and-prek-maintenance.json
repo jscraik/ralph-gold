@@ -1,0 +1,23 @@
+{
+  "tool": "codex",
+  "started_at": "2026-07-11T17:44:15Z",
+  "ended_at": "2026-07-11T18:19:22Z",
+  "files_touched": [
+    ".gitignore",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "prek.toml",
+    ".python-version",
+    "ai/prompts/2026-07-11-hook-governance-and-prek-maintenance.yaml",
+    "ai/sessions/2026-07-11-hook-governance-and-prek-maintenance.json"
+  ],
+  "tests_run": [
+    "bash scripts/codex-preflight.sh --mode optional",
+    "git diff --check",
+    "git diff --cached --check",
+    "XDG_CACHE_HOME=/tmp prek validate-config prek.toml"
+  ],
+  "human_verification": "Reviewed the full unstaged and staged diff, confirmed that PR #25 is closed, created a dedicated Codex branch, and verified the hook configuration.",
+  "notes": "No secrets or prompt transcripts are stored in this artifact."
+}

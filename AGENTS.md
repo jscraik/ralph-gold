@@ -41,8 +41,8 @@ ralph-gold is a uv-first Python CLI orchestrator for deterministic multi-agent w
 ## Local Memory usage
 - Follow `/Users/jamiecraik/.codex/instructions/local-memory.md`.
 - Mandatory workflow before durable notes:
-  - `bootstrap(mode="minimal", include_questions=true, session_id="repo:<name>:task:<id>")`
-  - `search(query="...", session_id="repo:<name>:task:<id>")`
+  - `local-memory bootstrap --mode minimal --include_questions --session_id "repo:<name>:task:<id>" --json`
+  - `local-memory search "..." --session_filter_mode all --json`
 - Store durable facts only; never store secrets, tokens, keys, or PII.
 
 <!-- AGENT-FIRST-SCAFFOLD:START -->

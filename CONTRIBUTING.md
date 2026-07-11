@@ -227,3 +227,7 @@ Configure GitHub branch protection (or rulesets) on `main`:
 - Require at least one approval.
 - Require status checks: `pr-template`, `lint`, `typecheck`, `test`, `audit`, `check`, `security-scan`, `memory`.
 - Block direct pushes to `main`.
+
+## Link Policy
+
+No third-party directory, marketplace, mirror, sponsorship, or promotional links without maintainer approval.
