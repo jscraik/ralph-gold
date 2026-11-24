@@ -1,0 +1,15 @@
+id: pr-public-project-onboarding-2026-11-24
+tool: chatgpt
+mode: normal
+task: "Improve the public README onboarding after the GitHub project audit."
+constraints:
+  - "Follow repository guidance and the PR template; preserve managed blocks."
+  - "Separate the installation checkout from the target project directory."
+  - "Retain the detailed workflow reference and existing evidence."
+  - "Do not run an agent loop, access credentials, push, or publish."
+  - "Record checks and blockers honestly; include no secrets or raw logs."
+outputs_expected:
+  - "README.md"
+  - ".agent/PLANS.md"
+  - "ai/prompts/2026-11-24-public-project-onboarding.yaml"
+  - "ai/sessions/2026-11-24-public-project-onboarding.json"

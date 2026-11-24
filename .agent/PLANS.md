@@ -336,3 +336,28 @@ Optional cross-plan reference:
 external_dep: "/absolute/repo/path#T12"
 ```
 <!-- AGENT-FIRST-PLANS:END -->
+
+## Public onboarding update — 2026-11-24
+
+```yaml
+tasks:
+  - id: DOCS-1
+    title: Check onboarding against repository commands and prerequisites
+    depends_on: []
+    status: completed
+  - id: DOCS-2
+    title: Update the public README and preserve managed workflow contracts
+    depends_on: [DOCS-1]
+    status: completed
+  - id: DOCS-3
+    title: Validate changed documentation and record remaining review gates
+    depends_on: [DOCS-2]
+    status: completed
+```
+
+This update covers documentation only. Existing implementation and release
+evidence above retains its original scope and dates.
+
+Validation scope: repository commands and file links were checked. Environment
+and maintainer-only gates that could not run are recorded in the PR handoff;
+this task graph does not claim release or merge readiness.

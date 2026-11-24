@@ -1,0 +1,24 @@
+{
+  "tool": "chatgpt",
+  "started_at": null,
+  "ended_at": "2026-11-24T13:15:25Z",
+  "files_touched": [
+    "README.md",
+    ".agent/PLANS.md",
+    "ai/prompts/2026-11-24-public-project-onboarding.yaml",
+    "ai/sessions/2026-11-24-public-project-onboarding.json"
+  ],
+  "tests_run": [
+    "uv sync --frozen (passed)",
+    "uv run python -m ralph_gold.cli --help (passed)",
+    "uv tool install -e . with isolated UV_TOOL_DIR and UV_TOOL_BIN_DIR (installed successfully; ralph --version returned 0.8.2)",
+    "ralph quickstart in a disposable Git repository (passed; scaffold created)",
+    "ralph status in the same disposable repository (passed; 0/4 tasks done)",
+    "bash scripts/verify-work.sh --fast (blocked at preflight: fd is missing)",
+    "Static local-link/anchor checks, managed-block comparison and bash -n on executable README fences (passed; existing interactive <TAB> notation excluded)",
+    "Structural YAML task graph and AI JSON/YAML parsing (passed; not the canonical managed-runtime gate)",
+    "git diff --check (passed)"
+  ],
+  "human_verification": "Pending maintainer review. The editing agent checked commands against source, inspected the generated scaffold and status output, and preserved managed workflow blocks.",
+  "notes": "High-level summary only. The agent session start was not recorded, so started_at is null. No agent iteration, credentials, remote write, unsigned commit, or merge occurred. The scaffold transcript in README uses a placeholder for the disposable project path. Full required PR gates and independent reviews remain pending."
+}
