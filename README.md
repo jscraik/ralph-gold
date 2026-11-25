@@ -6,13 +6,52 @@
 
 A Golden Ralph Loop orchestrator that runs fresh CLI-agent sessions (Codex, Claude Code, Copilot) in a deterministic loop, using the repo filesystem as durable memory.
 
-Doc requirements:
+## Quickstart
 
-- Audience: users and contributors (intermediate CLI + git experience)
-- Scope: installing, configuring, and operating the loop; contributor workflow; support/security paths
-- Owner: jscraik
-- Review cadence: quarterly or when CLI behavior changes
-- Last updated: 2026-03-05
+You need **Python 3.10+**, [uv](https://docs.astral.sh/uv/), and Git. Installing and inspecting the scaffold does not run an agent. To execute a task later, install and authenticate one of the supported agent CLIs (`codex`, `claude`, or `copilot`).
+
+### 1) Install Ralph from its source checkout
+
+```bash
+git clone https://github.com/jscraik/ralph-gold.git
+cd ralph-gold
+uv tool install -e .
+ralph --help
+```
+
+The last command should print the available commands. If `ralph` is not on your `PATH`, run `uv tool update-shell`, then open a new terminal. This is an editable installation: keep the source checkout at this location.
+
+### 2) Set up the project you want Ralph to work on
+
+Change to **your target project's root**, not the `ralph-gold` installation directory. Replace the example path with your own existing Git repository:
+
+```bash
+cd /path/to/your-project
+ralph quickstart
+ralph status
+```
+
+Quickstart writes the scaffold into **the current directory's `.ralph/` folder**. It prints the following guidance (the path depends on your project):
+
+```text
+Quickstart complete in: /path/to/your-project/.ralph
+Profile: simple
+Recommended next step: ralph step --agent codex
+Then run: ralph status
+```
+
+Review `.ralph/PRD.md` and `.ralph/ralph.toml`, replace the sample tasks with a bounded task of your own, and set the build/test gates for that project. `ralph status` lets you inspect the tracker before running an agent.
+
+### 3) Run one reviewed task
+
+From that same target project, with your chosen agent CLI authenticated:
+
+```bash
+ralph step --agent codex
+ralph status
+```
+
+This step runs the agent and can change project files. Inspect the diff, gate results, and receipts under `.ralph/receipts/` before starting a longer loop. See [Initialize a repo](#initialize-a-repo) for the generated files, [configuration](docs/CONFIGURATION.md) for gates and runners, and [troubleshooting](docs/TROUBLESHOOTING.md) if setup fails.
 
 ## Table of Contents
 
@@ -21,11 +60,9 @@ Doc requirements:
 - [Prerequisites](#prerequisites)
 - [Install (with uv)](#install-with-uv)
 - [Initialize a repo](#initialize-a-repo)
-- [Run the loop](#run-the-loop)
-- [Machine-friendly output and global output controls](#machine-friendly-output-and-global-output-controls)
-- [Authorization coverage and receipts](#authorization-coverage-and-receipts)
-- [Troubleshooting](#troubleshooting)
+- [Workflow reference](#workflow-reference)
 - [Documentation](#documentation)
+- [Contributing](#contributing)
 
 ## TL;DR
 
@@ -43,21 +80,9 @@ Why use ralph-gold:
 
 ---
 
-## Quickstart
-
-```bash
-uv tool install -e .
-ralph quickstart
-```
-
-Then run your first guided iteration:
-
-```bash
-ralph step --agent codex
-```
-
 ## Prerequisites
 
+- Python 3.10 or newer
 - git
 - uv
 - At least one agent CLI (`codex`, `claude`, or `copilot`)
@@ -65,6 +90,8 @@ ralph step --agent codex
 - Optional: `rp-cli` (RepoPrompt context packs and review backend)
 
 ## Install (with uv)
+
+Use the clone and installation commands in [Quickstart](#quickstart). If you already have the `ralph-gold` source checkout, run the following from **that checkout's root**:
 
 ```bash
 uv tool install -e .
@@ -81,7 +108,7 @@ ralph --help
 
 ## Initialize a repo
 
-From your project root:
+From your target project's root (the repository Ralph will work on):
 
 ```bash
 ralph init
@@ -104,11 +131,18 @@ This creates the recommended default layout:
 
 You can switch trackers by changing `files.prd` in `.ralph/ralph.toml`.
 
-Project layout and scaffolding details live in `docs/PROJECT_STRUCTURE.md`.
+Project layout and scaffolding details live in [Project Structure](docs/PROJECT_STRUCTURE.md).
 
 **Re-initializing with `--force`:** If you need to reset your `.ralph` directory, use `ralph init --force`. This automatically archives existing files to `.ralph/archive/<timestamp>/` before creating fresh templates, preventing accidental data loss. See [docs/INIT_ARCHIVING.md](docs/INIT_ARCHIVING.md) for details.
 
 ---
+
+## Workflow reference
+
+Use the [command reference](docs/COMMANDS.md) for CLI options, [configuration reference](docs/CONFIGURATION.md) for runner and gate settings, and [authorization guide](docs/AUTHORIZATION.md) for file-write policy. The detailed workflows below remain available for existing users.
+
+<details>
+<summary>Expand workflows: loops, receipts, TUI, watch mode, task templates, progress, and troubleshooting</summary>
 
 ## Run the loop
 
@@ -1167,6 +1201,8 @@ ralph rollback before-experiment
 
 ---
 
+</details>
+
 ## Risks and assumptions
 
 - Assumption: agents run with least-privilege credentials and do not write secrets into `.ralph/*`.
@@ -1185,38 +1221,54 @@ ralph rollback before-experiment
 ## Documentation
 
 **Core Guides:**
-- **Configuration:** `docs/CONFIGURATION.md` - Complete configuration reference
-- **Commands:** `docs/COMMANDS.md` - Complete CLI command reference
-- **Authorization:** `docs/AUTHORIZATION.md` - File write permission system
-- **Troubleshooting:** `docs/TROUBLESHOOTING.md` - Common issues and solutions
+- **Configuration:** [docs/CONFIGURATION.md](docs/CONFIGURATION.md) - Complete configuration reference
+- **Commands:** [docs/COMMANDS.md](docs/COMMANDS.md) - Complete CLI command reference
+- **Authorization:** [docs/AUTHORIZATION.md](docs/AUTHORIZATION.md) - File write permission system
+- **Troubleshooting:** [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues and solutions
 
 **Features:**
-- **Evidence System:** `docs/EVIDENCE.md` - Evidence citations and tracking
-- **Progress:** `docs/PROGRESS.md` - Velocity, ETA, and burndown charts
-- **YAML Tracker:** `docs/YAML_TRACKER.md` - Structured task tracking
-- **UX Modes:** `docs/SIMPLE_EXPERT_MODE.md` - Simple vs expert workflow policy
-- **Watch Mode:** README#watch-mode - File watching and auto-gates
+- **Evidence System:** [docs/EVIDENCE.md](docs/EVIDENCE.md) - Evidence citations and tracking
+- **Progress:** [docs/PROGRESS.md](docs/PROGRESS.md) - Velocity, ETA, and burndown charts
+- **YAML Tracker:** [docs/YAML_TRACKER.md](docs/YAML_TRACKER.md) - Structured task tracking
+- **UX Modes:** [docs/SIMPLE_EXPERT_MODE.md](docs/SIMPLE_EXPERT_MODE.md) - Simple vs expert workflow policy
+- **Watch Mode:** [Watch Mode](#watch-mode) - File watching and auto-gates
 
 **Reference:**
-- **Project Structure:** `docs/PROJECT_STRUCTURE.md` - Directory layout and lifecycles
-- **Parallel Config:** `docs/PARALLEL_CONFIG.md` - Parallel execution guide
-- **VS Code Bridge:** `docs/VSCODE_BRIDGE_PROTOCOL.md` - Extension protocol
+- **Project Structure:** [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) - Directory layout and lifecycles
+- **Parallel Config:** [docs/PARALLEL_CONFIG.md](docs/PARALLEL_CONFIG.md) - Parallel execution guide
+- **VS Code Bridge:** [docs/VSCODE_BRIDGE_PROTOCOL.md](docs/VSCODE_BRIDGE_PROTOCOL.md) - Extension protocol
 
 ## Contributing
 
-See `CONTRIBUTING.md`.
+To work on Ralph itself, return to the **`ralph-gold` source checkout** and run:
+
+```bash
+uv sync --frozen
+uv run python -m ralph_gold.cli --help
+uv run pytest -q
+```
+
+These commands use the public repository. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full local gates, AI assistance artefacts, and review requirements. The managed workstation workflow below requires the maintainer's configured environment; its absolute paths are not installation prerequisites for users.
 
 ## Security
 
-See `SECURITY.md` for vulnerability reporting.
+See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Support
 
-See `SUPPORT.md`.
+See [SUPPORT.md](SUPPORT.md).
 
 ## Code of Conduct
 
-See `CODE_OF_CONDUCT.md`.
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+## Doc requirements
+
+- Audience: users and contributors (intermediate CLI + git experience)
+- Scope: installing, configuring, and operating the loop; contributor workflow; support/security paths
+- Owner: jscraik
+- Review cadence: quarterly or when CLI behavior changes
+- Last updated: 2026-11-24
 
 <!-- AGENT-FIRST-WORKFLOW:START -->
 ## Agent-first workflow
